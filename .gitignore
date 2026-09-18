@@ -1,0 +1,16 @@
+# Spec-kit tooling and Claude Code configuration (never versioned)
+.specify/
+.claude/
+.github/
+specs/
+
+# Xcode / Swift
+.build/
+DerivedData/
+*.swiftpm/
+Packages/
+xcuserdata/
+*.xcuserstate
+
+# macOS
+.DS_Store

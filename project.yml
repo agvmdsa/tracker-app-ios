@@ -1,0 +1,62 @@
+name: TrackerApp
+options:
+  bundleIdPrefix: com.airtagclone
+  deploymentTarget:
+    iOS: "15.0"
+  developmentLanguage: en
+
+targets:
+  TrackerApp:
+    type: application
+    platform: iOS
+    deploymentTarget: "15.0"
+    sources:
+      - path: TrackerApp/App
+      - path: TrackerApp/UI
+      - path: TrackerApp/Core
+      - path: TrackerApp/Models
+    info:
+      path: TrackerApp/App/Info.plist
+      properties:
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        NSNearbyInteractionUsageDescription: "TrackerApp uses Nearby Interaction (Ultra Wideband) to measure the precise distance and direction to another nearby iPhone running TrackerApp."
+        NSLocalNetworkUsageDescription: "TrackerApp uses your local network to discover and connect to other nearby iPhones running TrackerApp."
+        NSBluetoothAlwaysUsageDescription: "TrackerApp uses Bluetooth to discover other nearby iPhones running TrackerApp."
+        NSBonjourServices:
+          - "_tracker-app._tcp"
+          - "_tracker-app._udp"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.airtagclone.TrackerApp
+        SWIFT_VERSION: "5.10"
+        TARGETED_DEVICE_FAMILY: "1"
+        SWIFT_STRICT_CONCURRENCY: complete
+    entitlements:
+      path: TrackerApp/App/TrackerApp.entitlements
+      properties: {}
+
+  TrackerAppTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "15.0"
+    sources:
+      - path: TrackerApp/Tests/TrackerAppTests
+    settings:
+      base:
+        SWIFT_VERSION: "5.10"
+    dependencies:
+      - target: TrackerApp
+
+schemes:
+  TrackerApp:
+    build:
+      targets:
+        TrackerApp: all
+        TrackerAppTests: [test]
+    test:
+      targets:
+        - TrackerAppTests
+    run:
+      config: Debug
