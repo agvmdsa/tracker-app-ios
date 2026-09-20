@@ -5,6 +5,8 @@ import UIKit
 struct MainView: View {
     @EnvironmentObject private var connectionManager: ConnectionManager
     @StateObject private var bluetoothMonitor = BluetoothPermissionMonitor()
+    @State private var isRenaming = false
+    @State private var nameDraft = DeviceIdentity.displayName
 
     var body: some View {
         NavigationView {
@@ -26,6 +28,31 @@ struct MainView: View {
                 }
             }
             .navigationTitle("Nearby Trackers")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    NavigationLink("Raw Test") {
+                        RawMCTestView()
+                    }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        nameDraft = DeviceIdentity.displayName
+                        isRenaming = true
+                    } label: {
+                        Label("Rename this device", systemImage: "pencil.circle")
+                    }
+                }
+            }
+            .alert("Rename This Device", isPresented: $isRenaming) {
+                TextField("Device name", text: $nameDraft)
+                Button("Save") {
+                    guard !nameDraft.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+                    DeviceIdentity.displayName = nameDraft
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This is the name other TrackerApp users will see. Restart the app for the change to take effect.")
+            }
             .alert(
                 "Connection Error",
                 isPresented: Binding(

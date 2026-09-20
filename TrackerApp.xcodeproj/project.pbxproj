@@ -7,14 +7,17 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		045D00A9BBC54C5506E3136F /* RawMultipeerDiagnostic.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2065FD7029B01B37C60D033 /* RawMultipeerDiagnostic.swift */; };
 		04B39035907A2A0F5B4692A2 /* ConnectionManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29645E441433F63E92FAE565 /* ConnectionManagerTests.swift */; };
 		14C222606254B7E3B06CE06C /* DiscoveryTokenWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59E38C4F0E1737C09DBE87C1 /* DiscoveryTokenWrapper.swift */; };
 		3D4B28371B3B73CD4BB1F1B3 /* TrackerDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA37743BC9774058BEF273F0 /* TrackerDevice.swift */; };
 		42B76B3270129794D129A31E /* TrackingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1171D77DA3E0DED33FE0A2F6 /* TrackingView.swift */; };
 		5C1D4036A1A906BAB604258A /* UWBManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F6526C0A9AD158D22944812 /* UWBManager.swift */; };
+		62DA4E4FDF25BD0D02FD5C70 /* RawMCTestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96E5C2F3E65B4D6AEEC79F15 /* RawMCTestView.swift */; };
 		6987DD866EB806D4F71A095F /* TrackerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 007ACF35B52B1DAF1B483383 /* TrackerApp.swift */; };
 		782ADFAAA9875E62B74F803E /* UWBManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E93860EA18C14D02A6C521D7 /* UWBManagerTests.swift */; };
 		95CE62A17F3E4B033C6EDD36 /* ConnectionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = E77342EA6EB0C97666B424D1 /* ConnectionManager.swift */; };
+		9A0C4D1853B43EC7689E732E /* DeviceIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31D552D97F4753A3F96F5770 /* DeviceIdentity.swift */; };
 		D0EA24DF386489380DA0DA13 /* Payload.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A621D5CCFDB77CF560E1F50 /* Payload.swift */; };
 		E27E7E00BA768615DE9E5492 /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4745D3EC46ABBA157BF1C69C /* MainView.swift */; };
 		E67B7BA296F6696107B2E4C3 /* ConnectionManagerPayloadTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCE42FB2DB90E207E24B73CC /* ConnectionManagerPayloadTests.swift */; };
@@ -35,10 +38,12 @@
 		0F6526C0A9AD158D22944812 /* UWBManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UWBManager.swift; sourceTree = "<group>"; };
 		1171D77DA3E0DED33FE0A2F6 /* TrackingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackingView.swift; sourceTree = "<group>"; };
 		29645E441433F63E92FAE565 /* ConnectionManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionManagerTests.swift; sourceTree = "<group>"; };
+		31D552D97F4753A3F96F5770 /* DeviceIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceIdentity.swift; sourceTree = "<group>"; };
 		411E2F9BBDC2FE754A5587B6 /* TrackerApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TrackerApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4745D3EC46ABBA157BF1C69C /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
 		59E38C4F0E1737C09DBE87C1 /* DiscoveryTokenWrapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoveryTokenWrapper.swift; sourceTree = "<group>"; };
 		6A621D5CCFDB77CF560E1F50 /* Payload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Payload.swift; sourceTree = "<group>"; };
+		96E5C2F3E65B4D6AEEC79F15 /* RawMCTestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawMCTestView.swift; sourceTree = "<group>"; };
 		A8E68231E6157B14BF5B5D6A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		B53C73EB817AF137202FE75A /* TrackerAppTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = TrackerAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		BCE42FB2DB90E207E24B73CC /* ConnectionManagerPayloadTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionManagerPayloadTests.swift; sourceTree = "<group>"; };
@@ -46,6 +51,7 @@
 		CA37743BC9774058BEF273F0 /* TrackerDevice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackerDevice.swift; sourceTree = "<group>"; };
 		E77342EA6EB0C97666B424D1 /* ConnectionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionManager.swift; sourceTree = "<group>"; };
 		E93860EA18C14D02A6C521D7 /* UWBManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UWBManagerTests.swift; sourceTree = "<group>"; };
+		F2065FD7029B01B37C60D033 /* RawMultipeerDiagnostic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawMultipeerDiagnostic.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -64,6 +70,7 @@
 			isa = PBXGroup;
 			children = (
 				4745D3EC46ABBA157BF1C69C /* MainView.swift */,
+				96E5C2F3E65B4D6AEEC79F15 /* RawMCTestView.swift */,
 				1171D77DA3E0DED33FE0A2F6 /* TrackingView.swift */,
 			);
 			name = UI;
@@ -106,6 +113,8 @@
 			isa = PBXGroup;
 			children = (
 				E77342EA6EB0C97666B424D1 /* ConnectionManager.swift */,
+				31D552D97F4753A3F96F5770 /* DeviceIdentity.swift */,
+				F2065FD7029B01B37C60D033 /* RawMultipeerDiagnostic.swift */,
 				0F6526C0A9AD158D22944812 /* UWBManager.swift */,
 			);
 			name = Core;
@@ -196,9 +205,12 @@
 			buildActionMask = 2147483647;
 			files = (
 				95CE62A17F3E4B033C6EDD36 /* ConnectionManager.swift in Sources */,
+				9A0C4D1853B43EC7689E732E /* DeviceIdentity.swift in Sources */,
 				14C222606254B7E3B06CE06C /* DiscoveryTokenWrapper.swift in Sources */,
 				E27E7E00BA768615DE9E5492 /* MainView.swift in Sources */,
 				D0EA24DF386489380DA0DA13 /* Payload.swift in Sources */,
+				62DA4E4FDF25BD0D02FD5C70 /* RawMCTestView.swift in Sources */,
+				045D00A9BBC54C5506E3136F /* RawMultipeerDiagnostic.swift in Sources */,
 				6987DD866EB806D4F71A095F /* TrackerApp.swift in Sources */,
 				3D4B28371B3B73CD4BB1F1B3 /* TrackerDevice.swift in Sources */,
 				42B76B3270129794D129A31E /* TrackingView.swift in Sources */,

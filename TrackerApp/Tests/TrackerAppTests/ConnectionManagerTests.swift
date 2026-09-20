@@ -93,6 +93,44 @@ final class ConnectionManagerTests: XCTestCase {
         XCTAssertEqual(sut.discoveredDevices.first?.state, .disconnected)
     }
 
+    func test_foundPeer_reannouncedAfterConnecting_doesNotDowngradeState() {
+        // Regression test: MCNearbyServiceBrowser keeps calling foundPeer for already-visible
+        // peers even after they've connected. That used to unconditionally reset the device back
+        // to `.discovered`, clobbering the real `.connected` state set moments earlier by the
+        // session delegate — which is exactly why the UI stayed stuck on "Discovered" even though
+        // the console logs showed the MCSession itself reaching `.connected`.
+        let peerID = MCPeerID(displayName: "iPhone A")
+        sut.browser(fakeBrowser, foundPeer: peerID, withDiscoveryInfo: nil)
+        flushMainQueue()
+        sut.session(fakeSession, peer: peerID, didChange: .connected)
+        flushMainQueue()
+
+        sut.browser(fakeBrowser, foundPeer: peerID, withDiscoveryInfo: nil)
+        flushMainQueue()
+
+        XCTAssertEqual(sut.discoveredDevices.first?.state, .connected)
+    }
+
+    func test_sessionDidChange_toConnected_withDifferentPeerIDInstance_updatesSameDevice() {
+        // Regression test: `session(_:peer:didChange:)` can hand us a *different* MCPeerID
+        // instance for the same remote peer than the one `foundPeer` gave us (e.g. reconstructed
+        // from raw bytes during the handshake). If we only tracked devices by MCPeerID as a
+        // dictionary key, a mismatch here silently created a second, orphaned entry instead of
+        // updating the real one — leaving the UI stuck on "Discovered" forever even though the
+        // real MCSession had connected (this is exactly what TrackingView depends on to know when
+        // to start the NearbyInteraction token exchange).
+        let discoveryPeerID = MCPeerID(displayName: "iPhone A")
+        let handshakePeerID = MCPeerID(displayName: "iPhone A") // distinct instance, same display name
+
+        sut.browser(fakeBrowser, foundPeer: discoveryPeerID, withDiscoveryInfo: nil)
+        flushMainQueue()
+        sut.session(fakeSession, peer: handshakePeerID, didChange: .connected)
+        flushMainQueue()
+
+        XCTAssertEqual(sut.discoveredDevices.count, 1, "Must update the existing device, not create a duplicate")
+        XCTAssertEqual(sut.discoveredDevices.first?.state, .connected)
+    }
+
     func test_sendDiscoveryToken_beforeSessionConnected_setsTransferError() throws {
         // Regression test: sending the token to a peer that was only *found*, not yet connected,
         // must fail loudly instead of silently no-op'ing — this is exactly the "Peers not

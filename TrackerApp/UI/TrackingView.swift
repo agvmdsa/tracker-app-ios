@@ -1,8 +1,11 @@
 import SwiftUI
 import NearbyInteraction
 import simd
+import os
 
 struct TrackingView: View {
+    private static let logger = Logger(subsystem: "com.airtagclone.TrackerApp", category: "TrackingView")
+
     let device: TrackerDevice
 
     @EnvironmentObject private var connectionManager: ConnectionManager
@@ -39,6 +42,7 @@ struct TrackingView: View {
         .onAppear(perform: registerCallbacks)
         .onDisappear(perform: stopTracking)
         .onChange(of: isConnected) { connected in
+            Self.logger.info("isConnected changed to \(connected, privacy: .public)")
             if connected { beginTokenExchangeIfNeeded() }
         }
         .alert("Ping received", isPresented: $receivedPingAlert) {
@@ -61,7 +65,17 @@ struct TrackingView: View {
 
     private var directionIndicator: some View {
         Group {
-            if uwbManager.isSignalLost {
+            if !uwbManager.supportsDirectionMeasurement {
+                VStack(spacing: 8) {
+                    Image(systemName: "location.viewfinder")
+                        .font(.system(size: 64))
+                        .foregroundStyle(.secondary)
+                    Text("This iPhone can only measure distance, not direction")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+            } else if uwbManager.isSignalLost {
                 VStack(spacing: 8) {
                     Image(systemName: "questionmark.circle")
                         .font(.system(size: 64))
@@ -74,6 +88,13 @@ struct TrackingView: View {
                     .font(.system(size: 64))
                     .rotationEffect(.radians(Double(atan2(direction.x, direction.z))))
                     .animation(.easeInOut, value: direction)
+            } else if let horizontalAngle = uwbManager.horizontalAngle {
+                // Camera-assisted-only devices (iPhone 14 Pro and later) never populate
+                // `direction`; the angle instead arrives as this single radian value.
+                Image(systemName: "location.north.fill")
+                    .font(.system(size: 64))
+                    .rotationEffect(.radians(Double(horizontalAngle)))
+                    .animation(.easeInOut, value: horizontalAngle)
             } else {
                 Image(systemName: "location.slash")
                     .font(.system(size: 64))
@@ -83,11 +104,9 @@ struct TrackingView: View {
     }
 
     private func registerCallbacks() {
+        Self.logger.info("registerCallbacks() for \(device.displayName, privacy: .public), isConnected=\(isConnected, privacy: .public)")
         connectionManager.onDiscoveryTokenReceived = { wrapper in
-            guard wrapper.peerId == device.displayName,
-                  let peerToken = try? NSKeyedUnarchiver.unarchivedObject(ofClass: NIDiscoveryToken.self, from: wrapper.tokenData)
-            else { return }
-            uwbManager.startSession(withPeerToken: peerToken)
+            handleIncomingToken(wrapper)
         }
 
         connectionManager.onPayloadReceived = { payload in
@@ -96,19 +115,51 @@ struct TrackingView: View {
             }
         }
 
-        // The MCSession may already be connected by the time this view appears
-        // (e.g. re-entering a previously tracked device).
+        // Create our own local NISession (via beginTokenExchangeIfNeeded) *before* processing any
+        // pending token — `UWBManager.startSession(withPeerToken:)` silently no-ops if our own
+        // session doesn't exist yet, which was quietly dropping the peer's buffered token.
+        // The MCSession may already be connected by the time this view appears (e.g. re-entering
+        // a previously tracked device).
         if isConnected {
             beginTokenExchangeIfNeeded()
         }
+
+        // The peer's token may have arrived before this screen registered a listener for it
+        // (e.g. they opened their tracking screen first and sent immediately) — pick it up now
+        // instead of leaving it stuck in `ConnectionManager`'s buffer forever.
+        if let pending = connectionManager.consumePendingDiscoveryToken(fromPeerNamed: device.displayName) {
+            Self.logger.info("registerCallbacks: found a pending discovery token from \(device.displayName, privacy: .public)")
+            handleIncomingToken(pending)
+        }
+    }
+
+    private func handleIncomingToken(_ wrapper: DiscoveryTokenWrapper) {
+        Self.logger.info("handleIncomingToken from wrapper.peerId=\(wrapper.peerId, privacy: .public) (expecting \(device.displayName, privacy: .public))")
+        guard wrapper.peerId == device.displayName else {
+            Self.logger.info("handleIncomingToken: peerId mismatch, ignoring")
+            return
+        }
+        guard let peerToken = try? NSKeyedUnarchiver.unarchivedObject(ofClass: NIDiscoveryToken.self, from: wrapper.tokenData) else {
+            Self.logger.info("handleIncomingToken: failed to unarchive NIDiscoveryToken")
+            return
+        }
+        Self.logger.info("handleIncomingToken: starting UWB session with peer token")
+        uwbManager.startSession(withPeerToken: peerToken)
     }
 
     /// Only exchanges the NearbyInteraction discovery token once MultipeerConnectivity has
     /// actually finished connecting — sending it earlier throws "peer not connected".
     private func beginTokenExchangeIfNeeded() {
-        guard !didStartTokenExchange else { return }
-        guard let myToken = uwbManager.prepareSession() else { return }
+        guard !didStartTokenExchange else {
+            Self.logger.info("beginTokenExchangeIfNeeded: already started, skipping")
+            return
+        }
+        guard let myToken = uwbManager.prepareSession() else {
+            Self.logger.info("beginTokenExchangeIfNeeded: prepareSession() returned nil token — NearbyInteraction unavailable (no U1 chip, or permission denied)")
+            return
+        }
         didStartTokenExchange = true
+        Self.logger.info("beginTokenExchangeIfNeeded: sending our discovery token to \(device.displayName, privacy: .public)")
         connectionManager.sendDiscoveryToken(myToken, toDeviceWithID: device.id)
     }
 

@@ -15,8 +15,4 @@ struct TrackerDevice: Identifiable, Equatable {
     var distance: Float?
     var direction: simd_float3?
     var state: ConnectionState
-
-    static func == (lhs: TrackerDevice, rhs: TrackerDevice) -> Bool {
-        lhs.id == rhs.id
-    }
 }

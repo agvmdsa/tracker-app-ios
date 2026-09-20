@@ -87,4 +87,23 @@ final class ConnectionManagerPayloadTests: XCTestCase {
         sut.session(fakeSession, didReceive: Data("not json".utf8), fromPeer: MCPeerID(displayName: "iPhone A"))
         // Reaching this line without a crash is the assertion.
     }
+
+    func test_discoveryToken_arrivingBeforeListenerRegistered_isBufferedAndConsumable() {
+        // Regression test: a peer's discovery token can arrive before TrackingView opens and
+        // wires up `onDiscoveryTokenReceived` (e.g. they opened their tracking screen first and
+        // sent immediately). It must not be silently dropped — MultipeerConnectivity never
+        // redelivers unhandled data — so it has to be buffered until something asks for it.
+        let wireJSON = """
+        {"type":"NIDiscoveryToken","payload":"\(Data("faketoken".utf8).base64EncodedString())"}
+        """
+        sut.session(fakeSession, didReceive: Data(wireJSON.utf8), fromPeer: MCPeerID(displayName: "iPhone A"))
+
+        let settle = expectation(description: "let main queue drain")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { settle.fulfill() }
+        wait(for: [settle], timeout: 1)
+
+        let pending = sut.consumePendingDiscoveryToken(fromPeerNamed: "iPhone A")
+        XCTAssertEqual(pending?.tokenData, Data("faketoken".utf8))
+        XCTAssertNil(sut.consumePendingDiscoveryToken(fromPeerNamed: "iPhone A"), "must be cleared after being consumed once")
+    }
 }

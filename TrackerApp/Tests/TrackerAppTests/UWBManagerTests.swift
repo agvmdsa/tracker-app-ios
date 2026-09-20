@@ -41,6 +41,25 @@ final class UWBManagerTests: XCTestCase {
         XCTAssertTrue(sut.isSignalLost)
     }
 
+    func test_apply_withHorizontalAngleOnly_updatesAngleAndDoesNotMarkSignalLost() {
+        // Camera-assisted-only devices (iPhone 14 Pro and later) never populate `direction`;
+        // the angle instead arrives via `horizontalAngle`. This must not be treated as signal loss.
+        sut.apply(distance: 1.2, direction: nil, horizontalAngle: 0.5)
+
+        XCTAssertEqual(sut.distance, 1.2)
+        XCTAssertNil(sut.direction)
+        XCTAssertEqual(sut.horizontalAngle, 0.5)
+        XCTAssertFalse(sut.isSignalLost)
+    }
+
+    func test_apply_withNeitherDirectionNorHorizontalAngle_marksSignalLost() {
+        sut.apply(distance: 1.2, direction: nil, horizontalAngle: 0.5)
+        sut.apply(distance: 1.2, direction: nil, horizontalAngle: nil)
+
+        XCTAssertNil(sut.horizontalAngle)
+        XCTAssertTrue(sut.isSignalLost)
+    }
+
     func test_sessionWasSuspended_marksSignalLost() {
         let session = NISession()
         sut.sessionWasSuspended(session)
@@ -54,12 +73,13 @@ final class UWBManagerTests: XCTestCase {
     }
 
     func test_stop_resetsAllPublishedState() {
-        sut.apply(distance: 3.0, direction: simd_float3(0, 1, 0))
+        sut.apply(distance: 3.0, direction: simd_float3(0, 1, 0), horizontalAngle: 0.3)
 
         sut.stop()
 
         XCTAssertNil(sut.distance)
         XCTAssertNil(sut.direction)
+        XCTAssertNil(sut.horizontalAngle)
         XCTAssertFalse(sut.isSignalLost)
     }
 
