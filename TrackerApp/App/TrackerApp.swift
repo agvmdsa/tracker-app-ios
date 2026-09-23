@@ -3,16 +3,26 @@ import os
 
 @main
 struct TrackerApp: App {
-    @StateObject private var connectionManager = ConnectionManager()
-    @StateObject private var uwbManager = UWBManager()
+    @State private var connectionManager = ConnectionManager()
+    @State private var uwbManager = UWBManager()
+    @State private var beaconAdvertiser = BeaconAdvertiser()
+    @State private var beaconScanner = BeaconScanner()
+    @State private var anchorStore = AnchorStore()
+    @State private var arPositionTracker = ARPositionTracker()
+    @State private var savedLocationStore = SavedLocationStore()
     @Environment(\.scenePhase) private var scenePhase
     private static let logger = Logger(subsystem: "com.airtagclone.TrackerApp", category: "AppLifecycle")
 
     var body: some Scene {
         WindowGroup {
             MainView()
-                .environmentObject(connectionManager)
-                .environmentObject(uwbManager)
+                .environment(\.connectionManager, connectionManager)
+                .environment(\.uwbManager, uwbManager)
+                .environment(\.beaconAdvertiser, beaconAdvertiser)
+                .environment(\.beaconScanner, beaconScanner)
+                .environment(\.anchorStore, anchorStore)
+                .environment(\.arPositionTracker, arPositionTracker)
+                .environment(\.savedLocationStore, savedLocationStore)
         }
         .onChange(of: scenePhase) { newPhase in
             // Edge Case: Background Behavior — pause everything in background, resume in foreground.

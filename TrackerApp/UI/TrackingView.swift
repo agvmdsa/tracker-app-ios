@@ -8,8 +8,8 @@ struct TrackingView: View {
 
     let device: TrackerDevice
 
-    @EnvironmentObject private var connectionManager: ConnectionManager
-    @EnvironmentObject private var uwbManager: UWBManager
+    @Environment(\.connectionManager) private var connectionManager: any ConnectionManaging
+    @Environment(\.uwbManager) private var uwbManager: any UWBManaging
     @State private var receivedPingAlert = false
     @State private var didStartTokenExchange = false
 

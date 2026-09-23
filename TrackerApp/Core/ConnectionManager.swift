@@ -1,17 +1,20 @@
 import Foundation
 import MultipeerConnectivity
 import NearbyInteraction
+import Observation
 import os
 
 /// MultipeerConnectivity wrapper: discovers nearby TrackerApp peers, exchanges NearbyInteraction
 /// discovery tokens (P2P Contract 1), and sends/receives custom data payloads (P2P Contract 2).
 /// See specs/001-ios-tracker-app/contracts/p2p-messages.md and research.md.
-final class ConnectionManager: NSObject, ObservableObject {
+@Observable
+@MainActor
+final class ConnectionManager: NSObject {
     static let serviceType = "tracker-app"
     private static let logger = Logger(subsystem: "com.airtagclone.TrackerApp", category: "ConnectionManager")
 
-    @Published private(set) var discoveredDevices: [TrackerDevice] = []
-    @Published var transferError: String?
+    private(set) var discoveredDevices: [TrackerDevice] = []
+    var transferError: String?
 
     /// Called on the main thread when a peer's NearbyInteraction discovery token arrives.
     var onDiscoveryTokenReceived: ((DiscoveryTokenWrapper) -> Void)?
@@ -46,7 +49,7 @@ final class ConnectionManager: NSObject, ObservableObject {
     private var retryWorkItems: [UUID: DispatchWorkItem] = [:]
     private var reconciliationTimer: Timer?
 
-    init(displayName: String = DeviceIdentity.displayName) {
+    nonisolated init(displayName: String = DeviceIdentity.displayName) {
         myPeerID = MCPeerID(displayName: displayName)
         // DIAGNOSTIC: `.required` and `.optional` both failed identically on real hardware
         // (session reaches `.connecting` then drops to `.notConnected`, "Not in connected

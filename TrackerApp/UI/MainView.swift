@@ -1,10 +1,11 @@
 import SwiftUI
 import CoreBluetooth
+import Observation
 import UIKit
 
 struct MainView: View {
-    @EnvironmentObject private var connectionManager: ConnectionManager
-    @StateObject private var bluetoothMonitor = BluetoothPermissionMonitor()
+    @Environment(\.connectionManager) private var connectionManager: any ConnectionManaging
+    @State private var bluetoothMonitor = BluetoothPermissionMonitor()
     @State private var isRenaming = false
     @State private var nameDraft = DeviceIdentity.displayName
 
@@ -32,6 +33,11 @@ struct MainView: View {
                 ToolbarItem(placement: .navigationBarLeading) {
                     NavigationLink("Raw Test") {
                         RawMCTestView()
+                    }
+                }
+                ToolbarItem(placement: .navigationBarLeading) {
+                    NavigationLink("Indoor") {
+                        PositioningModeView()
                     }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -131,8 +137,10 @@ private struct PermissionBlockedView: View {
 /// one permission iOS exposes synchronously via CoreBluetooth; Local Network and Nearby
 /// Interaction denials instead surface as delegate/session errors, reported separately via
 /// `ConnectionManager.transferError`.
-private final class BluetoothPermissionMonitor: NSObject, ObservableObject, CBCentralManagerDelegate {
-    @Published var isDenied = false
+@Observable
+@MainActor
+private final class BluetoothPermissionMonitor: NSObject, CBCentralManagerDelegate {
+    var isDenied = false
     private var manager: CBCentralManager?
 
     override init() {
@@ -141,6 +149,6 @@ private final class BluetoothPermissionMonitor: NSObject, ObservableObject, CBCe
     }
 
     func centralManagerDidUpdateState(_ central: CBCentralManager) {
-        isDenied = central.state == .unauthorized
+        isDenied = central.state.indicatesPermissionDenied
     }
 }

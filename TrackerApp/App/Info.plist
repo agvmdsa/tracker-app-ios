@@ -26,7 +26,7 @@
 		<string>_tracker-app._udp</string>
 	</array>
 	<key>NSCameraUsageDescription</key>
-	<string>TrackerApp uses the camera to improve direction accuracy when locating a nearby iPhone on models that require camera-assisted Nearby Interaction.</string>
+	<string>TrackerApp uses the camera to improve direction accuracy when locating a nearby iPhone on models that require camera-assisted Nearby Interaction, and to track your position while placing anchors for indoor positioning.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>TrackerApp uses your local network to discover and connect to other nearby iPhones running TrackerApp.</string>
 	<key>NSNearbyInteractionAllowOnceUsageDescription</key>
