@@ -18,17 +18,17 @@ final class RawMultipeerDiagnostic: NSObject {
     private static let serviceType = "mc-raw-test"
 
     nonisolated override init() {
+        let peerID = MCPeerID(displayName: DeviceIdentity.displayName + "-raw")
+        self.peerID = peerID
+        self.session = MCSession(peer: peerID)
         super.init()
+        session.delegate = self
     }
 
     private(set) var log: [String] = []
 
-    private let peerID = MCPeerID(displayName: DeviceIdentity.displayName + "-raw")
-    private lazy var session: MCSession = {
-        let session = MCSession(peer: peerID)
-        session.delegate = self
-        return session
-    }()
+    private let peerID: MCPeerID
+    private let session: MCSession
     private var advertiser: MCNearbyServiceAdvertiser?
     private var browser: MCNearbyServiceBrowser?
 

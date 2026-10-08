@@ -8,7 +8,9 @@ final class BeaconScanner: NSObject {
     private static let logger = Logger(subsystem: "com.airtagclone.TrackerApp", category: "BeaconScanner")
 
     nonisolated override init() {
+        centralManager = CBCentralManager(delegate: nil, queue: nil, options: [CBCentralManagerOptionShowPowerAlertKey: false])
         super.init()
+        centralManager.delegate = self
     }
 
     private static let staleAfter: TimeInterval = 5.0
@@ -16,11 +18,7 @@ final class BeaconScanner: NSObject {
     private(set) var sightings: [BeaconID: BeaconSighting] = [:]
     private(set) var isBluetoothUnavailable = false
 
-    private lazy var centralManager = CBCentralManager(
-        delegate: self,
-        queue: nil,
-        options: [CBCentralManagerOptionShowPowerAlertKey: false]
-    )
+    private let centralManager: CBCentralManager
     private var scanRequested = false
     private var pruneTimer: Timer?
 
