@@ -17,16 +17,16 @@ final class PositioningTests: XCTestCase {
         }
     }
 
-    func test_exactRanges_recoverThePositionTheyWereGeneratedFrom() {
+    func test_exactRanges_recoverThePositionTheyWereGeneratedFrom() throws {
         let anchors = makeTriangle()
         let truth = Point2D(x: 0.4, y: 1.2)
         let readings = anchors.map { AnchorRange(anchor: $0, distanceMeters: $0.position.distance(to: truth)) }
 
-        let fix = Multilateration.solve(readings: readings)
+        let fix = try XCTUnwrap(Multilateration.solve(readings: readings))
 
-        XCTAssertEqual(fix?.position.x, truth.x, accuracy: tolerance)
-        XCTAssertEqual(fix?.position.y, truth.y, accuracy: tolerance)
-        XCTAssertEqual(fix?.uncertaintyMeters, 0.0, accuracy: tolerance)
+        XCTAssertEqual(fix.position.x, truth.x, accuracy: tolerance)
+        XCTAssertEqual(fix.position.y, truth.y, accuracy: tolerance)
+        XCTAssertEqual(fix.uncertaintyMeters, 0.0, accuracy: tolerance)
     }
 
     func test_inconsistentRanges_stillProducesAFix_withDisagreementReported() {
@@ -62,7 +62,7 @@ final class PositioningTests: XCTestCase {
         XCTAssertNil(Multilateration.solve(readings: readings))
     }
 
-    func test_moreThanThreeAnchors_recoversThePosition() {
+    func test_moreThanThreeAnchors_recoversThePosition() throws {
         let anchors = (0..<5).map { i -> Anchor in
             let angle = Double(i) * (2 * .pi / 5)
             return Anchor(id: BeaconID.random(), label: "\(i)", position: Point2D(x: 3 * cos(angle), y: 3 * sin(angle)))
@@ -70,10 +70,10 @@ final class PositioningTests: XCTestCase {
         let truth = Point2D(x: 0.3, y: -0.5)
         let readings = anchors.map { AnchorRange(anchor: $0, distanceMeters: $0.position.distance(to: truth)) }
 
-        let fix = Multilateration.solve(readings: readings)
+        let fix = try XCTUnwrap(Multilateration.solve(readings: readings))
 
-        XCTAssertEqual(fix?.position.x, truth.x, accuracy: tolerance)
-        XCTAssertEqual(fix?.position.y, truth.y, accuracy: tolerance)
+        XCTAssertEqual(fix.position.x, truth.x, accuracy: tolerance)
+        XCTAssertEqual(fix.position.y, truth.y, accuracy: tolerance)
     }
 
     func test_referenceRSSI_meansOneMetre() {
