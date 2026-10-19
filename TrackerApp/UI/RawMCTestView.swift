@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Temporary debugging screen — remove once the root cause of the connection failures is found.
 struct RawMCTestView: View {
-    @StateObject private var diagnostic = RawMultipeerDiagnostic()
+    @State private var diagnostic = RawMultipeerDiagnostic()
 
     var body: some View {
         List(Array(diagnostic.log.enumerated()), id: \.offset) { _, line in

@@ -1,5 +1,6 @@
 import Foundation
 import MultipeerConnectivity
+import Observation
 import os
 
 /// Deliberately minimal, fully isolated from `ConnectionManager` — no tie-break, no custom
@@ -10,18 +11,24 @@ import os
 /// setup — which would mean the cause is outside our code entirely (device/OS/network).
 ///
 /// Temporary debugging tool — remove once the root cause of the connection failures is found.
-final class RawMultipeerDiagnostic: NSObject, ObservableObject {
+@Observable
+@MainActor
+final class RawMultipeerDiagnostic: NSObject {
     private static let logger = Logger(subsystem: "com.airtagclone.TrackerApp", category: "RawMCTest")
     private static let serviceType = "mc-raw-test"
 
-    @Published private(set) var log: [String] = []
-
-    private let peerID = MCPeerID(displayName: DeviceIdentity.displayName + "-raw")
-    private lazy var session: MCSession = {
-        let session = MCSession(peer: peerID)
+    nonisolated override init() {
+        let peerID = MCPeerID(displayName: DeviceIdentity.displayName + "-raw")
+        self.peerID = peerID
+        self.session = MCSession(peer: peerID)
+        super.init()
         session.delegate = self
-        return session
-    }()
+    }
+
+    private(set) var log: [String] = []
+
+    private let peerID: MCPeerID
+    private let session: MCSession
     private var advertiser: MCNearbyServiceAdvertiser?
     private var browser: MCNearbyServiceBrowser?
 

@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 56;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -21,6 +21,38 @@
 		D0EA24DF386489380DA0DA13 /* Payload.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A621D5CCFDB77CF560E1F50 /* Payload.swift */; };
 		E27E7E00BA768615DE9E5492 /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4745D3EC46ABBA157BF1C69C /* MainView.swift */; };
 		E67B7BA296F6696107B2E4C3 /* ConnectionManagerPayloadTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCE42FB2DB90E207E24B73CC /* ConnectionManagerPayloadTests.swift */; };
+		EECF4A48C6BCC04184731523 /* ConnectionManaging.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85D8714AA8208BDFF8E76F7D /* ConnectionManaging.swift */; };
+		BFA2026567664E9B773989E2 /* UWBManaging.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9D6B0D3E1D3BE3418C1E26F /* UWBManaging.swift */; };
+		4CF1EDB1924A77191CB93BA3 /* EnvironmentValues+Managers.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD5A1D50367633A63605ECD8 /* EnvironmentValues+Managers.swift */; };
+		0E3F16CE0D9FC2EDD09615DA /* ARPositionTracking.swift in Sources */ = {isa = PBXBuildFile; fileRef = 122486DBAB88ED59DE4A0829 /* ARPositionTracking.swift */; };
+		8DB7A5F2877ACC17A4F87514 /* ARPositionTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B3EFE2E6949FDBA478FBDD1 /* ARPositionTracker.swift */; };
+		D73EF119E2EA6B08E72615D4 /* ARAnchorCaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2079EB22957462DC6A3E3F25 /* ARAnchorCaptureView.swift */; };
+		5C14A5BA2E49B77C0FAA6926 /* PositioningPreviewFakes.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCDFDB3F7D214ACC4B101DDC /* PositioningPreviewFakes.swift */; };
+		391106C8666F15394052AC69 /* SavedLocation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DEDFB5BDC4430BECF9BFC41 /* SavedLocation.swift */; };
+		9FEF663F96FB0C326C07065C /* SavedLocationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F14B29308C4CBD4720D76EEC /* SavedLocationStore.swift */; };
+		2849F5ECE631236BBAD84856 /* NavigateToLocationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5326BC2A5756FCFBA7532F2E /* NavigateToLocationView.swift */; };
+		C2B55453D4F86C629529F51E /* BeaconID.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE947435DB967D7A19A6062E /* BeaconID.swift */; };
+		F00798947673B6B10B9257B0 /* PathLossModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDA1B22DA45AF2B72C45EEEF /* PathLossModel.swift */; };
+		BD4E3D742DB90E965CA24CB6 /* Point2D.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1045D8F6BB1EE6A27F5ECB6D /* Point2D.swift */; };
+		466504E914688919D59FF79A /* Anchor.swift in Sources */ = {isa = PBXBuildFile; fileRef = C222CDD60C63F5528CD5999D /* Anchor.swift */; };
+		483F9B1D6BCBB715C663493F /* Multilateration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 090F8A62C92128CAA3092C81 /* Multilateration.swift */; };
+		805E4EE5F93590FBA4A2E0E7 /* BeaconSighting.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10DEF21ACE2311185263682 /* BeaconSighting.swift */; };
+		CC616D04F7CA16E5FCF204D5 /* BeaconProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = B135F9581691E1163D4A88F4 /* BeaconProtocol.swift */; };
+		1483957E7DFE5989388F31FC /* PositioningTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED3DE53F020F6CD8150D6B37 /* PositioningTests.swift */; };
+		0732298A7528F79FF702A2A7 /* BeaconIDTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C83E489EA7DEACFEED2123B /* BeaconIDTests.swift */; };
+		35478507556AAFD3BFAD0594 /* BeaconAdvertising.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2929275DA4EAFAAD2A3F74FE /* BeaconAdvertising.swift */; };
+		68AC6F72871FAA74F599010E /* BeaconAdvertiser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40EC633C4FFBC5ECFFF455EC /* BeaconAdvertiser.swift */; };
+		0592133BD9F543E105224D9A /* BeaconScanning.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8E740EFEB6C510CB564D305 /* BeaconScanning.swift */; };
+		55EF7BD176FD2CA3F1B1AA08 /* BeaconScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73210D805147A7EFD959BA63 /* BeaconScanner.swift */; };
+		F662DD02D49D978D56891744 /* AnchorStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FD3CDEB0B5A211FF656A37F /* AnchorStore.swift */; };
+		59F620F3D6256160983BCF86 /* PositioningEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BFCCF757915E07BEC77C5E5 /* PositioningEngine.swift */; };
+		775E98163F33433EE7BB2D83 /* PositioningReporting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57DA62D3129370861CA9F021 /* PositioningReporting.swift */; };
+		8AB635B98CC4D2FA42543424 /* PositioningAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30524E0DD07A4CFB23211676 /* PositioningAPIClient.swift */; };
+		E19722A0C022957CA5402DFD /* EnvironmentValues+Positioning.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE916B23505F772D712C1AE9 /* EnvironmentValues+Positioning.swift */; };
+		E3079AB0C0A5C7D6CFE7024C /* PositioningModeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53D34C1CE5EBA2625E44E41E /* PositioningModeView.swift */; };
+		9BA0F83212B052175A4E1C22 /* AnchorBroadcastView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8ACF7BDB6F15F7D0F094D106 /* AnchorBroadcastView.swift */; };
+		1327A92D590CA2C39C651716 /* AnchorPositionEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D4DB0E7E1E098ADBCD33DB5 /* AnchorPositionEditor.swift */; };
+		98D038B747B66F5AF0D4AB36 /* ObserverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F68B0BE58278E431028CB5A /* ObserverView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -52,6 +84,38 @@
 		E77342EA6EB0C97666B424D1 /* ConnectionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionManager.swift; sourceTree = "<group>"; };
 		E93860EA18C14D02A6C521D7 /* UWBManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UWBManagerTests.swift; sourceTree = "<group>"; };
 		F2065FD7029B01B37C60D033 /* RawMultipeerDiagnostic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawMultipeerDiagnostic.swift; sourceTree = "<group>"; };
+		85D8714AA8208BDFF8E76F7D /* ConnectionManaging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionManaging.swift; sourceTree = "<group>"; };
+		F9D6B0D3E1D3BE3418C1E26F /* UWBManaging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UWBManaging.swift; sourceTree = "<group>"; };
+		FD5A1D50367633A63605ECD8 /* EnvironmentValues+Managers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnvironmentValues+Managers.swift"; sourceTree = "<group>"; };
+		122486DBAB88ED59DE4A0829 /* ARPositionTracking.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARPositionTracking.swift; sourceTree = "<group>"; };
+		3B3EFE2E6949FDBA478FBDD1 /* ARPositionTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARPositionTracker.swift; sourceTree = "<group>"; };
+		2079EB22957462DC6A3E3F25 /* ARAnchorCaptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARAnchorCaptureView.swift; sourceTree = "<group>"; };
+		FCDFDB3F7D214ACC4B101DDC /* PositioningPreviewFakes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PositioningPreviewFakes.swift; sourceTree = "<group>"; };
+		4DEDFB5BDC4430BECF9BFC41 /* SavedLocation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedLocation.swift; sourceTree = "<group>"; };
+		F14B29308C4CBD4720D76EEC /* SavedLocationStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedLocationStore.swift; sourceTree = "<group>"; };
+		5326BC2A5756FCFBA7532F2E /* NavigateToLocationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigateToLocationView.swift; sourceTree = "<group>"; };
+		EE947435DB967D7A19A6062E /* BeaconID.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeaconID.swift; sourceTree = "<group>"; };
+		DDA1B22DA45AF2B72C45EEEF /* PathLossModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PathLossModel.swift; sourceTree = "<group>"; };
+		1045D8F6BB1EE6A27F5ECB6D /* Point2D.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Point2D.swift; sourceTree = "<group>"; };
+		C222CDD60C63F5528CD5999D /* Anchor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Anchor.swift; sourceTree = "<group>"; };
+		090F8A62C92128CAA3092C81 /* Multilateration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Multilateration.swift; sourceTree = "<group>"; };
+		E10DEF21ACE2311185263682 /* BeaconSighting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeaconSighting.swift; sourceTree = "<group>"; };
+		B135F9581691E1163D4A88F4 /* BeaconProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeaconProtocol.swift; sourceTree = "<group>"; };
+		ED3DE53F020F6CD8150D6B37 /* PositioningTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PositioningTests.swift; sourceTree = "<group>"; };
+		0C83E489EA7DEACFEED2123B /* BeaconIDTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeaconIDTests.swift; sourceTree = "<group>"; };
+		2929275DA4EAFAAD2A3F74FE /* BeaconAdvertising.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeaconAdvertising.swift; sourceTree = "<group>"; };
+		40EC633C4FFBC5ECFFF455EC /* BeaconAdvertiser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeaconAdvertiser.swift; sourceTree = "<group>"; };
+		B8E740EFEB6C510CB564D305 /* BeaconScanning.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeaconScanning.swift; sourceTree = "<group>"; };
+		73210D805147A7EFD959BA63 /* BeaconScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeaconScanner.swift; sourceTree = "<group>"; };
+		1FD3CDEB0B5A211FF656A37F /* AnchorStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnchorStore.swift; sourceTree = "<group>"; };
+		0BFCCF757915E07BEC77C5E5 /* PositioningEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PositioningEngine.swift; sourceTree = "<group>"; };
+		57DA62D3129370861CA9F021 /* PositioningReporting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PositioningReporting.swift; sourceTree = "<group>"; };
+		30524E0DD07A4CFB23211676 /* PositioningAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PositioningAPIClient.swift; sourceTree = "<group>"; };
+		EE916B23505F772D712C1AE9 /* EnvironmentValues+Positioning.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnvironmentValues+Positioning.swift"; sourceTree = "<group>"; };
+		53D34C1CE5EBA2625E44E41E /* PositioningModeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PositioningModeView.swift; sourceTree = "<group>"; };
+		8ACF7BDB6F15F7D0F094D106 /* AnchorBroadcastView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnchorBroadcastView.swift; sourceTree = "<group>"; };
+		5D4DB0E7E1E098ADBCD33DB5 /* AnchorPositionEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnchorPositionEditor.swift; sourceTree = "<group>"; };
+		1F68B0BE58278E431028CB5A /* ObserverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObserverView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -72,9 +136,24 @@
 				4745D3EC46ABBA157BF1C69C /* MainView.swift */,
 				96E5C2F3E65B4D6AEEC79F15 /* RawMCTestView.swift */,
 				1171D77DA3E0DED33FE0A2F6 /* TrackingView.swift */,
+				018A445279B7EADC44EC606F /* Positioning */,
 			);
 			name = UI;
 			path = TrackerApp/UI;
+			sourceTree = "<group>";
+		};
+		018A445279B7EADC44EC606F /* Positioning */ = {
+			isa = PBXGroup;
+			children = (
+				53D34C1CE5EBA2625E44E41E /* PositioningModeView.swift */,
+				8ACF7BDB6F15F7D0F094D106 /* AnchorBroadcastView.swift */,
+				5D4DB0E7E1E098ADBCD33DB5 /* AnchorPositionEditor.swift */,
+				1F68B0BE58278E431028CB5A /* ObserverView.swift */,
+				2079EB22957462DC6A3E3F25 /* ARAnchorCaptureView.swift */,
+				5326BC2A5756FCFBA7532F2E /* NavigateToLocationView.swift */,
+			);
+			name = Positioning;
+			path = Positioning;
 			sourceTree = "<group>";
 		};
 		7639DB0570832929C6FC10EB = {
@@ -113,12 +192,45 @@
 			isa = PBXGroup;
 			children = (
 				E77342EA6EB0C97666B424D1 /* ConnectionManager.swift */,
+				85D8714AA8208BDFF8E76F7D /* ConnectionManaging.swift */,
 				31D552D97F4753A3F96F5770 /* DeviceIdentity.swift */,
 				F2065FD7029B01B37C60D033 /* RawMultipeerDiagnostic.swift */,
 				0F6526C0A9AD158D22944812 /* UWBManager.swift */,
+				F9D6B0D3E1D3BE3418C1E26F /* UWBManaging.swift */,
+				FD5A1D50367633A63605ECD8 /* EnvironmentValues+Managers.swift */,
+				EE916B23505F772D712C1AE9 /* EnvironmentValues+Positioning.swift */,
+				E6CA03A91FB70DD07BE5320D /* Positioning */,
 			);
 			name = Core;
 			path = TrackerApp/Core;
+			sourceTree = "<group>";
+		};
+		E6CA03A91FB70DD07BE5320D /* Positioning */ = {
+			isa = PBXGroup;
+			children = (
+				EE947435DB967D7A19A6062E /* BeaconID.swift */,
+				B135F9581691E1163D4A88F4 /* BeaconProtocol.swift */,
+				E10DEF21ACE2311185263682 /* BeaconSighting.swift */,
+				DDA1B22DA45AF2B72C45EEEF /* PathLossModel.swift */,
+				1045D8F6BB1EE6A27F5ECB6D /* Point2D.swift */,
+				C222CDD60C63F5528CD5999D /* Anchor.swift */,
+				090F8A62C92128CAA3092C81 /* Multilateration.swift */,
+				2929275DA4EAFAAD2A3F74FE /* BeaconAdvertising.swift */,
+				40EC633C4FFBC5ECFFF455EC /* BeaconAdvertiser.swift */,
+				B8E740EFEB6C510CB564D305 /* BeaconScanning.swift */,
+				73210D805147A7EFD959BA63 /* BeaconScanner.swift */,
+				1FD3CDEB0B5A211FF656A37F /* AnchorStore.swift */,
+				0BFCCF757915E07BEC77C5E5 /* PositioningEngine.swift */,
+				57DA62D3129370861CA9F021 /* PositioningReporting.swift */,
+				30524E0DD07A4CFB23211676 /* PositioningAPIClient.swift */,
+				122486DBAB88ED59DE4A0829 /* ARPositionTracking.swift */,
+				3B3EFE2E6949FDBA478FBDD1 /* ARPositionTracker.swift */,
+				FCDFDB3F7D214ACC4B101DDC /* PositioningPreviewFakes.swift */,
+				4DEDFB5BDC4430BECF9BFC41 /* SavedLocation.swift */,
+				F14B29308C4CBD4720D76EEC /* SavedLocationStore.swift */,
+			);
+			name = Positioning;
+			path = Positioning;
 			sourceTree = "<group>";
 		};
 		FA2DB43453D6CA8233FB2B96 /* TrackerAppTests */ = {
@@ -127,6 +239,8 @@
 				BCE42FB2DB90E207E24B73CC /* ConnectionManagerPayloadTests.swift */,
 				29645E441433F63E92FAE565 /* ConnectionManagerTests.swift */,
 				E93860EA18C14D02A6C521D7 /* UWBManagerTests.swift */,
+				ED3DE53F020F6CD8150D6B37 /* PositioningTests.swift */,
+				0C83E489EA7DEACFEED2123B /* BeaconIDTests.swift */,
 			);
 			name = TrackerAppTests;
 			path = TrackerApp/Tests/TrackerAppTests;
@@ -177,7 +291,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 1430;
+				LastUpgradeCheck = 1420;
 			};
 			buildConfigurationList = 70C72A80AAF8B52B90E8111A /* Build configuration list for PBXProject "TrackerApp" */;
 			developmentRegion = en;
@@ -188,7 +302,6 @@
 			);
 			mainGroup = 7639DB0570832929C6FC10EB;
 			minimizedProjectReferenceProxies = 1;
-			preferredProjectObjectVersion = 77;
 			productRefGroup = 84278FA176400D35B770A6E4 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -215,6 +328,36 @@
 				3D4B28371B3B73CD4BB1F1B3 /* TrackerDevice.swift in Sources */,
 				42B76B3270129794D129A31E /* TrackingView.swift in Sources */,
 				5C1D4036A1A906BAB604258A /* UWBManager.swift in Sources */,
+				EECF4A48C6BCC04184731523 /* ConnectionManaging.swift in Sources */,
+				BFA2026567664E9B773989E2 /* UWBManaging.swift in Sources */,
+				4CF1EDB1924A77191CB93BA3 /* EnvironmentValues+Managers.swift in Sources */,
+				C2B55453D4F86C629529F51E /* BeaconID.swift in Sources */,
+				F00798947673B6B10B9257B0 /* PathLossModel.swift in Sources */,
+				BD4E3D742DB90E965CA24CB6 /* Point2D.swift in Sources */,
+				466504E914688919D59FF79A /* Anchor.swift in Sources */,
+				483F9B1D6BCBB715C663493F /* Multilateration.swift in Sources */,
+				805E4EE5F93590FBA4A2E0E7 /* BeaconSighting.swift in Sources */,
+				CC616D04F7CA16E5FCF204D5 /* BeaconProtocol.swift in Sources */,
+				35478507556AAFD3BFAD0594 /* BeaconAdvertising.swift in Sources */,
+				68AC6F72871FAA74F599010E /* BeaconAdvertiser.swift in Sources */,
+				0592133BD9F543E105224D9A /* BeaconScanning.swift in Sources */,
+				55EF7BD176FD2CA3F1B1AA08 /* BeaconScanner.swift in Sources */,
+				F662DD02D49D978D56891744 /* AnchorStore.swift in Sources */,
+				59F620F3D6256160983BCF86 /* PositioningEngine.swift in Sources */,
+				775E98163F33433EE7BB2D83 /* PositioningReporting.swift in Sources */,
+				8AB635B98CC4D2FA42543424 /* PositioningAPIClient.swift in Sources */,
+				E19722A0C022957CA5402DFD /* EnvironmentValues+Positioning.swift in Sources */,
+				E3079AB0C0A5C7D6CFE7024C /* PositioningModeView.swift in Sources */,
+				9BA0F83212B052175A4E1C22 /* AnchorBroadcastView.swift in Sources */,
+				1327A92D590CA2C39C651716 /* AnchorPositionEditor.swift in Sources */,
+				98D038B747B66F5AF0D4AB36 /* ObserverView.swift in Sources */,
+				0E3F16CE0D9FC2EDD09615DA /* ARPositionTracking.swift in Sources */,
+				8DB7A5F2877ACC17A4F87514 /* ARPositionTracker.swift in Sources */,
+				D73EF119E2EA6B08E72615D4 /* ARAnchorCaptureView.swift in Sources */,
+				5C14A5BA2E49B77C0FAA6926 /* PositioningPreviewFakes.swift in Sources */,
+				391106C8666F15394052AC69 /* SavedLocation.swift in Sources */,
+				9FEF663F96FB0C326C07065C /* SavedLocationStore.swift in Sources */,
+				2849F5ECE631236BBAD84856 /* NavigateToLocationView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -225,6 +368,8 @@
 				E67B7BA296F6696107B2E4C3 /* ConnectionManagerPayloadTests.swift in Sources */,
 				04B39035907A2A0F5B4692A2 /* ConnectionManagerTests.swift in Sources */,
 				782ADFAAA9875E62B74F803E /* UWBManagerTests.swift in Sources */,
+				1483957E7DFE5989388F31FC /* PositioningTests.swift in Sources */,
+				0732298A7528F79FF702A2A7 /* BeaconIDTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -243,7 +388,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -251,7 +396,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.airtagclone.TrackerAppTests;
 				SDKROOT = iphoneos;
-				SWIFT_VERSION = 5.10;
+				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TrackerApp.app/TrackerApp";
 			};
@@ -308,7 +453,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -328,7 +473,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				DEVELOPMENT_TEAM = RTYX4AYCN3;
 				INFOPLIST_FILE = TrackerApp/App/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -336,7 +481,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.airtagclone.TrackerApp;
 				SDKROOT = iphoneos;
 				SWIFT_STRICT_CONCURRENCY = complete;
-				SWIFT_VERSION = 5.10;
+				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
@@ -386,7 +531,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -401,7 +546,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -409,7 +554,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.airtagclone.TrackerAppTests;
 				SDKROOT = iphoneos;
-				SWIFT_VERSION = 5.10;
+				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TrackerApp.app/TrackerApp";
 			};
@@ -423,7 +568,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				DEVELOPMENT_TEAM = RTYX4AYCN3;
 				INFOPLIST_FILE = TrackerApp/App/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -431,7 +576,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.airtagclone.TrackerApp;
 				SDKROOT = iphoneos;
 				SWIFT_STRICT_CONCURRENCY = complete;
-				SWIFT_VERSION = 5.10;
+				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;

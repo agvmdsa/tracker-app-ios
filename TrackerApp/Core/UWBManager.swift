@@ -1,27 +1,34 @@
 import Foundation
 import NearbyInteraction
+import Observation
 import simd
 import os
 
 /// Wraps a single `NISession` to continuously measure distance and direction to one peer,
 /// using the discovery token exchanged over MultipeerConnectivity (P2P Contract 1).
-final class UWBManager: NSObject, ObservableObject {
+@Observable
+@MainActor
+final class UWBManager: NSObject {
     private static let logger = Logger(subsystem: "com.airtagclone.TrackerApp", category: "UWBManager")
 
-    @Published private(set) var distance: Float?
-    @Published private(set) var direction: simd_float3?
+    nonisolated override init() {
+        super.init()
+    }
+
+    private(set) var distance: Float?
+    private(set) var direction: simd_float3?
     /// Fallback for devices that only support camera-assisted direction (e.g. iPhone 14 Pro and
     /// later): `NINearbyObject.direction` stays nil on these models even with
     /// `isCameraAssistanceEnabled`, and the angle instead arrives via `horizontalAngle` (radians).
-    @Published private(set) var horizontalAngle: Float?
+    private(set) var horizontalAngle: Float?
     /// True when the UWB signal is temporarily blocked/lost but a distance was previously known
     /// (Edge Case: UWB Signal Loss → UI shows "Searching for signal...").
-    @Published private(set) var isSignalLost: Bool = false
+    private(set) var isSignalLost: Bool = false
     /// Not every U1-equipped iPhone can measure direction (e.g. the base iPhone 11 measures
     /// distance only — iPhone 11 Pro/Pro Max and all iPhone 12+ models support both). This is a
     /// per-device hardware capability, not a transient signal issue, so the UI must tell it apart
     /// from `isSignalLost` instead of showing "Searching for signal..." forever.
-    @Published private(set) var supportsDirectionMeasurement: Bool = true
+    private(set) var supportsDirectionMeasurement: Bool = true
 
     private var session: NISession?
     private var peerDiscoveryToken: NIDiscoveryToken?
