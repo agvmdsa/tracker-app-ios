@@ -3,8 +3,7 @@ import os
 
 @main
 struct TrackerApp: App {
-    @State private var connectionManager = ConnectionManager()
-    @State private var uwbManager = UWBManager()
+    @State private var proximityTracker = ProximityTracker()
     @State private var beaconAdvertiser = BeaconAdvertiser()
     @State private var beaconScanner = BeaconScanner()
     @State private var anchorStore = AnchorStore()
@@ -16,8 +15,7 @@ struct TrackerApp: App {
     var body: some Scene {
         WindowGroup {
             MainView()
-                .environment(\.connectionManager, connectionManager)
-                .environment(\.uwbManager, uwbManager)
+                .environment(\.proximityTracker, proximityTracker)
                 .environment(\.beaconAdvertiser, beaconAdvertiser)
                 .environment(\.beaconScanner, beaconScanner)
                 .environment(\.anchorStore, anchorStore)
@@ -32,12 +30,10 @@ struct TrackerApp: App {
             Self.logger.info("scenePhase changed: \(String(describing: newPhase), privacy: .public)")
             switch newPhase {
             case .active:
-                connectionManager.start()
-                uwbManager.resume()
+                proximityTracker.resume()
             case .background:
-                Self.logger.info("scenePhase == .background — stopping ConnectionManager/UWBManager")
-                connectionManager.stop()
-                uwbManager.pause()
+                Self.logger.info("scenePhase == .background — pausing ProximityTracker")
+                proximityTracker.pause()
             case .inactive:
                 break
             @unknown default:

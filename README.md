@@ -1,6 +1,6 @@
 # TrackerApp (iOS)
 
-iOS AirTag clone with two features: 1:1 tracking between two paired iPhones (UWB), and indoor
+iOS AirTag clone with two features: 1:1 tracking between two nearby iPhones (UWB), and indoor
 positioning across multiple phones — anchors + an observer — designed to interoperate with a
 companion Android app ([`btloc`](https://github.com/filipe-ms/btloc)).
 
@@ -16,13 +16,14 @@ companion Android app ([`btloc`](https://github.com/filipe-ms/btloc)).
 
 ## Architecture
 
-The app follows **MV (Model-View)**, not MVVM or Clean Architecture: `ConnectionManager`,
-`UWBManager`, `BeaconAdvertiser`, and `BeaconScanner` are `@Observable` classes that double as
-both the data model and the business logic. Views read them directly — there is no separate
-ViewModel layer.
+The app follows **MV (Model-View)**, not MVVM or Clean Architecture: `ProximityTracker`,
+`BLEHandshake`, `UWBManager`, `BeaconAdvertiser`, and `BeaconScanner` are `@Observable` classes that
+double as both the data model and the business logic. Views read them directly — there is no
+separate ViewModel layer.
 
-Each manager has a matching protocol (`ConnectionManaging`, `UWBManaging`, `BeaconAdvertising`,
-`BeaconScanning`) so views depend on the interface, not the concrete networking implementation.
+Each manager has a matching protocol (`ProximityTracking`, `HandshakeChannel`, `UWBManaging`,
+`BeaconAdvertising`, `BeaconScanning`) so views depend on the interface, not the concrete
+networking implementation.
 Because Swift's `@EnvironmentObject`/`@StateObject`/`@ObservedObject` cannot bind to a protocol
 type (only concrete types can satisfy `ObservableObject`'s associated type), these are injected
 through a custom `EnvironmentKey` per manager (`EnvironmentValues+Managers.swift`,
@@ -33,10 +34,28 @@ swappable (e.g. for a fake in tests) rather than documentation-only.
 
 ### 1. Peer-to-peer tracking (AirTag-style)
 
-`ConnectionManager` (MultipeerConnectivity) discovers and connects to one nearby peer running
-this app, then exchanges NearbyInteraction discovery tokens over that link. `UWBManager`
-(NearbyInteraction) uses the exchanged token to range the peer, giving live distance and
-direction. See `TrackingView`.
+Tap **Start** in `TrackingView`. `ProximityTracker` glues two pieces together:
+
+- `BLEHandshake` (CoreBluetooth, behind the `HandshakeChannel` protocol) finds a nearby phone
+  running this app and swaps NearbyInteraction discovery tokens with it over a GATT characteristic.
+  Every phone is both a peripheral (serving its token) and a central (scanning for the service);
+  each advertises a random ID as its local name and only the phone with the smaller ID opens the
+  connection, so the two never connect to each other at once. There is no Wi-Fi, local-network
+  permission or pairing UI involved. It pairs with whichever nearby phone it finds first, so keep
+  other devices running the app out of range while testing.
+- `UWBManager` (NearbyInteraction) uses the peer's token to range it, giving live distance,
+  azimuth and elevation.
+
+`UWBManager` handles the quirks of newer iPhones: it starts with camera assistance right away on
+hardware that can't give a direction otherwise, and on everything else falls back to it when
+distance arrives but no angle does within 5 seconds. When the peer times out it retries with the
+same configuration, and when the peer ends its session `ProximityTracker` starts the handshake
+over, so the pairing recovers on its own.
+
+The azimuth comes from NearbyInteraction's direction vector as `atan2(x, -z)` (NI space: +x right,
++y up, -z out of the back of the phone), so 0 is straight ahead and positive is to the right. On
+camera-assisted-only models (iPhone 14 Pro and later) `direction` stays nil and the angle arrives
+as `horizontalAngle` instead, which `UWBManager.azimuth` falls back to.
 
 ### 2. Indoor positioning (BLE multilateration)
 
@@ -117,9 +136,10 @@ hours, a floor-plan heatmap, etc.).
 TrackerApp/
   App/                     App entry point, scene lifecycle
   Core/
-    ConnectionManager.swift / ConnectionManaging.swift      MultipeerConnectivity
+    ProximityTracker.swift / ProximityTracking.swift        Handshake + UWB glue, restarts on peer loss
+    BLEHandshake.swift / HandshakeChannel.swift             CoreBluetooth token exchange
     UWBManager.swift / UWBManaging.swift                    NearbyInteraction (UWB)
-    DeviceIdentity.swift                                    Persisted display name + BeaconID
+    DeviceIdentity.swift                                    Persisted BeaconID
     EnvironmentValues+Managers.swift                        Protocol-based DI for the above
     EnvironmentValues+Positioning.swift                     Protocol-based DI for Positioning
     Positioning/
@@ -132,9 +152,9 @@ TrackerApp/
       PositioningEngine.swift                                Sightings + anchors -> fix
       PositioningReporting.swift / PositioningAPIClient.swift  Heatmap API client (placeholder)
       ARPositionTracker.swift / ARPositionTracking.swift       ARKit-based anchor position capture
-  Models/                  TrackerDevice, Payload, DiscoveryTokenWrapper
+  Models/                  HandshakeState, RangingState, TrackingLogEntry
   UI/
-    MainView.swift / TrackingView.swift / RawMCTestView.swift
+    MainView.swift / TrackingView.swift
     Positioning/
       PositioningModeView.swift / AnchorBroadcastView.swift
       ObserverView.swift / AnchorPositionEditor.swift
@@ -146,9 +166,12 @@ TrackerApp/
 
 Run via `Product > Test` in Xcode, or `xcodebuild test` from an environment with Xcode 15+.
 
-- `ConnectionManagerTests`, `ConnectionManagerPayloadTests` — MultipeerConnectivity delegate
-  handling, connection state transitions.
-- `UWBManagerTests` — ranging state updates, signal loss handling.
+- `ProximityTrackerTests` — the handshake → ranging flow against fake `UWBManaging` and
+  `HandshakeChannel` implementations: start/stop, peer token handling, restart when the peer ends
+  its session, error surfacing, background/foreground.
+- `BLEHandshakeTests` — which side initiates the connection, oversized tokens. The CoreBluetooth
+  exchange itself needs two real phones.
+- `UWBManagerTests` — ranging state updates, signal loss handling, azimuth/elevation math.
 - `PositioningTests` — `Multilateration` (exact/inconsistent/degenerate ranges, N > 3 anchors)
   and `PathLossModel`, mirroring `btloc`'s `PositioningTest.kt` plus cases specific to this app's
   N-anchor (not fixed-triangle) design.
@@ -161,9 +184,9 @@ CLI if needed.
 ## Concurrency
 
 The project builds with `SWIFT_STRICT_CONCURRENCY = complete`. Every `@Observable` manager
-(`ConnectionManager`, `UWBManager`, `RawMultipeerDiagnostic`, `BeaconAdvertiser`, `BeaconScanner`,
+(`ProximityTracker`, `BLEHandshake`, `UWBManager`, `BeaconAdvertiser`, `BeaconScanner`,
 `AnchorStore`, `PositioningEngine`, `ARPositionTracker`, `BluetoothPermissionMonitor`, and the
-`PositioningPreviewFakes`) and their matching protocols (`ConnectionManaging`, `UWBManaging`,
+`PositioningPreviewFakes`) and their matching protocols (`ProximityTracking`, `HandshakeChannel`, `UWBManaging`,
 `BeaconAdvertising`, `BeaconScanning`, `ARPositionTracking`) are `@MainActor` — this is true in
 practice already (every delegate is registered with `queue: nil`, i.e. the main queue, and every
 `Timer` is scheduled from a main-actor context), so this just makes the compiler aware of it.
@@ -177,10 +200,10 @@ This was verified for real, not just reasoned about: `swiftc -typecheck -strict-
 against the iPhoneSimulator SDK comes back clean for every file that doesn't need `Observation`
 (all the protocols, `PositioningReporting`/`PositioningAPIClient`, `PositioningPreviewFakes`).
 
-> ⚠️ **Known gap: delegate methods still warn under strict concurrency.** `ConnectionManager`,
-> `UWBManager`, `RawMultipeerDiagnostic`, `BeaconAdvertiser`, `BeaconScanner`,
-> `BluetoothPermissionMonitor`, and `ARPositionTracker` implement delegate protocols from
-> MultipeerConnectivity/NearbyInteraction/CoreBluetooth/ARKit whose requirements aren't
+> ⚠️ **Known gap: delegate methods still warn under strict concurrency.** `BLEHandshake`,
+> `UWBManager`, `BeaconAdvertiser`, `BeaconScanner`, `BluetoothPermissionMonitor`, and
+> `ARPositionTracker` implement delegate protocols from
+> NearbyInteraction/CoreBluetooth/ARKit whose requirements aren't
 > actor-isolated. Confirmed with a standalone repro against the iOS 17 SDK: a `@MainActor` type's
 > delegate method satisfying one of these requirements produces
 > `warning: main actor-isolated instance method ... cannot be used to satisfy nonisolated protocol
@@ -193,9 +216,11 @@ against the iPhoneSimulator SDK comes back clean for every file that doesn't nee
 
 ## Known gaps / next steps
 
-- Nothing in this app has been built or run on a real Xcode 15+ toolchain or device yet —
-  verified so far only via `swiftc -typecheck`/`-parse` and a standalone numeric check of the
-  positioning math.
+- The app builds and the unit tests pass on Xcode 26 / the iPhone 17 simulator, but UWB ranging,
+  the BLE handshake and the positioning flow have not been run on real devices in this version —
+  the Simulator can't exercise any of them. The BLE handshake and the camera-assistance fallback
+  were carried over from a standalone prototype that did range between two iPhones; the glue
+  around them (`ProximityTracker`, background/foreground handling) is new.
 - Android-side BLE protocol change (local name fallback in `AndroidBleScanner.kt`) needed for
   iPhone anchors to be visible to Android observers.
 - Android-side ARCore work (anchor-position entry screen + capture, neither of which exists in
