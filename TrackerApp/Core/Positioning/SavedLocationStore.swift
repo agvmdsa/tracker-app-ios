@@ -6,10 +6,10 @@ import Observation
 final class SavedLocationStore {
     private static let key = "trackerapp.positioning.savedLocations"
 
-    private(set) var locations: [SavedLocation] = []
+    private(set) var locations: [SavedLocation]
 
     nonisolated init() {
-        locations = Self.load()
+        _locations = Self.load()
     }
 
     @discardableResult

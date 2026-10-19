@@ -7,10 +7,10 @@ final class AnchorStore {
     private static let key = "trackerapp.positioning.anchors"
     private static let labels = Array("ABCDEFGHIJKLMNOPQRSTUVWXYZ").map(String.init)
 
-    private(set) var anchors: [Anchor] = []
+    private(set) var anchors: [Anchor]
 
     nonisolated init() {
-        anchors = Self.load()
+        _anchors = Self.load()
     }
 
     @discardableResult

@@ -11,16 +11,18 @@ final class BeaconAdvertiser: NSObject {
     private(set) var isAdvertising = false
     private(set) var isBluetoothUnavailable = false
 
-    private lazy var peripheralManager = CBPeripheralManager(
-        delegate: self,
-        queue: nil,
-        options: [CBPeripheralManagerOptionShowPowerAlertKey: false]
-    )
+    private let peripheralManager: CBPeripheralManager
     private var startRequested = false
 
     nonisolated init(localID: BeaconID = DeviceIdentity.beaconID) {
         self.localID = localID
+        peripheralManager = CBPeripheralManager(
+            delegate: nil,
+            queue: nil,
+            options: [CBPeripheralManagerOptionShowPowerAlertKey: false]
+        )
         super.init()
+        peripheralManager.delegate = self
     }
 
     func startAdvertising() {
