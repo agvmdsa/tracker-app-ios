@@ -20,6 +20,10 @@ private struct SavedLocationStoreKey: EnvironmentKey {
     static let defaultValue = SavedLocationStore()
 }
 
+private struct AccelerometerReadingKey: EnvironmentKey {
+    static let defaultValue: any AccelerometerReading = AccelerometerReader()
+}
+
 extension EnvironmentValues {
     var beaconAdvertiser: any BeaconAdvertising {
         get { self[BeaconAdvertisingKey.self] }
@@ -44,5 +48,10 @@ extension EnvironmentValues {
     var savedLocationStore: SavedLocationStore {
         get { self[SavedLocationStoreKey.self] }
         set { self[SavedLocationStoreKey.self] = newValue }
+    }
+
+    var accelerometer: any AccelerometerReading {
+        get { self[AccelerometerReadingKey.self] }
+        set { self[AccelerometerReadingKey.self] = newValue }
     }
 }

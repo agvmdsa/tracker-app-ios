@@ -26,6 +26,7 @@ final class FakeBeaconAdvertising: BeaconAdvertising {
 final class FakeBeaconScanning: BeaconScanning {
     var sightings: [BeaconID: BeaconSighting]
     var isBluetoothUnavailable: Bool
+    var onSighting: ((BeaconSighting) -> Void)?
 
     init(sightings: [BeaconID: BeaconSighting] = [:], isBluetoothUnavailable: Bool = false) {
         self.sightings = sightings
@@ -34,6 +35,18 @@ final class FakeBeaconScanning: BeaconScanning {
 
     func startScanning() {}
     func stopScanning() {}
+}
+
+@MainActor
+final class FakeAccelerometerReading: AccelerometerReading {
+    var latest: AccelerometerSample?
+
+    init(latest: AccelerometerSample? = AccelerometerSample(x: 0.01, y: -0.02, z: -0.99)) {
+        self.latest = latest
+    }
+
+    func start() {}
+    func stop() {}
 }
 
 @MainActor

@@ -3,6 +3,7 @@ import SwiftUI
 enum PositioningRole {
     case anchor
     case observer
+    case collector
 }
 
 struct PositioningModeView: View {
@@ -17,6 +18,8 @@ struct PositioningModeView: View {
                 AnchorBroadcastView(onExit: { role = nil })
             case .observer:
                 ObserverView(onExit: { role = nil })
+            case .collector:
+                FingerprintCollectorView(onExit: { role = nil })
             }
         }
         .navigationTitle("Posicionamento Indoor")
@@ -34,6 +37,8 @@ struct PositioningModeView: View {
             Button("Sou uma âncora — fico parado") { role = .anchor }
                 .buttonStyle(.borderedProminent)
             Button("Sou o observador — ando pelo espaço") { role = .observer }
+                .buttonStyle(.bordered)
+            Button("Coletar dados para fingerprinting") { role = .collector }
                 .buttonStyle(.bordered)
         }
         .padding()

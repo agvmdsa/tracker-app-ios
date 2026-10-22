@@ -19,6 +19,9 @@ targets:
       path: TrackerApp/App/Info.plist
       properties:
         UILaunchScreen: {}
+        # Fingerprinting recordings (Documents/Fingerprints) show up in the Files app and Finder.
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
         NSNearbyInteractionUsageDescription: "TrackerApp uses Nearby Interaction (Ultra Wideband) to measure the precise distance and direction to another nearby iPhone running TrackerApp."
@@ -28,6 +31,9 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.airtagclone.TrackerApp
+        # Personal Team (free, 7-day profile). Swap for your own team ID when signing on another machine.
+        DEVELOPMENT_TEAM: GJ77CF4AK3
+        CODE_SIGN_STYLE: Automatic
         SWIFT_VERSION: "5.0"
         TARGETED_DEVICE_FAMILY: "1"
         SWIFT_STRICT_CONCURRENCY: complete
@@ -44,6 +50,8 @@ targets:
     settings:
       base:
         SWIFT_VERSION: "5.0"
+        # Without it the test bundle has no Info.plist and Xcode 26 refuses to sign it.
+        GENERATE_INFOPLIST_FILE: YES
     dependencies:
       - target: TrackerApp
 

@@ -9,6 +9,7 @@ struct TrackerApp: App {
     @State private var anchorStore = AnchorStore()
     @State private var arPositionTracker = ARPositionTracker()
     @State private var savedLocationStore = SavedLocationStore()
+    @State private var accelerometer = AccelerometerReader()
     @Environment(\.scenePhase) private var scenePhase
     private static let logger = Logger(subsystem: "com.airtagclone.TrackerApp", category: "AppLifecycle")
 
@@ -21,6 +22,7 @@ struct TrackerApp: App {
                 .environment(\.anchorStore, anchorStore)
                 .environment(\.arPositionTracker, arPositionTracker)
                 .environment(\.savedLocationStore, savedLocationStore)
+                .environment(\.accelerometer, accelerometer)
         }
         .onChange(of: scenePhase) { newPhase in
             // Edge Case: Background Behavior — pause everything in background, resume in foreground.

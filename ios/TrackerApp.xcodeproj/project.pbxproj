@@ -3,56 +3,62 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 56;
+	objectVersion = 63;
 	objects = {
 
 /* Begin PBXBuildFile section */
-		42B76B3270129794D129A31E /* TrackingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1171D77DA3E0DED33FE0A2F6 /* TrackingView.swift */; };
-		5C1D4036A1A906BAB604258A /* UWBManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F6526C0A9AD158D22944812 /* UWBManager.swift */; };
-		6987DD866EB806D4F71A095F /* TrackerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 007ACF35B52B1DAF1B483383 /* TrackerApp.swift */; };
-		782ADFAAA9875E62B74F803E /* UWBManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E93860EA18C14D02A6C521D7 /* UWBManagerTests.swift */; };
-		9A0C4D1853B43EC7689E732E /* DeviceIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31D552D97F4753A3F96F5770 /* DeviceIdentity.swift */; };
-		E27E7E00BA768615DE9E5492 /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4745D3EC46ABBA157BF1C69C /* MainView.swift */; };
-		BFA2026567664E9B773989E2 /* UWBManaging.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9D6B0D3E1D3BE3418C1E26F /* UWBManaging.swift */; };
-		4CF1EDB1924A77191CB93BA3 /* EnvironmentValues+Managers.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD5A1D50367633A63605ECD8 /* EnvironmentValues+Managers.swift */; };
+		0592133BD9F543E105224D9A /* BeaconScanning.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8E740EFEB6C510CB564D305 /* BeaconScanning.swift */; };
+		0732298A7528F79FF702A2A7 /* BeaconIDTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C83E489EA7DEACFEED2123B /* BeaconIDTests.swift */; };
+		0B808E5D1EA302F49E28FC36 /* FingerprintCollectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5925B9AE366527BFB997200D /* FingerprintCollectorView.swift */; };
+		0D11426731B247302C57FEA6 /* FingerprintRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F1935678E05D95388B7E6D5 /* FingerprintRecorder.swift */; };
 		0E3F16CE0D9FC2EDD09615DA /* ARPositionTracking.swift in Sources */ = {isa = PBXBuildFile; fileRef = 122486DBAB88ED59DE4A0829 /* ARPositionTracking.swift */; };
-		8DB7A5F2877ACC17A4F87514 /* ARPositionTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B3EFE2E6949FDBA478FBDD1 /* ARPositionTracker.swift */; };
-		D73EF119E2EA6B08E72615D4 /* ARAnchorCaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2079EB22957462DC6A3E3F25 /* ARAnchorCaptureView.swift */; };
-		5C14A5BA2E49B77C0FAA6926 /* PositioningPreviewFakes.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCDFDB3F7D214ACC4B101DDC /* PositioningPreviewFakes.swift */; };
-		391106C8666F15394052AC69 /* SavedLocation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DEDFB5BDC4430BECF9BFC41 /* SavedLocation.swift */; };
-		9FEF663F96FB0C326C07065C /* SavedLocationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F14B29308C4CBD4720D76EEC /* SavedLocationStore.swift */; };
+		1327A92D590CA2C39C651716 /* AnchorPositionEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D4DB0E7E1E098ADBCD33DB5 /* AnchorPositionEditor.swift */; };
+		1483957E7DFE5989388F31FC /* PositioningTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED3DE53F020F6CD8150D6B37 /* PositioningTests.swift */; };
+		1EECF39FBCA7119E4AE5F7CF /* ProximityTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25A3EF66CD4261D558C80E98 /* ProximityTracker.swift */; };
 		2849F5ECE631236BBAD84856 /* NavigateToLocationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5326BC2A5756FCFBA7532F2E /* NavigateToLocationView.swift */; };
-		C2B55453D4F86C629529F51E /* BeaconID.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE947435DB967D7A19A6062E /* BeaconID.swift */; };
-		F00798947673B6B10B9257B0 /* PathLossModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDA1B22DA45AF2B72C45EEEF /* PathLossModel.swift */; };
-		BD4E3D742DB90E965CA24CB6 /* Point2D.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1045D8F6BB1EE6A27F5ECB6D /* Point2D.swift */; };
+		2FB87CA1912A5A29D19213F5 /* HandshakeChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97EB6440A1B62608F1EC436D /* HandshakeChannel.swift */; };
+		35478507556AAFD3BFAD0594 /* BeaconAdvertising.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2929275DA4EAFAAD2A3F74FE /* BeaconAdvertising.swift */; };
+		391106C8666F15394052AC69 /* SavedLocation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DEDFB5BDC4430BECF9BFC41 /* SavedLocation.swift */; };
+		42B76B3270129794D129A31E /* TrackingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1171D77DA3E0DED33FE0A2F6 /* TrackingView.swift */; };
 		466504E914688919D59FF79A /* Anchor.swift in Sources */ = {isa = PBXBuildFile; fileRef = C222CDD60C63F5528CD5999D /* Anchor.swift */; };
 		483F9B1D6BCBB715C663493F /* Multilateration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 090F8A62C92128CAA3092C81 /* Multilateration.swift */; };
-		805E4EE5F93590FBA4A2E0E7 /* BeaconSighting.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10DEF21ACE2311185263682 /* BeaconSighting.swift */; };
-		CC616D04F7CA16E5FCF204D5 /* BeaconProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = B135F9581691E1163D4A88F4 /* BeaconProtocol.swift */; };
-		1483957E7DFE5989388F31FC /* PositioningTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED3DE53F020F6CD8150D6B37 /* PositioningTests.swift */; };
-		0732298A7528F79FF702A2A7 /* BeaconIDTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C83E489EA7DEACFEED2123B /* BeaconIDTests.swift */; };
-		35478507556AAFD3BFAD0594 /* BeaconAdvertising.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2929275DA4EAFAAD2A3F74FE /* BeaconAdvertising.swift */; };
-		68AC6F72871FAA74F599010E /* BeaconAdvertiser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40EC633C4FFBC5ECFFF455EC /* BeaconAdvertiser.swift */; };
-		0592133BD9F543E105224D9A /* BeaconScanning.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8E740EFEB6C510CB564D305 /* BeaconScanning.swift */; };
-		55EF7BD176FD2CA3F1B1AA08 /* BeaconScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73210D805147A7EFD959BA63 /* BeaconScanner.swift */; };
-		F662DD02D49D978D56891744 /* AnchorStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FD3CDEB0B5A211FF656A37F /* AnchorStore.swift */; };
-		59F620F3D6256160983BCF86 /* PositioningEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BFCCF757915E07BEC77C5E5 /* PositioningEngine.swift */; };
-		775E98163F33433EE7BB2D83 /* PositioningReporting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57DA62D3129370861CA9F021 /* PositioningReporting.swift */; };
-		8AB635B98CC4D2FA42543424 /* PositioningAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30524E0DD07A4CFB23211676 /* PositioningAPIClient.swift */; };
-		E19722A0C022957CA5402DFD /* EnvironmentValues+Positioning.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE916B23505F772D712C1AE9 /* EnvironmentValues+Positioning.swift */; };
-		E3079AB0C0A5C7D6CFE7024C /* PositioningModeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53D34C1CE5EBA2625E44E41E /* PositioningModeView.swift */; };
-		9BA0F83212B052175A4E1C22 /* AnchorBroadcastView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8ACF7BDB6F15F7D0F094D106 /* AnchorBroadcastView.swift */; };
-		1327A92D590CA2C39C651716 /* AnchorPositionEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D4DB0E7E1E098ADBCD33DB5 /* AnchorPositionEditor.swift */; };
-		98D038B747B66F5AF0D4AB36 /* ObserverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F68B0BE58278E431028CB5A /* ObserverView.swift */; };
-		9A7CBA535411713ACF7E1389 /* HandshakeState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DBC75D962E98A9100050293 /* HandshakeState.swift */; };
-		965AEA91AEB322E52741E215 /* RangingState.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDFE13A3C2626DE74972FCC5 /* RangingState.swift */; };
-		D51D4453744F1640D99134A2 /* TrackingLogEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 002D0026B9D35C44E6041E05 /* TrackingLogEntry.swift */; };
-		2FB87CA1912A5A29D19213F5 /* HandshakeChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97EB6440A1B62608F1EC436D /* HandshakeChannel.swift */; };
+		4CF1EDB1924A77191CB93BA3 /* EnvironmentValues+Managers.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD5A1D50367633A63605ECD8 /* EnvironmentValues+Managers.swift */; };
 		5354171F4EDC7A93970C4B47 /* BLEHandshake.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A434BEF72BFECEAB964A146 /* BLEHandshake.swift */; };
-		D0FF97F50BFD9320F8A534A2 /* ProximityTracking.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06D2A5EA6C42151C9D837CD8 /* ProximityTracking.swift */; };
-		1EECF39FBCA7119E4AE5F7CF /* ProximityTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25A3EF66CD4261D558C80E98 /* ProximityTracker.swift */; };
+		55EF7BD176FD2CA3F1B1AA08 /* BeaconScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73210D805147A7EFD959BA63 /* BeaconScanner.swift */; };
+		59F620F3D6256160983BCF86 /* PositioningEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BFCCF757915E07BEC77C5E5 /* PositioningEngine.swift */; };
+		5C14A5BA2E49B77C0FAA6926 /* PositioningPreviewFakes.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCDFDB3F7D214ACC4B101DDC /* PositioningPreviewFakes.swift */; };
+		5C1D4036A1A906BAB604258A /* UWBManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F6526C0A9AD158D22944812 /* UWBManager.swift */; };
 		5C5B53E7FDF8EFF3F876F40D /* BLEHandshakeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91D5A2546BF3FA9E036BA20F /* BLEHandshakeTests.swift */; };
+		68AC6F72871FAA74F599010E /* BeaconAdvertiser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40EC633C4FFBC5ECFFF455EC /* BeaconAdvertiser.swift */; };
+		6987DD866EB806D4F71A095F /* TrackerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 007ACF35B52B1DAF1B483383 /* TrackerApp.swift */; };
+		775E98163F33433EE7BB2D83 /* PositioningReporting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57DA62D3129370861CA9F021 /* PositioningReporting.swift */; };
+		782ADFAAA9875E62B74F803E /* UWBManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E93860EA18C14D02A6C521D7 /* UWBManagerTests.swift */; };
+		805E4EE5F93590FBA4A2E0E7 /* BeaconSighting.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10DEF21ACE2311185263682 /* BeaconSighting.swift */; };
 		81F17E9120E79A10DE5E10DF /* ProximityTrackerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38D23574686F211E6D22CCBB /* ProximityTrackerTests.swift */; };
+		8AB635B98CC4D2FA42543424 /* PositioningAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30524E0DD07A4CFB23211676 /* PositioningAPIClient.swift */; };
+		8DB7A5F2877ACC17A4F87514 /* ARPositionTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B3EFE2E6949FDBA478FBDD1 /* ARPositionTracker.swift */; };
+		9231306B6B5835FA6F6CE63C /* FingerprintRecorderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9503B60B63ACF4B182622A26 /* FingerprintRecorderTests.swift */; };
+		965AEA91AEB322E52741E215 /* RangingState.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDFE13A3C2626DE74972FCC5 /* RangingState.swift */; };
+		98D038B747B66F5AF0D4AB36 /* ObserverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F68B0BE58278E431028CB5A /* ObserverView.swift */; };
+		9A0C4D1853B43EC7689E732E /* DeviceIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31D552D97F4753A3F96F5770 /* DeviceIdentity.swift */; };
+		9A7CBA535411713ACF7E1389 /* HandshakeState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DBC75D962E98A9100050293 /* HandshakeState.swift */; };
+		9BA0F83212B052175A4E1C22 /* AnchorBroadcastView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8ACF7BDB6F15F7D0F094D106 /* AnchorBroadcastView.swift */; };
+		9FEF663F96FB0C326C07065C /* SavedLocationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F14B29308C4CBD4720D76EEC /* SavedLocationStore.swift */; };
+		BD4E3D742DB90E965CA24CB6 /* Point2D.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1045D8F6BB1EE6A27F5ECB6D /* Point2D.swift */; };
+		BFA2026567664E9B773989E2 /* UWBManaging.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9D6B0D3E1D3BE3418C1E26F /* UWBManaging.swift */; };
+		C2B55453D4F86C629529F51E /* BeaconID.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE947435DB967D7A19A6062E /* BeaconID.swift */; };
+		C9C615AC8BEAFFA143387502 /* AccelerometerReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAEFC8DB0247F380EC1B2AB1 /* AccelerometerReader.swift */; };
+		CC616D04F7CA16E5FCF204D5 /* BeaconProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = B135F9581691E1163D4A88F4 /* BeaconProtocol.swift */; };
+		D0FF97F50BFD9320F8A534A2 /* ProximityTracking.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06D2A5EA6C42151C9D837CD8 /* ProximityTracking.swift */; };
+		D51D4453744F1640D99134A2 /* TrackingLogEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 002D0026B9D35C44E6041E05 /* TrackingLogEntry.swift */; };
+		D73EF119E2EA6B08E72615D4 /* ARAnchorCaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2079EB22957462DC6A3E3F25 /* ARAnchorCaptureView.swift */; };
+		D9314950B57D6E27C9CD6600 /* FingerprintRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = F40D8DEB867436E45915221B /* FingerprintRecord.swift */; };
+		E19722A0C022957CA5402DFD /* EnvironmentValues+Positioning.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE916B23505F772D712C1AE9 /* EnvironmentValues+Positioning.swift */; };
+		E27E7E00BA768615DE9E5492 /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4745D3EC46ABBA157BF1C69C /* MainView.swift */; };
+		E3079AB0C0A5C7D6CFE7024C /* PositioningModeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53D34C1CE5EBA2625E44E41E /* PositioningModeView.swift */; };
+		EFDA45D1AE7760BF84B17AF1 /* AccelerometerReading.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDEFF127D6C5FE7347B20503 /* AccelerometerReading.swift */; };
+		F00798947673B6B10B9257B0 /* PathLossModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDA1B22DA45AF2B72C45EEEF /* PathLossModel.swift */; };
+		F662DD02D49D978D56891744 /* AnchorStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FD3CDEB0B5A211FF656A37F /* AnchorStore.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -66,59 +72,79 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		002D0026B9D35C44E6041E05 /* TrackingLogEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackingLogEntry.swift; sourceTree = "<group>"; };
 		007ACF35B52B1DAF1B483383 /* TrackerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackerApp.swift; sourceTree = "<group>"; };
+		06D2A5EA6C42151C9D837CD8 /* ProximityTracking.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProximityTracking.swift; sourceTree = "<group>"; };
+		090F8A62C92128CAA3092C81 /* Multilateration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Multilateration.swift; sourceTree = "<group>"; };
+		0BFCCF757915E07BEC77C5E5 /* PositioningEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PositioningEngine.swift; sourceTree = "<group>"; };
+		0C83E489EA7DEACFEED2123B /* BeaconIDTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeaconIDTests.swift; sourceTree = "<group>"; };
 		0F6526C0A9AD158D22944812 /* UWBManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UWBManager.swift; sourceTree = "<group>"; };
+		1045D8F6BB1EE6A27F5ECB6D /* Point2D.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Point2D.swift; sourceTree = "<group>"; };
 		1171D77DA3E0DED33FE0A2F6 /* TrackingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackingView.swift; sourceTree = "<group>"; };
+		122486DBAB88ED59DE4A0829 /* ARPositionTracking.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARPositionTracking.swift; sourceTree = "<group>"; };
+		1F68B0BE58278E431028CB5A /* ObserverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObserverView.swift; sourceTree = "<group>"; };
+		1FD3CDEB0B5A211FF656A37F /* AnchorStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnchorStore.swift; sourceTree = "<group>"; };
+		2079EB22957462DC6A3E3F25 /* ARAnchorCaptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARAnchorCaptureView.swift; sourceTree = "<group>"; };
+		25A3EF66CD4261D558C80E98 /* ProximityTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProximityTracker.swift; sourceTree = "<group>"; };
+		2929275DA4EAFAAD2A3F74FE /* BeaconAdvertising.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeaconAdvertising.swift; sourceTree = "<group>"; };
+		30524E0DD07A4CFB23211676 /* PositioningAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PositioningAPIClient.swift; sourceTree = "<group>"; };
 		31D552D97F4753A3F96F5770 /* DeviceIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceIdentity.swift; sourceTree = "<group>"; };
+		38D23574686F211E6D22CCBB /* ProximityTrackerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProximityTrackerTests.swift; sourceTree = "<group>"; };
+		3B3EFE2E6949FDBA478FBDD1 /* ARPositionTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARPositionTracker.swift; sourceTree = "<group>"; };
+		3DBC75D962E98A9100050293 /* HandshakeState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HandshakeState.swift; sourceTree = "<group>"; };
+		40EC633C4FFBC5ECFFF455EC /* BeaconAdvertiser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeaconAdvertiser.swift; sourceTree = "<group>"; };
 		411E2F9BBDC2FE754A5587B6 /* TrackerApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TrackerApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4745D3EC46ABBA157BF1C69C /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
-		A8E68231E6157B14BF5B5D6A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		B53C73EB817AF137202FE75A /* TrackerAppTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = TrackerAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		BCE579A1D91B4344FD20A857 /* TrackerApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TrackerApp.entitlements; sourceTree = "<group>"; };
-		E93860EA18C14D02A6C521D7 /* UWBManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UWBManagerTests.swift; sourceTree = "<group>"; };
-		F9D6B0D3E1D3BE3418C1E26F /* UWBManaging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UWBManaging.swift; sourceTree = "<group>"; };
-		FD5A1D50367633A63605ECD8 /* EnvironmentValues+Managers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnvironmentValues+Managers.swift"; sourceTree = "<group>"; };
-		122486DBAB88ED59DE4A0829 /* ARPositionTracking.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARPositionTracking.swift; sourceTree = "<group>"; };
-		3B3EFE2E6949FDBA478FBDD1 /* ARPositionTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARPositionTracker.swift; sourceTree = "<group>"; };
-		2079EB22957462DC6A3E3F25 /* ARAnchorCaptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARAnchorCaptureView.swift; sourceTree = "<group>"; };
-		FCDFDB3F7D214ACC4B101DDC /* PositioningPreviewFakes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PositioningPreviewFakes.swift; sourceTree = "<group>"; };
 		4DEDFB5BDC4430BECF9BFC41 /* SavedLocation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedLocation.swift; sourceTree = "<group>"; };
-		F14B29308C4CBD4720D76EEC /* SavedLocationStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedLocationStore.swift; sourceTree = "<group>"; };
 		5326BC2A5756FCFBA7532F2E /* NavigateToLocationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigateToLocationView.swift; sourceTree = "<group>"; };
-		EE947435DB967D7A19A6062E /* BeaconID.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeaconID.swift; sourceTree = "<group>"; };
-		DDA1B22DA45AF2B72C45EEEF /* PathLossModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PathLossModel.swift; sourceTree = "<group>"; };
-		1045D8F6BB1EE6A27F5ECB6D /* Point2D.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Point2D.swift; sourceTree = "<group>"; };
-		C222CDD60C63F5528CD5999D /* Anchor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Anchor.swift; sourceTree = "<group>"; };
-		090F8A62C92128CAA3092C81 /* Multilateration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Multilateration.swift; sourceTree = "<group>"; };
-		E10DEF21ACE2311185263682 /* BeaconSighting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeaconSighting.swift; sourceTree = "<group>"; };
-		B135F9581691E1163D4A88F4 /* BeaconProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeaconProtocol.swift; sourceTree = "<group>"; };
-		ED3DE53F020F6CD8150D6B37 /* PositioningTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PositioningTests.swift; sourceTree = "<group>"; };
-		0C83E489EA7DEACFEED2123B /* BeaconIDTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeaconIDTests.swift; sourceTree = "<group>"; };
-		2929275DA4EAFAAD2A3F74FE /* BeaconAdvertising.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeaconAdvertising.swift; sourceTree = "<group>"; };
-		40EC633C4FFBC5ECFFF455EC /* BeaconAdvertiser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeaconAdvertiser.swift; sourceTree = "<group>"; };
-		B8E740EFEB6C510CB564D305 /* BeaconScanning.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeaconScanning.swift; sourceTree = "<group>"; };
-		73210D805147A7EFD959BA63 /* BeaconScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeaconScanner.swift; sourceTree = "<group>"; };
-		1FD3CDEB0B5A211FF656A37F /* AnchorStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnchorStore.swift; sourceTree = "<group>"; };
-		0BFCCF757915E07BEC77C5E5 /* PositioningEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PositioningEngine.swift; sourceTree = "<group>"; };
-		57DA62D3129370861CA9F021 /* PositioningReporting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PositioningReporting.swift; sourceTree = "<group>"; };
-		30524E0DD07A4CFB23211676 /* PositioningAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PositioningAPIClient.swift; sourceTree = "<group>"; };
-		EE916B23505F772D712C1AE9 /* EnvironmentValues+Positioning.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnvironmentValues+Positioning.swift"; sourceTree = "<group>"; };
 		53D34C1CE5EBA2625E44E41E /* PositioningModeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PositioningModeView.swift; sourceTree = "<group>"; };
-		8ACF7BDB6F15F7D0F094D106 /* AnchorBroadcastView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnchorBroadcastView.swift; sourceTree = "<group>"; };
+		57DA62D3129370861CA9F021 /* PositioningReporting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PositioningReporting.swift; sourceTree = "<group>"; };
+		5925B9AE366527BFB997200D /* FingerprintCollectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FingerprintCollectorView.swift; sourceTree = "<group>"; };
 		5D4DB0E7E1E098ADBCD33DB5 /* AnchorPositionEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnchorPositionEditor.swift; sourceTree = "<group>"; };
-		1F68B0BE58278E431028CB5A /* ObserverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObserverView.swift; sourceTree = "<group>"; };
-		3DBC75D962E98A9100050293 /* HandshakeState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HandshakeState.swift; sourceTree = "<group>"; };
-		DDFE13A3C2626DE74972FCC5 /* RangingState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RangingState.swift; sourceTree = "<group>"; };
-		002D0026B9D35C44E6041E05 /* TrackingLogEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackingLogEntry.swift; sourceTree = "<group>"; };
-		97EB6440A1B62608F1EC436D /* HandshakeChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HandshakeChannel.swift; sourceTree = "<group>"; };
+		6F1935678E05D95388B7E6D5 /* FingerprintRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FingerprintRecorder.swift; sourceTree = "<group>"; };
+		73210D805147A7EFD959BA63 /* BeaconScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeaconScanner.swift; sourceTree = "<group>"; };
 		8A434BEF72BFECEAB964A146 /* BLEHandshake.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BLEHandshake.swift; sourceTree = "<group>"; };
-		06D2A5EA6C42151C9D837CD8 /* ProximityTracking.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProximityTracking.swift; sourceTree = "<group>"; };
-		25A3EF66CD4261D558C80E98 /* ProximityTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProximityTracker.swift; sourceTree = "<group>"; };
+		8ACF7BDB6F15F7D0F094D106 /* AnchorBroadcastView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnchorBroadcastView.swift; sourceTree = "<group>"; };
 		91D5A2546BF3FA9E036BA20F /* BLEHandshakeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BLEHandshakeTests.swift; sourceTree = "<group>"; };
-		38D23574686F211E6D22CCBB /* ProximityTrackerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProximityTrackerTests.swift; sourceTree = "<group>"; };
+		9503B60B63ACF4B182622A26 /* FingerprintRecorderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FingerprintRecorderTests.swift; sourceTree = "<group>"; };
+		97EB6440A1B62608F1EC436D /* HandshakeChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HandshakeChannel.swift; sourceTree = "<group>"; };
+		A8E68231E6157B14BF5B5D6A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		B135F9581691E1163D4A88F4 /* BeaconProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeaconProtocol.swift; sourceTree = "<group>"; };
+		B53C73EB817AF137202FE75A /* TrackerAppTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = TrackerAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B8E740EFEB6C510CB564D305 /* BeaconScanning.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeaconScanning.swift; sourceTree = "<group>"; };
+		BAEFC8DB0247F380EC1B2AB1 /* AccelerometerReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccelerometerReader.swift; sourceTree = "<group>"; };
+		BCE579A1D91B4344FD20A857 /* TrackerApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TrackerApp.entitlements; sourceTree = "<group>"; };
+		C222CDD60C63F5528CD5999D /* Anchor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Anchor.swift; sourceTree = "<group>"; };
+		DDA1B22DA45AF2B72C45EEEF /* PathLossModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PathLossModel.swift; sourceTree = "<group>"; };
+		DDFE13A3C2626DE74972FCC5 /* RangingState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RangingState.swift; sourceTree = "<group>"; };
+		E10DEF21ACE2311185263682 /* BeaconSighting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeaconSighting.swift; sourceTree = "<group>"; };
+		E93860EA18C14D02A6C521D7 /* UWBManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UWBManagerTests.swift; sourceTree = "<group>"; };
+		ED3DE53F020F6CD8150D6B37 /* PositioningTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PositioningTests.swift; sourceTree = "<group>"; };
+		EE916B23505F772D712C1AE9 /* EnvironmentValues+Positioning.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnvironmentValues+Positioning.swift"; sourceTree = "<group>"; };
+		EE947435DB967D7A19A6062E /* BeaconID.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeaconID.swift; sourceTree = "<group>"; };
+		F14B29308C4CBD4720D76EEC /* SavedLocationStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedLocationStore.swift; sourceTree = "<group>"; };
+		F40D8DEB867436E45915221B /* FingerprintRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FingerprintRecord.swift; sourceTree = "<group>"; };
+		F9D6B0D3E1D3BE3418C1E26F /* UWBManaging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UWBManaging.swift; sourceTree = "<group>"; };
+		FCDFDB3F7D214ACC4B101DDC /* PositioningPreviewFakes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PositioningPreviewFakes.swift; sourceTree = "<group>"; };
+		FD5A1D50367633A63605ECD8 /* EnvironmentValues+Managers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnvironmentValues+Managers.swift"; sourceTree = "<group>"; };
+		FDEFF127D6C5FE7347B20503 /* AccelerometerReading.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccelerometerReading.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
+		018A445279B7EADC44EC606F /* Positioning */ = {
+			isa = PBXGroup;
+			children = (
+				53D34C1CE5EBA2625E44E41E /* PositioningModeView.swift */,
+				8ACF7BDB6F15F7D0F094D106 /* AnchorBroadcastView.swift */,
+				5D4DB0E7E1E098ADBCD33DB5 /* AnchorPositionEditor.swift */,
+				1F68B0BE58278E431028CB5A /* ObserverView.swift */,
+				2079EB22957462DC6A3E3F25 /* ARAnchorCaptureView.swift */,
+				5326BC2A5756FCFBA7532F2E /* NavigateToLocationView.swift */,
+				5925B9AE366527BFB997200D /* FingerprintCollectorView.swift */,
+			);
+			path = Positioning;
+			sourceTree = "<group>";
+		};
 		3C1AD65526BF3A6B77D3FEC0 /* Models */ = {
 			isa = PBXGroup;
 			children = (
@@ -139,20 +165,6 @@
 			);
 			name = UI;
 			path = TrackerApp/UI;
-			sourceTree = "<group>";
-		};
-		018A445279B7EADC44EC606F /* Positioning */ = {
-			isa = PBXGroup;
-			children = (
-				53D34C1CE5EBA2625E44E41E /* PositioningModeView.swift */,
-				8ACF7BDB6F15F7D0F094D106 /* AnchorBroadcastView.swift */,
-				5D4DB0E7E1E098ADBCD33DB5 /* AnchorPositionEditor.swift */,
-				1F68B0BE58278E431028CB5A /* ObserverView.swift */,
-				2079EB22957462DC6A3E3F25 /* ARAnchorCaptureView.swift */,
-				5326BC2A5756FCFBA7532F2E /* NavigateToLocationView.swift */,
-			);
-			name = Positioning;
-			path = Positioning;
 			sourceTree = "<group>";
 		};
 		7639DB0570832929C6FC10EB = {
@@ -228,8 +240,11 @@
 				FCDFDB3F7D214ACC4B101DDC /* PositioningPreviewFakes.swift */,
 				4DEDFB5BDC4430BECF9BFC41 /* SavedLocation.swift */,
 				F14B29308C4CBD4720D76EEC /* SavedLocationStore.swift */,
+				FDEFF127D6C5FE7347B20503 /* AccelerometerReading.swift */,
+				BAEFC8DB0247F380EC1B2AB1 /* AccelerometerReader.swift */,
+				F40D8DEB867436E45915221B /* FingerprintRecord.swift */,
+				6F1935678E05D95388B7E6D5 /* FingerprintRecorder.swift */,
 			);
-			name = Positioning;
 			path = Positioning;
 			sourceTree = "<group>";
 		};
@@ -241,6 +256,7 @@
 				0C83E489EA7DEACFEED2123B /* BeaconIDTests.swift */,
 				91D5A2546BF3FA9E036BA20F /* BLEHandshakeTests.swift */,
 				38D23574686F211E6D22CCBB /* ProximityTrackerTests.swift */,
+				9503B60B63ACF4B182622A26 /* FingerprintRecorderTests.swift */,
 			);
 			name = TrackerAppTests;
 			path = TrackerApp/Tests/TrackerAppTests;
@@ -294,6 +310,7 @@
 				LastUpgradeCheck = 1420;
 			};
 			buildConfigurationList = 70C72A80AAF8B52B90E8111A /* Build configuration list for PBXProject "TrackerApp" */;
+			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -358,6 +375,11 @@
 				5354171F4EDC7A93970C4B47 /* BLEHandshake.swift in Sources */,
 				D0FF97F50BFD9320F8A534A2 /* ProximityTracking.swift in Sources */,
 				1EECF39FBCA7119E4AE5F7CF /* ProximityTracker.swift in Sources */,
+				EFDA45D1AE7760BF84B17AF1 /* AccelerometerReading.swift in Sources */,
+				C9C615AC8BEAFFA143387502 /* AccelerometerReader.swift in Sources */,
+				D9314950B57D6E27C9CD6600 /* FingerprintRecord.swift in Sources */,
+				0D11426731B247302C57FEA6 /* FingerprintRecorder.swift in Sources */,
+				0B808E5D1EA302F49E28FC36 /* FingerprintCollectorView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -370,6 +392,7 @@
 				0732298A7528F79FF702A2A7 /* BeaconIDTests.swift in Sources */,
 				5C5B53E7FDF8EFF3F876F40D /* BLEHandshakeTests.swift in Sources */,
 				81F17E9120E79A10DE5E10DF /* ProximityTrackerTests.swift in Sources */,
+				9231306B6B5835FA6F6CE63C /* FingerprintRecorderTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -388,6 +411,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -471,7 +495,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = TrackerApp/App/TrackerApp.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = RTYX4AYCN3;
+				DEVELOPMENT_TEAM = GJ77CF4AK3;
 				INFOPLIST_FILE = TrackerApp/App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -546,6 +570,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -566,7 +591,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = TrackerApp/App/TrackerApp.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = RTYX4AYCN3;
+				DEVELOPMENT_TEAM = GJ77CF4AK3;
 				INFOPLIST_FILE = TrackerApp/App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (

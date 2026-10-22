@@ -14,8 +14,8 @@ final class AnchorStore {
     }
 
     @discardableResult
-    func addAnchor(id: BeaconID, label: String? = nil, position: Point2D) -> Anchor {
-        let anchor = Anchor(id: id, label: label?.isEmpty == false ? label! : nextLabel(), position: position)
+    func addAnchor(id: BeaconID, label: String? = nil, position: Point2D, height: Double? = nil) -> Anchor {
+        let anchor = Anchor(id: id, label: label?.isEmpty == false ? label! : nextLabel(), position: position, height: height)
         anchors.removeAll { $0.id == id }
         anchors.append(anchor)
         persist()
@@ -25,6 +25,10 @@ final class AnchorStore {
     func removeAnchor(id: BeaconID) {
         anchors.removeAll { $0.id == id }
         persist()
+    }
+
+    func anchor(id: BeaconID) -> Anchor? {
+        anchors.first { $0.id == id }
     }
 
     private func nextLabel() -> String {

@@ -18,6 +18,8 @@
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>TrackerApp uses Bluetooth to find another nearby iPhone running TrackerApp and swap the tokens it needs to measure the distance to it, and to detect indoor positioning anchors.</string>
 	<key>NSCameraUsageDescription</key>
@@ -31,6 +33,8 @@
 		<key>UIApplicationSupportsMultipleScenes</key>
 		<false/>
 	</dict>
+	<key>UIFileSharingEnabled</key>
+	<true/>
 	<key>UILaunchScreen</key>
 	<dict/>
 </dict>

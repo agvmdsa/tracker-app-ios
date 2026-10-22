@@ -14,9 +14,12 @@ final class BeaconScanner: NSObject {
     }
 
     private static let staleAfter: TimeInterval = 5.0
+    /// What CoreBluetooth reports when it couldn't read the signal strength.
+    private static let rssiUnavailable = 127
 
     private(set) var sightings: [BeaconID: BeaconSighting] = [:]
     private(set) var isBluetoothUnavailable = false
+    var onSighting: ((BeaconSighting) -> Void)?
 
     private let centralManager: CBCentralManager
     private var scanRequested = false
@@ -77,9 +80,12 @@ extension BeaconScanner: CBCentralManagerDelegate {
         advertisementData: [String: Any],
         rssi RSSI: NSNumber
     ) {
-        guard let localName = advertisementData[CBAdvertisementDataLocalNameKey] as? String,
-              let beaconID = BeaconID(hex: localName)
+        guard let beaconID = BeaconProtocol.beaconID(in: advertisementData),
+              RSSI.intValue != Self.rssiUnavailable
         else { return }
-        sightings[beaconID] = BeaconSighting(beaconID: beaconID, rssi: RSSI.intValue, seenAt: Date())
+        // Both clocks are read here, the earliest point the app sees the advertisement.
+        let sighting = BeaconSighting(beaconID: beaconID, rssi: RSSI.intValue, seenAt: Date(), monotonicMs: MonotonicClock.nowMs())
+        sightings[beaconID] = sighting
+        onSighting?(sighting)
     }
 }

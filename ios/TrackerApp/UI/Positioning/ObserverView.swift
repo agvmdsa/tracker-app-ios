@@ -68,7 +68,7 @@ struct ObserverView: View {
                             .font(.system(.caption, design: .monospaced))
                             .foregroundStyle(.secondary)
                         Spacer()
-                        Text(String(format: "(%.1f, %.1f) m", anchor.position.x, anchor.position.y))
+                        Text(anchor.positionDescription)
                             .foregroundStyle(.secondary)
                     }
                 }
