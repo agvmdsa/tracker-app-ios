@@ -4,12 +4,12 @@ final class PositioningAPIClient: PositioningReporting, Sendable {
     private let baseURL: URL
     private let session: URLSession
 
-    /// Deployed on Railway (see the `api` repo's README) — reachable from any network, so this
-    /// no longer depends on the phone and the Mac running `docker compose` being on the same
-    /// Wi-Fi. Fall back to a LAN IP (`http://<mac-ip>:8000`) only if testing against a local
-    /// `docker compose up` instead.
+    /// Deployed on Render (see the `api_tracker_app` repo's README) — reachable from any
+    /// network, so this no longer depends on the phone and the Mac running `docker compose`
+    /// being on the same Wi-Fi. Fall back to a LAN IP (`http://<mac-ip>:8000`) only if testing
+    /// against a local `docker compose up` instead.
     init(
-        baseURL: URL = URL(string: "https://api-production-5c3f8.up.railway.app")!,
+        baseURL: URL = URL(string: "https://api-tracker-app.onrender.com")!,
         session: URLSession = .shared
     ) {
         self.baseURL = baseURL
