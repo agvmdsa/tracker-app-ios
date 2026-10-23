@@ -2,13 +2,29 @@ import Foundation
 
 final class PositioningAPIClient: PositioningReporting, Sendable {
     private let baseURL: URL
+    private let apiKey: String
     private let session: URLSession
 
+    /// Deployed on Render (see the `api_tracker_app` repo's README) — reachable from any
+    /// network, so this no longer depends on the phone and the Mac running `docker compose`
+    /// being on the same Wi-Fi. Fall back to a LAN IP (`http://<mac-ip>:8000`) only if testing
+    /// against a local `docker compose up` instead.
+    ///
+    /// `apiKey` must match the server's `API_KEY` environment variable exactly — it's a single
+    /// shared secret (not per-device auth), just enough to keep random internet traffic from
+    /// writing to the database. See the `api_tracker_app` repo's README "Authentication" section.
+    ///
+    /// The default below is a placeholder, not a real secret — this file is committed to a
+    /// public repo, so the actual key can't live here. Replace it locally with whatever value
+    /// is set as `API_KEY` on the Render API service (ideally in an uncommitted change, so the
+    /// real key never ends up in git history).
     init(
-        baseURL: URL = URL(string: "https://TODO-replace-with-real-heatmap-api.example.com")!,
+        baseURL: URL = URL(string: "https://api-tracker-app.onrender.com")!,
+        apiKey: String = "REPLACE_WITH_THE_RENDER_API_KEY_VALUE",
         session: URLSession = .shared
     ) {
         self.baseURL = baseURL
+        self.apiKey = apiKey
         self.session = session
     }
 
@@ -24,6 +40,7 @@ final class PositioningAPIClient: PositioningReporting, Sendable {
         var request = URLRequest(url: baseURL.appendingPathComponent(path))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(apiKey, forHTTPHeaderField: "X-API-Key")
 
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601

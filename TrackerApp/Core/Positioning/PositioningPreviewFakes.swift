@@ -34,6 +34,7 @@ final class FakeBeaconScanning: BeaconScanning {
 
     func startScanning() {}
     func stopScanning() {}
+    func drainRecentRSSI(for beaconID: BeaconID) -> [Int] { [] }
 }
 
 @MainActor
