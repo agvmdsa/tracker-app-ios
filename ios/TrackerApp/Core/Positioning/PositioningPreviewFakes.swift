@@ -38,10 +38,34 @@ final class FakeBeaconScanning: BeaconScanning {
 }
 
 @MainActor
-final class FakeAccelerometerReading: AccelerometerReading {
-    var latest: AccelerometerSample?
+final class FakeDeviceMotionReading: DeviceMotionReading {
+    var latest: DeviceMotionSample?
 
-    init(latest: AccelerometerSample? = AccelerometerSample(x: 0.01, y: -0.02, z: -0.99)) {
+    init(latest: DeviceMotionSample? = DeviceMotionSample(roll: 0.01, pitch: -0.02, yaw: 1.2)) {
+        self.latest = latest
+    }
+
+    func start() {}
+    func stop() {}
+}
+
+@MainActor
+final class FakeAltitudeReading: AltitudeReading {
+    var latest: AltitudeSample?
+
+    init(latest: AltitudeSample? = AltitudeSample(relativeAltitudeM: 0, pressureKPa: 101.3)) {
+        self.latest = latest
+    }
+
+    func start() {}
+    func stop() {}
+}
+
+@MainActor
+final class FakeMotionActivityReading: MotionActivityReading {
+    var latest: MotionActivitySample?
+
+    init(latest: MotionActivitySample? = MotionActivitySample(state: .stationary, confidence: 2)) {
         self.latest = latest
     }
 

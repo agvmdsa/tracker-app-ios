@@ -45,7 +45,9 @@ final class FingerprintRecorder {
     var recordCount: Int { recordsPerBeacon.values.reduce(0, +) }
 
     private let scanner: any BeaconScanning
-    private let accelerometer: any AccelerometerReading
+    private let deviceMotion: any DeviceMotionReading
+    private let altimeter: any AltitudeReading
+    private let motionActivity: any MotionActivityReading
     /// The beacons with a position (`AnchorStore.anchors` in the app), copied into each recording.
     private let anchors: @MainActor () -> [Anchor]
     private let directory: URL
@@ -56,7 +58,9 @@ final class FingerprintRecorder {
 
     init(
         scanner: any BeaconScanning,
-        accelerometer: any AccelerometerReading,
+        deviceMotion: any DeviceMotionReading,
+        altimeter: any AltitudeReading,
+        motionActivity: any MotionActivityReading,
         anchors: @escaping @MainActor () -> [Anchor] = { [] },
         directory: URL = FingerprintRecorder.defaultDirectory,
         node: BeaconID = DeviceIdentity.beaconID,
@@ -64,7 +68,9 @@ final class FingerprintRecorder {
         systemVersion: String = DeviceIdentity.systemVersion
     ) {
         self.scanner = scanner
-        self.accelerometer = accelerometer
+        self.deviceMotion = deviceMotion
+        self.altimeter = altimeter
+        self.motionActivity = motionActivity
         self.anchors = anchors
         self.directory = directory
         self.node = node
@@ -78,14 +84,16 @@ final class FingerprintRecorder {
         BeaconLayoutCheck(anchors: anchors(), heard: scanner.sightings.keys)
     }
 
-    /// Starts listening to the beacons and the accelerometer; nothing is written until
+    /// Starts listening to the beacons and the sensors; nothing is written until
     /// `startRecording(label:duration:)`.
     func start() {
         scanner.onSighting = { [weak self] sighting in
             self?.record(sighting)
         }
         scanner.startScanning()
-        accelerometer.start()
+        deviceMotion.start()
+        altimeter.start()
+        motionActivity.start()
     }
 
     /// Stops listening. A recording still in progress is discarded, as with `cancelRecording()`.
@@ -93,7 +101,9 @@ final class FingerprintRecorder {
         cancelRecording()
         scanner.onSighting = nil
         scanner.stopScanning()
-        accelerometer.stop()
+        deviceMotion.stop()
+        altimeter.stop()
+        motionActivity.stop()
     }
 
     /// Records every advertisement for `duration` seconds, then stops on its own.
@@ -201,8 +211,10 @@ final class FingerprintRecorder {
             plannedDurationS: recording.endsAt.timeIntervalSince(recording.startedAt),
             recordsPerBeacon: Dictionary(uniqueKeysWithValues: recordsPerBeacon.map { ($0.key.value, $0.value) }),
             scanAPI: "CoreBluetooth scanForPeripherals, service UUID filter, allow duplicates, foreground",
-            accelerationConvention: "g, gravity included, device axes; lying still face up reads z = -1",
-            accelerationRateHz: 1 / AccelerometerReader.updateInterval,
+            orientationConvention: "radians, CMAttitude roll/pitch/yaw, xArbitraryZVertical reference frame (yaw is relative, not tied to true/magnetic north)",
+            orientationRateHz: 1 / DeviceMotionReader.updateInterval,
+            altitudeConvention: "metres, CMAltimeter relativeAltitude — relative to wherever altitude updates started this run of the app, not sea level or a floor number; pressure in kPa",
+            motionActivityConvention: "CMMotionActivity state (stationary/walking/running/automotive/cycling/unknown) and confidence (0=low, 1=medium, 2=high); an empty row value means no update had arrived yet or authorization wasn't granted, not literally 'unknown'",
             beacons: recording.beacons
                 .sorted { $0.id.value < $1.id.value }
                 .map(FingerprintRecordingMetadata.Beacon.init)
@@ -242,7 +254,9 @@ final class FingerprintRecorder {
             systemVersion: systemVersion,
             beacon: sighting.beaconID,
             rssi: sighting.rssi,
-            acceleration: accelerometer.latest,
+            orientation: deviceMotion.latest,
+            altitude: altimeter.latest,
+            motionActivity: motionActivity.latest,
             label: activeRecording.label
         )
         do {

@@ -28,11 +28,14 @@ struct FingerprintLabel: Equatable {
 }
 
 /// One row of a fingerprinting dataset: a single advertisement as this phone received it, how the
-/// phone was being held at the time, and where it was.
+/// phone was being held at the time, where it was, and what it was doing.
 struct FingerprintRecord {
     /// Column names follow the ESP32 collector's `R` records (`t_ms`, `node`, `beacon`, `rssi`,
     /// `session`, `point`, `x`, `y`) wherever the two overlap.
-    static let csvHeader = "t_ms,timestamp_ms,node,model,system_version,beacon,rssi,accel_x,accel_y,accel_z,session,point,x,y"
+    static let csvHeader = """
+    t_ms,timestamp_ms,node,model,system_version,beacon,rssi,roll,pitch,yaw,relative_altitude_m,\
+    pressure_kpa,motion_state,motion_confidence,session,point,x,y
+    """
 
     /// `t_ms`: monotonic milliseconds (`MonotonicClock`), for ordering and windowing the rows.
     let monotonicMs: Int64
@@ -44,16 +47,24 @@ struct FingerprintRecord {
     let systemVersion: String
     let beacon: BeaconID
     let rssi: Int
-    let acceleration: AccelerometerSample?
+    let orientation: DeviceMotionSample?
+    let altitude: AltitudeSample?
+    let motionActivity: MotionActivitySample?
     let label: FingerprintLabel
 
     var csvLine: String {
         let timestampMs = Int64((seenAt.timeIntervalSince1970 * 1000).rounded())
-        let accelerationFields = acceleration.map {
-            [String(format: "%.4f", $0.x), String(format: "%.4f", $0.y), String(format: "%.4f", $0.z)]
+        let orientationFields = orientation.map {
+            [String(format: "%.4f", $0.roll), String(format: "%.4f", $0.pitch), String(format: "%.4f", $0.yaw)]
         } ?? ["", "", ""]
+        let altitudeFields = altitude.map {
+            [String(format: "%.3f", $0.relativeAltitudeM), String(format: "%.3f", $0.pressureKPa)]
+        } ?? ["", ""]
+        let motionActivityFields = motionActivity.map { [$0.state.rawValue, String($0.confidence)] } ?? ["", ""]
         let fields = [String(monotonicMs), String(timestampMs), node.value, Self.quoted(model), Self.quoted(systemVersion), beacon.value, String(rssi)]
-            + accelerationFields
+            + orientationFields
+            + altitudeFields
+            + motionActivityFields
             + [label.session, label.point, String(format: "%.2f", label.x), String(format: "%.2f", label.y)]
         return fields.joined(separator: ",")
     }
@@ -92,9 +103,14 @@ struct FingerprintRecordingMetadata: Encodable, Equatable {
     let recordsPerBeacon: [String: Int]
     /// How advertisements were received, since it changes how many arrive.
     let scanAPI: String
-    /// Units and sign of `accel_x/y/z`, which other platforms have to convert to.
-    let accelerationConvention: String
-    let accelerationRateHz: Double
+    /// Units, axes and reference frame of `roll/pitch/yaw`, which other platforms have to convert to.
+    let orientationConvention: String
+    let orientationRateHz: Double
+    /// What `relative_altitude_m` is relative to, and that it isn't a floor number.
+    let altitudeConvention: String
+    /// What the `motion_state`/`motion_confidence` values mean, and that an empty row value means
+    /// no update had arrived yet (or authorization wasn't granted), not literally "unknown".
+    let motionActivityConvention: String
     /// Where each beacon was when the recording started, in the same frame as `x`/`y`. A copy, not a
     /// reference: moving a beacon later doesn't rewrite the recordings made before.
     let beacons: [Beacon]
@@ -144,8 +160,10 @@ struct FingerprintRecordingMetadata: Encodable, Equatable {
         case plannedDurationS = "planned_duration_s"
         case recordsPerBeacon = "records_per_beacon"
         case scanAPI = "scan_api"
-        case accelerationConvention = "acceleration_convention"
-        case accelerationRateHz = "acceleration_rate_hz"
+        case orientationConvention = "orientation_convention"
+        case orientationRateHz = "orientation_rate_hz"
+        case altitudeConvention = "altitude_convention"
+        case motionActivityConvention = "motion_activity_convention"
         case beacons
     }
 

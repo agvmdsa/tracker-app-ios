@@ -4,7 +4,9 @@ struct FingerprintCollectorView: View {
     let onExit: () -> Void
 
     @Environment(\.beaconScanner) private var scanner: any BeaconScanning
-    @Environment(\.accelerometer) private var accelerometer: any AccelerometerReading
+    @Environment(\.deviceMotion) private var deviceMotion: any DeviceMotionReading
+    @Environment(\.altimeter) private var altimeter: any AltitudeReading
+    @Environment(\.motionActivity) private var motionActivity: any MotionActivityReading
     @Environment(\.anchorStore) private var anchorStore: AnchorStore
     @State private var recorder: FingerprintRecorder?
     @State private var editingBeaconID: BeaconID?
@@ -113,7 +115,9 @@ struct FingerprintCollectorView: View {
                     LabeledContent("ID", value: recorder.node.value)
                     LabeledContent("Modelo", value: recorder.model)
                     LabeledContent("Sistema", value: recorder.systemVersion)
-                    AccelerometerRow(accelerometer: accelerometer)
+                    DeviceMotionRow(deviceMotion: deviceMotion)
+                    AltitudeRow(altimeter: altimeter)
+                    MotionActivityRow(motionActivity: motionActivity)
                 }
 
                 Section {
@@ -171,7 +175,13 @@ struct FingerprintCollectorView: View {
         }
         .onAppear {
             let anchorStore = anchorStore
-            let newRecorder = FingerprintRecorder(scanner: scanner, accelerometer: accelerometer, anchors: { anchorStore.anchors })
+            let newRecorder = FingerprintRecorder(
+                scanner: scanner,
+                deviceMotion: deviceMotion,
+                altimeter: altimeter,
+                motionActivity: motionActivity,
+                anchors: { anchorStore.anchors }
+            )
             recorder = newRecorder
             newRecorder.start()
         }
@@ -250,14 +260,43 @@ private struct BeaconRowView: View {
 }
 
 /// Its own view so the 50 readings a second only redraw this row, not the whole list.
-private struct AccelerometerRow: View {
-    let accelerometer: any AccelerometerReading
+private struct DeviceMotionRow: View {
+    let deviceMotion: any DeviceMotionReading
 
     var body: some View {
-        LabeledContent("Acelerômetro (g)") {
-            if let sample = accelerometer.latest {
-                Text(String(format: "%+.2f  %+.2f  %+.2f", sample.x, sample.y, sample.z))
+        LabeledContent("Orientação (rad)") {
+            if let sample = deviceMotion.latest {
+                Text(String(format: "%+.2f  %+.2f  %+.2f", sample.roll, sample.pitch, sample.yaw))
                     .monospacedDigit()
+            } else {
+                Text("indisponível")
+            }
+        }
+    }
+}
+
+private struct AltitudeRow: View {
+    let altimeter: any AltitudeReading
+
+    var body: some View {
+        LabeledContent("Altitude relativa (m)") {
+            if let sample = altimeter.latest {
+                Text(String(format: "%+.2f", sample.relativeAltitudeM))
+                    .monospacedDigit()
+            } else {
+                Text("indisponível")
+            }
+        }
+    }
+}
+
+private struct MotionActivityRow: View {
+    let motionActivity: any MotionActivityReading
+
+    var body: some View {
+        LabeledContent("Atividade") {
+            if let sample = motionActivity.latest {
+                Text("\(sample.state.rawValue) (confiança \(sample.confidence))")
             } else {
                 Text("indisponível")
             }
@@ -281,7 +320,9 @@ private struct AccelerometerRow: View {
     return NavigationView {
         FingerprintCollectorView(onExit: {})
             .environment(\.beaconScanner, scanner)
-            .environment(\.accelerometer, FakeAccelerometerReading())
+            .environment(\.deviceMotion, FakeDeviceMotionReading())
+            .environment(\.altimeter, FakeAltitudeReading())
+            .environment(\.motionActivity, FakeMotionActivityReading())
             .environment(\.anchorStore, anchorStore)
     }
 }

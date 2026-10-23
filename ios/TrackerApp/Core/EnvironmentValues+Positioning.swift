@@ -20,8 +20,16 @@ private struct SavedLocationStoreKey: EnvironmentKey {
     static let defaultValue = SavedLocationStore()
 }
 
-private struct AccelerometerReadingKey: EnvironmentKey {
-    static let defaultValue: any AccelerometerReading = AccelerometerReader()
+private struct DeviceMotionReadingKey: EnvironmentKey {
+    static let defaultValue: any DeviceMotionReading = DeviceMotionReader()
+}
+
+private struct AltitudeReadingKey: EnvironmentKey {
+    static let defaultValue: any AltitudeReading = AltitudeReader()
+}
+
+private struct MotionActivityReadingKey: EnvironmentKey {
+    static let defaultValue: any MotionActivityReading = MotionActivityReader()
 }
 
 extension EnvironmentValues {
@@ -50,8 +58,18 @@ extension EnvironmentValues {
         set { self[SavedLocationStoreKey.self] = newValue }
     }
 
-    var accelerometer: any AccelerometerReading {
-        get { self[AccelerometerReadingKey.self] }
-        set { self[AccelerometerReadingKey.self] = newValue }
+    var deviceMotion: any DeviceMotionReading {
+        get { self[DeviceMotionReadingKey.self] }
+        set { self[DeviceMotionReadingKey.self] = newValue }
+    }
+
+    var altimeter: any AltitudeReading {
+        get { self[AltitudeReadingKey.self] }
+        set { self[AltitudeReadingKey.self] = newValue }
+    }
+
+    var motionActivity: any MotionActivityReading {
+        get { self[MotionActivityReadingKey.self] }
+        set { self[MotionActivityReadingKey.self] = newValue }
     }
 }

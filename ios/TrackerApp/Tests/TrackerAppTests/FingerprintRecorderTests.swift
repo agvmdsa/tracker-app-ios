@@ -19,8 +19,26 @@ private final class FakeScanner: BeaconScanning {
 }
 
 @MainActor
-private final class FakeAccelerometer: AccelerometerReading {
-    var latest: AccelerometerSample?
+private final class FakeDeviceMotion: DeviceMotionReading {
+    var latest: DeviceMotionSample?
+    private(set) var isRunning = false
+
+    func start() { isRunning = true }
+    func stop() { isRunning = false }
+}
+
+@MainActor
+private final class FakeAltimeter: AltitudeReading {
+    var latest: AltitudeSample?
+    private(set) var isRunning = false
+
+    func start() { isRunning = true }
+    func stop() { isRunning = false }
+}
+
+@MainActor
+private final class FakeMotionActivity: MotionActivityReading {
+    var latest: MotionActivitySample?
     private(set) var isRunning = false
 
     func start() { isRunning = true }
@@ -35,7 +53,9 @@ final class FingerprintRecorderTests: XCTestCase {
 
     private var directory: URL!
     private var scanner: FakeScanner!
-    private var accelerometer: FakeAccelerometer!
+    private var deviceMotion: FakeDeviceMotion!
+    private var altimeter: FakeAltimeter!
+    private var motionActivity: FakeMotionActivity!
     /// What the recorder sees as the positioned beacons (the app's `AnchorStore.anchors`).
     private var anchors: [Anchor] = []
     private var sut: FingerprintRecorder!
@@ -44,7 +64,9 @@ final class FingerprintRecorderTests: XCTestCase {
         super.setUp()
         directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
         scanner = FakeScanner()
-        accelerometer = FakeAccelerometer()
+        deviceMotion = FakeDeviceMotion()
+        altimeter = FakeAltimeter()
+        motionActivity = FakeMotionActivity()
         anchors = []
         sut = makeRecorder()
     }
@@ -59,7 +81,9 @@ final class FingerprintRecorderTests: XCTestCase {
     private func makeRecorder() -> FingerprintRecorder {
         FingerprintRecorder(
             scanner: scanner,
-            accelerometer: accelerometer,
+            deviceMotion: deviceMotion,
+            altimeter: altimeter,
+            motionActivity: motionActivity,
             anchors: { [weak self] in self?.anchors ?? [] },
             directory: directory,
             node: node,
@@ -120,17 +144,19 @@ final class FingerprintRecorderTests: XCTestCase {
             systemVersion: "iOS 26.0.1",
             beacon: beaconA,
             rssi: -61,
-            acceleration: AccelerometerSample(x: 0.01, y: -0.02, z: -0.999),
+            orientation: DeviceMotionSample(roll: 0.01, pitch: -0.02, yaw: -0.999),
+            altitude: nil,
+            motionActivity: nil,
             label: FingerprintLabel(session: "S1", point: "P3", x: 2, y: 4.5)!
         )
 
         XCTAssertEqual(
             record.csvLine,
-            "86400123,1700000000123,9F3C1A02,\"iPhone15,2\",\"iOS 26.0.1\",1A2B3C4D,-61,0.0100,-0.0200,-0.9990,S1,P3,2.00,4.50"
+            "86400123,1700000000123,9F3C1A02,\"iPhone15,2\",\"iOS 26.0.1\",1A2B3C4D,-61,0.0100,-0.0200,-0.9990,,,,,S1,P3,2.00,4.50"
         )
     }
 
-    func test_csvLine_leavesTheAccelerationEmpty_whenThereIsNoReading() {
+    func test_csvLine_leavesTheSensorFieldsEmpty_whenThereIsNoReading() {
         let record = FingerprintRecord(
             monotonicMs: 5,
             seenAt: Date(timeIntervalSince1970: 0),
@@ -139,11 +165,13 @@ final class FingerprintRecorderTests: XCTestCase {
             systemVersion: "iOS 26.0.1",
             beacon: beaconA,
             rssi: -61,
-            acceleration: nil,
+            orientation: nil,
+            altitude: nil,
+            motionActivity: nil,
             label: FingerprintLabel(session: "S1", point: "P3", x: 0, y: 0)!
         )
 
-        XCTAssertEqual(record.csvLine, "5,0,9F3C1A02,\"iPhone15,2\",\"iOS 26.0.1\",1A2B3C4D,-61,,,,S1,P3,0.00,0.00")
+        XCTAssertEqual(record.csvLine, "5,0,9F3C1A02,\"iPhone15,2\",\"iOS 26.0.1\",1A2B3C4D,-61,,,,,,,,S1,P3,0.00,0.00")
     }
 
     func test_csvLine_hasAsManyFieldsAsTheHeader() {
@@ -155,7 +183,9 @@ final class FingerprintRecorderTests: XCTestCase {
             systemVersion: "iOS 26.0.1",
             beacon: beaconA,
             rssi: -61,
-            acceleration: nil,
+            orientation: nil,
+            altitude: nil,
+            motionActivity: nil,
             label: FingerprintLabel(session: "S1", point: "P3", x: 0, y: 0)!
         )
 
@@ -167,12 +197,14 @@ final class FingerprintRecorderTests: XCTestCase {
 
     // MARK: - FingerprintRecorder
 
-    func test_start_listensToTheBeaconsAndTheAccelerometer() {
+    func test_start_listensToTheBeaconsAndTheSensors() {
         sut.start()
 
         XCTAssertTrue(scanner.isScanning)
         XCTAssertNotNil(scanner.onSighting)
-        XCTAssertTrue(accelerometer.isRunning)
+        XCTAssertTrue(deviceMotion.isRunning)
+        XCTAssertTrue(altimeter.isRunning)
+        XCTAssertTrue(motionActivity.isRunning)
         XCTAssertFalse(sut.isRecording)
     }
 
@@ -183,7 +215,9 @@ final class FingerprintRecorderTests: XCTestCase {
 
         XCTAssertFalse(scanner.isScanning)
         XCTAssertNil(scanner.onSighting)
-        XCTAssertFalse(accelerometer.isRunning)
+        XCTAssertFalse(deviceMotion.isRunning)
+        XCTAssertFalse(altimeter.isRunning)
+        XCTAssertFalse(motionActivity.isRunning)
     }
 
     func test_recording_lastsTheRequestedTime() throws {
@@ -208,7 +242,7 @@ final class FingerprintRecorderTests: XCTestCase {
     func test_recording_writesTheHeader_thenOneRowPerAdvertisement() async throws {
         sut.start()
         scanner.deliver(beaconA, rssi: -50)  // before recording: not written
-        accelerometer.latest = AccelerometerSample(x: 0, y: 0, z: -1)
+        deviceMotion.latest = DeviceMotionSample(roll: 0, pitch: 0, yaw: -1)
 
         sut.startRecording(label: label, duration: shortDuration)
         scanner.deliver(beaconA, rssi: -61, at: Date(timeIntervalSince1970: 1), monotonicMs: 501)
@@ -220,9 +254,9 @@ final class FingerprintRecorderTests: XCTestCase {
         let url = try XCTUnwrap(sut.recordings.first)
         XCTAssertEqual(try lines(of: url), [
             FingerprintRecord.csvHeader,
-            "501,1000,9F3C1A02,\"iPhone15,2\",\"iOS 26.0.1\",1A2B3C4D,-61,0.0000,0.0000,-1.0000,S1,P3,2.00,4.50",
-            "1502,2000,9F3C1A02,\"iPhone15,2\",\"iOS 26.0.1\",B7E2F910,-72,0.0000,0.0000,-1.0000,S1,P3,2.00,4.50",
-            "2503,3000,9F3C1A02,\"iPhone15,2\",\"iOS 26.0.1\",1A2B3C4D,-63,0.0000,0.0000,-1.0000,S1,P3,2.00,4.50",
+            "501,1000,9F3C1A02,\"iPhone15,2\",\"iOS 26.0.1\",1A2B3C4D,-61,0.0000,0.0000,-1.0000,,,,,S1,P3,2.00,4.50",
+            "1502,2000,9F3C1A02,\"iPhone15,2\",\"iOS 26.0.1\",B7E2F910,-72,0.0000,0.0000,-1.0000,,,,,S1,P3,2.00,4.50",
+            "2503,3000,9F3C1A02,\"iPhone15,2\",\"iOS 26.0.1\",1A2B3C4D,-63,0.0000,0.0000,-1.0000,,,,,S1,P3,2.00,4.50",
         ])
     }
 
@@ -260,8 +294,10 @@ final class FingerprintRecorderTests: XCTestCase {
         let startedTimestampMs = try XCTUnwrap(metadata["started_timestamp_ms"] as? Int64)
         let endedTimestampMs = try XCTUnwrap(metadata["ended_timestamp_ms"] as? Int64)
         XCTAssertGreaterThanOrEqual(endedTimestampMs, startedTimestampMs)
-        XCTAssertNotNil(metadata["acceleration_convention"] as? String)
-        XCTAssertEqual(metadata["acceleration_rate_hz"] as? Double, 50)
+        XCTAssertNotNil(metadata["orientation_convention"] as? String)
+        XCTAssertEqual(metadata["orientation_rate_hz"] as? Double, 50)
+        XCTAssertNotNil(metadata["altitude_convention"] as? String)
+        XCTAssertNotNil(metadata["motion_activity_convention"] as? String)
     }
 
     func test_metadata_copiesTheBeaconPositionsAsTheyWereWhenTheRecordingStarted() async throws {

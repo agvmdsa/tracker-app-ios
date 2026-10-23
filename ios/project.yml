@@ -25,6 +25,7 @@ targets:
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
         NSNearbyInteractionUsageDescription: "TrackerApp uses Nearby Interaction (Ultra Wideband) to measure the precise distance and direction to another nearby iPhone running TrackerApp."
+        NSMotionUsageDescription: "TrackerApp uses motion data (whether you're standing still or walking) to label fingerprinting recordings more accurately."
         NSNearbyInteractionAllowOnceUsageDescription: "TrackerApp uses Nearby Interaction (Ultra Wideband) to measure the precise distance and direction to another nearby iPhone running TrackerApp."
         NSBluetoothAlwaysUsageDescription: "TrackerApp uses Bluetooth to find another nearby iPhone running TrackerApp and swap the tokens it needs to measure the distance to it, and to detect indoor positioning anchors."
         NSCameraUsageDescription: "TrackerApp uses the camera to improve direction accuracy when locating a nearby iPhone on models that require camera-assisted Nearby Interaction, and to track your position while placing anchors for indoor positioning."

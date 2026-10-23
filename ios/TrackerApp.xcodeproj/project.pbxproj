@@ -47,7 +47,11 @@
 		BD4E3D742DB90E965CA24CB6 /* Point2D.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1045D8F6BB1EE6A27F5ECB6D /* Point2D.swift */; };
 		BFA2026567664E9B773989E2 /* UWBManaging.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9D6B0D3E1D3BE3418C1E26F /* UWBManaging.swift */; };
 		C2B55453D4F86C629529F51E /* BeaconID.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE947435DB967D7A19A6062E /* BeaconID.swift */; };
-		C9C615AC8BEAFFA143387502 /* AccelerometerReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAEFC8DB0247F380EC1B2AB1 /* AccelerometerReader.swift */; };
+		C9C615AC8BEAFFA143387502 /* DeviceMotionReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAEFC8DB0247F380EC1B2AB1 /* DeviceMotionReader.swift */; };
+		532C8DBF2E1E0364FC0917D7 /* AltitudeReading.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38ACA40B4A704EEBFC281F6B /* AltitudeReading.swift */; };
+		CBD979AE0AFB103B963039CE /* AltitudeReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90837CBD63CD7607145CEF51 /* AltitudeReader.swift */; };
+		54CBAB50B504CFF592ED63DC /* MotionActivityReading.swift in Sources */ = {isa = PBXBuildFile; fileRef = A123B55B50C04A128E745810 /* MotionActivityReading.swift */; };
+		D99F594FF3FE0A280EC136F1 /* MotionActivityReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C8F0190AC18E4E942F28889 /* MotionActivityReader.swift */; };
 		CC616D04F7CA16E5FCF204D5 /* BeaconProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = B135F9581691E1163D4A88F4 /* BeaconProtocol.swift */; };
 		D0FF97F50BFD9320F8A534A2 /* ProximityTracking.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06D2A5EA6C42151C9D837CD8 /* ProximityTracking.swift */; };
 		D51D4453744F1640D99134A2 /* TrackingLogEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 002D0026B9D35C44E6041E05 /* TrackingLogEntry.swift */; };
@@ -56,7 +60,7 @@
 		E19722A0C022957CA5402DFD /* EnvironmentValues+Positioning.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE916B23505F772D712C1AE9 /* EnvironmentValues+Positioning.swift */; };
 		E27E7E00BA768615DE9E5492 /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4745D3EC46ABBA157BF1C69C /* MainView.swift */; };
 		E3079AB0C0A5C7D6CFE7024C /* PositioningModeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53D34C1CE5EBA2625E44E41E /* PositioningModeView.swift */; };
-		EFDA45D1AE7760BF84B17AF1 /* AccelerometerReading.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDEFF127D6C5FE7347B20503 /* AccelerometerReading.swift */; };
+		EFDA45D1AE7760BF84B17AF1 /* DeviceMotionReading.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDEFF127D6C5FE7347B20503 /* DeviceMotionReading.swift */; };
 		F00798947673B6B10B9257B0 /* PathLossModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDA1B22DA45AF2B72C45EEEF /* PathLossModel.swift */; };
 		F662DD02D49D978D56891744 /* AnchorStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FD3CDEB0B5A211FF656A37F /* AnchorStore.swift */; };
 /* End PBXBuildFile section */
@@ -112,7 +116,11 @@
 		B135F9581691E1163D4A88F4 /* BeaconProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeaconProtocol.swift; sourceTree = "<group>"; };
 		B53C73EB817AF137202FE75A /* TrackerAppTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = TrackerAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B8E740EFEB6C510CB564D305 /* BeaconScanning.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeaconScanning.swift; sourceTree = "<group>"; };
-		BAEFC8DB0247F380EC1B2AB1 /* AccelerometerReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccelerometerReader.swift; sourceTree = "<group>"; };
+		BAEFC8DB0247F380EC1B2AB1 /* DeviceMotionReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceMotionReader.swift; sourceTree = "<group>"; };
+		38ACA40B4A704EEBFC281F6B /* AltitudeReading.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AltitudeReading.swift; sourceTree = "<group>"; };
+		90837CBD63CD7607145CEF51 /* AltitudeReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AltitudeReader.swift; sourceTree = "<group>"; };
+		A123B55B50C04A128E745810 /* MotionActivityReading.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MotionActivityReading.swift; sourceTree = "<group>"; };
+		4C8F0190AC18E4E942F28889 /* MotionActivityReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MotionActivityReader.swift; sourceTree = "<group>"; };
 		BCE579A1D91B4344FD20A857 /* TrackerApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TrackerApp.entitlements; sourceTree = "<group>"; };
 		C222CDD60C63F5528CD5999D /* Anchor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Anchor.swift; sourceTree = "<group>"; };
 		DDA1B22DA45AF2B72C45EEEF /* PathLossModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PathLossModel.swift; sourceTree = "<group>"; };
@@ -127,7 +135,7 @@
 		F9D6B0D3E1D3BE3418C1E26F /* UWBManaging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UWBManaging.swift; sourceTree = "<group>"; };
 		FCDFDB3F7D214ACC4B101DDC /* PositioningPreviewFakes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PositioningPreviewFakes.swift; sourceTree = "<group>"; };
 		FD5A1D50367633A63605ECD8 /* EnvironmentValues+Managers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnvironmentValues+Managers.swift"; sourceTree = "<group>"; };
-		FDEFF127D6C5FE7347B20503 /* AccelerometerReading.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccelerometerReading.swift; sourceTree = "<group>"; };
+		FDEFF127D6C5FE7347B20503 /* DeviceMotionReading.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceMotionReading.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -240,8 +248,12 @@
 				FCDFDB3F7D214ACC4B101DDC /* PositioningPreviewFakes.swift */,
 				4DEDFB5BDC4430BECF9BFC41 /* SavedLocation.swift */,
 				F14B29308C4CBD4720D76EEC /* SavedLocationStore.swift */,
-				FDEFF127D6C5FE7347B20503 /* AccelerometerReading.swift */,
-				BAEFC8DB0247F380EC1B2AB1 /* AccelerometerReader.swift */,
+				FDEFF127D6C5FE7347B20503 /* DeviceMotionReading.swift */,
+				BAEFC8DB0247F380EC1B2AB1 /* DeviceMotionReader.swift */,
+				38ACA40B4A704EEBFC281F6B /* AltitudeReading.swift */,
+				90837CBD63CD7607145CEF51 /* AltitudeReader.swift */,
+				A123B55B50C04A128E745810 /* MotionActivityReading.swift */,
+				4C8F0190AC18E4E942F28889 /* MotionActivityReader.swift */,
 				F40D8DEB867436E45915221B /* FingerprintRecord.swift */,
 				6F1935678E05D95388B7E6D5 /* FingerprintRecorder.swift */,
 			);
@@ -375,8 +387,12 @@
 				5354171F4EDC7A93970C4B47 /* BLEHandshake.swift in Sources */,
 				D0FF97F50BFD9320F8A534A2 /* ProximityTracking.swift in Sources */,
 				1EECF39FBCA7119E4AE5F7CF /* ProximityTracker.swift in Sources */,
-				EFDA45D1AE7760BF84B17AF1 /* AccelerometerReading.swift in Sources */,
-				C9C615AC8BEAFFA143387502 /* AccelerometerReader.swift in Sources */,
+				EFDA45D1AE7760BF84B17AF1 /* DeviceMotionReading.swift in Sources */,
+				C9C615AC8BEAFFA143387502 /* DeviceMotionReader.swift in Sources */,
+				532C8DBF2E1E0364FC0917D7 /* AltitudeReading.swift in Sources */,
+				CBD979AE0AFB103B963039CE /* AltitudeReader.swift in Sources */,
+				54CBAB50B504CFF592ED63DC /* MotionActivityReading.swift in Sources */,
+				D99F594FF3FE0A280EC136F1 /* MotionActivityReader.swift in Sources */,
 				D9314950B57D6E27C9CD6600 /* FingerprintRecord.swift in Sources */,
 				0D11426731B247302C57FEA6 /* FingerprintRecorder.swift in Sources */,
 				0B808E5D1EA302F49E28FC36 /* FingerprintCollectorView.swift in Sources */,
