@@ -47,24 +47,33 @@ final class PositioningEngine {
 
     func refresh() {
         var readings: [AnchorRange] = []
+        var sampleStats: [BeaconID: (count: Int, stdDev: Double)] = [:]
         for anchor in anchorStore.anchors {
             guard let sighting = scanner.sightings[anchor.id] else { continue }
             let smoothed = PathLossModel.smooth(previous: smoothedRSSI[anchor.id], reading: sighting.rssi)
             smoothedRSSI[anchor.id] = smoothed
             readings.append(AnchorRange(anchor: anchor, distanceMeters: PathLossModel.distanceMeters(rssi: smoothed)))
+
+            let samples = scanner.drainRecentRSSI(for: anchor.id)
+            sampleStats[anchor.id] = (samples.count, Self.standardDeviation(of: samples))
         }
         anchorRanges = readings
         fix = Multilateration.solve(readings: readings)
 
         guard let reporter, !readings.isEmpty else { return }
         let observerID = observerID
+        let deviceModel = DeviceIdentity.hardwareModel
         let reports = readings.map { reading in
-            PositioningReport(
+            let stats = sampleStats[reading.anchor.id] ?? (0, 0)
+            return PositioningReport(
                 observerID: observerID.value,
                 anchorID: reading.anchor.id.value,
                 rssi: scanner.sightings[reading.anchor.id]?.rssi ?? 0,
                 distanceMeters: reading.distanceMeters,
-                seenAt: Date()
+                seenAt: Date(),
+                sampleCount: stats.count,
+                rssiStdDev: stats.stdDev,
+                deviceModel: deviceModel
             )
         }
         Task {
@@ -81,7 +90,8 @@ final class PositioningEngine {
             x: fix.position.x,
             y: fix.position.y,
             uncertaintyMeters: fix.uncertaintyMeters,
-            recordedAt: Date()
+            recordedAt: Date(),
+            anchorCount: readings.count
         )
         Task {
             do {
@@ -90,5 +100,14 @@ final class PositioningEngine {
                 Self.logger.error("failed to report fix: \(error.localizedDescription, privacy: .public)")
             }
         }
+    }
+
+    /// Sample standard deviation (n-1 denominator). 0 when there's fewer than 2 samples to
+    /// compare — "no variance information yet" rather than a misleading 0.0 "perfectly stable".
+    private static func standardDeviation(of samples: [Int]) -> Double {
+        guard samples.count > 1 else { return 0 }
+        let mean = Double(samples.reduce(0, +)) / Double(samples.count)
+        let variance = samples.reduce(0.0) { $0 + pow(Double($1) - mean, 2) } / Double(samples.count - 1)
+        return variance.squareRoot()
     }
 }

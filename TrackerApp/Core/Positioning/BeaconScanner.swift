@@ -18,6 +18,7 @@ final class BeaconScanner: NSObject {
     private(set) var sightings: [BeaconID: BeaconSighting] = [:]
     private(set) var isBluetoothUnavailable = false
 
+    private var recentRSSI: [BeaconID: [Int]] = [:]
     private let centralManager: CBCentralManager
     private var scanRequested = false
     private var pruneTimer: Timer?
@@ -51,6 +52,11 @@ final class BeaconScanner: NSObject {
         sightings = sightings.filter { $0.value.seenAt >= cutoff }
     }
 
+    func drainRecentRSSI(for beaconID: BeaconID) -> [Int] {
+        defer { recentRSSI[beaconID] = nil }
+        return recentRSSI[beaconID] ?? []
+    }
+
     private func beginScanning() {
         centralManager.scanForPeripherals(
             withServices: [BeaconProtocol.serviceUUID],
@@ -81,5 +87,6 @@ extension BeaconScanner: CBCentralManagerDelegate {
               let beaconID = BeaconID(hex: localName)
         else { return }
         sightings[beaconID] = BeaconSighting(beaconID: beaconID, rssi: RSSI.intValue, seenAt: Date())
+        recentRSSI[beaconID, default: []].append(RSSI.intValue)
     }
 }

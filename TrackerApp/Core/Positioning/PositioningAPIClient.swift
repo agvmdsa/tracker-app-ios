@@ -4,8 +4,12 @@ final class PositioningAPIClient: PositioningReporting, Sendable {
     private let baseURL: URL
     private let session: URLSession
 
+    /// Deployed on Railway (see the `api` repo's README) — reachable from any network, so this
+    /// no longer depends on the phone and the Mac running `docker compose` being on the same
+    /// Wi-Fi. Fall back to a LAN IP (`http://<mac-ip>:8000`) only if testing against a local
+    /// `docker compose up` instead.
     init(
-        baseURL: URL = URL(string: "https://TODO-replace-with-real-heatmap-api.example.com")!,
+        baseURL: URL = URL(string: "https://api-production-5c3f8.up.railway.app")!,
         session: URLSession = .shared
     ) {
         self.baseURL = baseURL

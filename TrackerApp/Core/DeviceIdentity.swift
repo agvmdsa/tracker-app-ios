@@ -33,4 +33,17 @@ enum DeviceIdentity {
         UserDefaults.standard.set(generated.value, forKey: beaconIDKey)
         return generated
     }
+
+    /// Hardware identifier (e.g. "iPhone14,2") rather than a marketing name — different models'
+    /// Bluetooth antennas read RSSI differently for the same physical distance, so this is what
+    /// a future per-model calibration offset would key off of.
+    static var hardwareModel: String {
+        var systemInfo = utsname()
+        uname(&systemInfo)
+        let machineMirror = Mirror(reflecting: systemInfo.machine)
+        return machineMirror.children.reduce(into: "") { identifier, element in
+            guard let value = element.value as? Int8, value != 0 else { return }
+            identifier += String(UnicodeScalar(UInt8(value)))
+        }
+    }
 }

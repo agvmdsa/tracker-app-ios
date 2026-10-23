@@ -29,6 +29,8 @@ targets:
         NSBonjourServices:
           - "_tracker-app._tcp"
           - "_tracker-app._udp"
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.airtagclone.TrackerApp
