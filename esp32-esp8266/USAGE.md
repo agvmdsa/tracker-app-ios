@@ -194,11 +194,58 @@ ser **exatamente** o mesmo valor da variável `API_KEY` do serviço da API no Re
 
 ## 8. Publicar no broker MQTT
 
-_A completar (T067)._
+Diferente do upload de fingerprint (capítulo 7, que só sobe em lote depois de uma gravação
+terminada), o MQTT carrega a telemetria **contínua** do coletor — uma mensagem por anúncio
+recebido, ociosa ou gravando, o mesmo dado das linhas `L`/`R` da serial. É o canal pensado pro
+monitoramento ao vivo, não pro dataset rotulado de ML.
 
-## 8. Publicar no broker MQTT
+**Configuração** (`include/config.h`):
 
-_A completar (T067)._
+```c
+#define ENABLE_WIFI 1
+#define WIFI_SSID "sua-rede"
+#define WIFI_PASSWORD "sua-senha"
+#define ENABLE_MQTT 1
+#define MQTT_HOST "192.168.0.10"   // IP do broker (Mosquitto local, Raspberry Pi, ou mosquitto do docker-compose da API)
+#define MQTT_PORT 1883
+#define MQTT_USER ""               // vazio = sem autenticação
+#define MQTT_PASSWORD ""
+#define TOPIC_PREFIX "tracker"
+```
+
+`ENABLE_MQTT` só tem efeito com `ENABLE_WIFI 1` também — sem Wi-Fi, não tem MQTT. Com `MQTT_USER`
+vazio, conecta sem usuário/senha (ok pro Mosquitto local do `docker-compose.yml` da API, que aceita
+conexão anônima; não use assim num broker exposto à internet).
+
+**Tópico**: `<TOPIC_PREFIX>/<node_id>/sightings` — por exemplo, `tracker/A1B2C3/sightings`. A API
+(`applications/api`) já tem um consumidor rodando (`app/mqtt_consumer.py`) que assina
+`tracker/+/sightings` (o `+` casa qualquer placa) e grava cada mensagem no Postgres, do mesmo jeito
+que `POST /sightings` grava.
+
+**Formato da mensagem** (JSON, não é o formato CSV-ish da serial):
+
+```json
+{"observerID": "A1B2C3", "anchorID": "9F3C1A02", "rssi": -67}
+```
+
+Só esses três campos — a placa não tem relógio de parede confiável nem sabe quantos
+`sampleCount`/`rssiStdDev` calcular sozinha, então a API usa o horário de recebimento no lugar de
+`seenAt`.
+
+**Testar rápido sem a placa** (simula o que o firmware manda):
+
+```bash
+# precisa do broker rodando: docker compose up mosquitto (dentro de applications/api)
+pip install paho-mqtt
+python3 -c "
+import paho.mqtt.client as mqtt, json
+c = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+c.connect('localhost', 1883)
+c.publish('tracker/TESTE01/sightings', json.dumps({'observerID': 'TESTE01', 'anchorID': 'BEAC0001', 'rssi': -55}))
+"
+```
+
+Depois confira se virou linha na tabela `sightings` do Postgres.
 
 ## 9. Solução de problemas
 

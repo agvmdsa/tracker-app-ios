@@ -19,9 +19,9 @@ parte do relatório final (isso vai em `docs/`), é só controle interno do time
 - [ ] **MQTT de verdade** — maior pendência. O PDF de Sistemas Embarcados exige o protocolo MQTT
   explicitamente (não é só "tempo real" — isso já está resolvido via SSE). Nada implementado
   ainda: nem broker, nem publicação, nem consumo.
-- [ ] **Dashboards do Grafana** — o datasource já está provisionado e as queries SQL prontas
-  (`grafana/queries.sql`: heatmap, ocupação, horário de pico, tempo de permanência), mas nenhum
-  painel/dashboard de fato foi criado e commitado ainda.
+- [x] ~~Dashboards do Grafana~~ — feito: `grafana/provisioning/dashboards/json/positioning-overview.json`,
+  4 painéis (hora de pico, densidade, ocupação, tempo de permanência), validados contra Postgres
+  real via `docker compose up` + API do Grafana.
 - [ ] **Sem testes automatizados** — toda validação até agora foi manual (`curl` contra Postgres
   real). Funciona, mas não tem suíte de testes no repositório.
 - [ ] **Sem migrations** (Alembic) — tabelas são criadas com `Base.metadata.create_all()` no

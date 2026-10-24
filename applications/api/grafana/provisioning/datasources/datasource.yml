@@ -2,6 +2,7 @@ apiVersion: 1
 
 datasources:
   - name: Positioning Postgres
+    uid: positioning-postgres
     type: postgres
     access: proxy
     url: $POSTGRES_HOST:$POSTGRES_PORT

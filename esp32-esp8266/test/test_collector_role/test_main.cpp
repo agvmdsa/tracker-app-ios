@@ -40,10 +40,11 @@ struct Rig {
     BoundedObservationQueue queue;
     CapturePublisher out;
     CaptureUploader uploader;
+    CaptureMqttPublisher mqtt;
     CaptureEvents events;
     CollectorRole role;
 
-    Rig() : role(radio, queue, out, uploader, clock, events) { clock.now = 1000; }
+    Rig() : role(radio, queue, out, uploader, mqtt, clock, events) { clock.now = 1000; }
 
     void startRole() { TEST_ASSERT_TRUE(role.start(collectorConfig())); }
     void hear(const char* id, int rssi, uint32_t tMs) { radio.inject(AdPayload::beaconPacket(id), rssi, tMs); }
@@ -167,6 +168,20 @@ static void test_idle_queues_nothing_for_upload() {
     TEST_ASSERT_TRUE(rig.uploader.rows.empty());
 }
 
+static void test_idle_still_publishes_the_sighting_over_mqtt() {
+    // Unlike the fingerprint uploader (labelled dataset, recording-only), MQTT carries the
+    // continuous live telemetry — it doesn't care whether a recording is running.
+    Rig rig;
+    rig.startRole();
+    rig.hear("AAAAAAAA", -60, 1100);
+    rig.clock.now = 2000;
+    rig.role.poll();
+    TEST_ASSERT_EQUAL_UINT(1, rig.mqtt.sightings.size());
+    TEST_ASSERT_EQUAL_STRING("A1B2C3", rig.mqtt.sightings[0].node.c_str());
+    TEST_ASSERT_EQUAL_STRING("AAAAAAAA", rig.mqtt.sightings[0].beacon.c_str());
+    TEST_ASSERT_EQUAL_INT(-60, rig.mqtt.sightings[0].rssi);
+}
+
 static void test_a_device_outside_the_protocol_produces_nothing() {
     Rig rig;
     rig.startRole();
@@ -208,6 +223,19 @@ static void test_recording_queues_the_same_rows_for_upload_as_it_prints() {
     TEST_ASSERT_EQUAL_INT(-61, row.rssi);
     TEST_ASSERT_EQUAL_STRING("S1", row.session);
     TEST_ASSERT_EQUAL_STRING("P3", row.point);
+}
+
+static void test_recording_also_publishes_the_sighting_over_mqtt() {
+    Rig rig;
+    rig.startRole();
+    rig.role.recording()->setLabel(label("S1", "P3", 2.0f, 4.5f));
+    rig.role.recording()->startRecording();
+    rig.hear("AAAAAAAA", -61, 1100);
+    rig.clock.now = 1600;
+    rig.role.poll();
+    TEST_ASSERT_EQUAL_UINT(1, rig.mqtt.sightings.size());
+    TEST_ASSERT_EQUAL_STRING("AAAAAAAA", rig.mqtt.sightings[0].beacon.c_str());
+    TEST_ASSERT_EQUAL_INT(-61, rig.mqtt.sightings[0].rssi);
 }
 
 static void test_recording_prints_no_live_lines() {
@@ -367,9 +395,11 @@ int main(int, char**) {
     RUN_TEST(test_idle_keeps_reporting_every_second_while_the_beacon_is_heard);
     RUN_TEST(test_idle_never_prints_labelled_lines);
     RUN_TEST(test_idle_queues_nothing_for_upload);
+    RUN_TEST(test_idle_still_publishes_the_sighting_over_mqtt);
     RUN_TEST(test_a_device_outside_the_protocol_produces_nothing);
     RUN_TEST(test_recording_prints_raw_lines_with_the_label_and_the_observation_time);
     RUN_TEST(test_recording_queues_the_same_rows_for_upload_as_it_prints);
+    RUN_TEST(test_recording_also_publishes_the_sighting_over_mqtt);
     RUN_TEST(test_recording_prints_no_live_lines);
     RUN_TEST(test_a_label_change_mid_recording_affects_only_later_lines);
     RUN_TEST(test_advertisements_heard_before_rec_start_are_not_recorded);

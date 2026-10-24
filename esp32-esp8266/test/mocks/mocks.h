@@ -18,6 +18,7 @@
 #include "hal/ble_port.h"
 #include "hal/clock.h"
 #include "hal/fingerprint_uploader.h"
+#include "hal/mqtt_publisher.h"
 #include "hal/publisher.h"
 #include "hal/store.h"
 #include "hal/system_info.h"
@@ -95,6 +96,19 @@ private:
     const char* own(const char* text) {
         owned_.emplace_back(text);
         return owned_.back().c_str();
+    }
+};
+
+struct CaptureMqttPublisher : IMqttPublisher {
+    struct Sighting {
+        std::string node;
+        std::string beacon;
+        int rssi;
+    };
+    std::vector<Sighting> sightings;
+    bool publishSighting(const char* node, const char* beacon, int rssi) override {
+        sightings.push_back({node, beacon, rssi});
+        return true;
     }
 };
 

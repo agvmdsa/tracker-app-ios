@@ -60,6 +60,10 @@ void RecordTask::drain() {
 }
 
 void RecordTask::handle(const domain::Observation& observation) {
+    // Published regardless of recording state: this is the continuous live telemetry feed, not
+    // the labelled fingerprint dataset (only `uploader_` below cares whether a recording is on).
+    mqtt_.publishSighting(node_, observation.beacon.value, observation.rssi);
+
     if (!state_.recording()) {
         live_.observe(observation);
         return;

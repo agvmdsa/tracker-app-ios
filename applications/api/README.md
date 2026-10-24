@@ -13,11 +13,21 @@ This directory is backend only — the live floor-plan map is a separate Next.js
 
 ## Stack
 
-- **FastAPI** (Python) — the two ingestion endpoints.
+- **FastAPI** (Python) — the ingestion endpoints.
 - **Postgres** — storage.
-- **Grafana** — reads Postgres directly (not through the API) for time-based dashboards. Comes
-  pre-provisioned with the Postgres datasource (`grafana/provisioning/datasources/datasource.yml`)
-  — no manual setup needed, just add dashboards.
+- **Mosquitto** (MQTT broker) + `app/mqtt_consumer.py` — the ESP32 collector's continuous,
+  unlabelled RSSI telemetry (one MQTT message per advertisement, idle or recording alike; see
+  `esp32-esp8266/USAGE.md` chapter 8), as opposed to `POST /sightings`/`/fingerprints`, which are
+  HTTP. The consumer subscribes to `tracker/+/sightings`, parses each JSON message, and persists
+  it the same way `POST /sightings` does. Optional — does nothing if `MQTT_HOST` isn't set.
+- **Grafana** — reads Postgres directly (not through the API) for time-based, historical
+  dashboards — the aggregate/time-series views the live floor-plan map (`../web`) doesn't cover.
+  Comes pre-provisioned with the Postgres datasource
+  (`grafana/provisioning/datasources/datasource.yml`) and a dashboard
+  (`grafana/provisioning/dashboards/json/positioning-overview.json`, provider config in
+  `grafana/provisioning/dashboards/dashboards.yml`) with 4 panels built from `grafana/queries.sql`:
+  peak hours, heatmap density, occupancy, and dwell time per grid cell. No manual setup needed —
+  `docker compose up` (or the Render deploy) shows it immediately.
 
 ## Running it
 
@@ -249,13 +259,14 @@ directly, each piece is added individually.
   internet traffic, not a motivated attacker who gets the key), but it's not what a real
   multi-device deployment would use (that'd need per-device keys/tokens, so a leaked or revoked
   key doesn't affect every phone).
-- **No migrations** — tables are created with `Base.metadata.create_all()` on startup. Fine while
-  the schema is still moving; switch to Alembic once it stabilizes.
-- **No Grafana dashboards committed yet** — `grafana/provisioning/dashboards/` is set up to receive
-  dashboard JSON exports once some exist, but none have been built.
-- **The floor-plan map (`../web`) is a skeleton** — the live dots/tracks work, but the room layout
-  (`src/lib/floor.ts`) still has placeholder coordinates, not a real deployment's measurements, and
-  there's no occupancy heatmap layer yet, just individual position dots.
+- **No migrations** — tables are created with `Base.metadata.create_all()` on startup, which only
+  creates tables that don't exist yet; it never alters an existing one. A local Postgres volume
+  from before a column was added keeps missing it until the volume is reset (`docker compose down
+  -v`) — this bit the Grafana dashboard panels below during their own validation. Switch to
+  Alembic once the schema stabilizes.
+- **The floor-plan map (`../web`) is a skeleton** — the live dots/tracks and the occupancy heatmap
+  layer both work, but the room layout (`src/lib/floor.ts`) still has placeholder coordinates, not
+  a real deployment's measurements.
 - **`GET /fixes/stream`'s pub/sub is in-process memory** (`app/broadcast.py`) — correct for the
   single Render instance this runs as today, but if this API is ever scaled to more than one
   worker/instance, a client connected to one process won't see fixes published on another. That'd

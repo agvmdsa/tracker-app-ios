@@ -9,6 +9,7 @@
 #include "hal/ble_port.h"
 #include "hal/clock.h"
 #include "hal/fingerprint_uploader.h"
+#include "hal/mqtt_publisher.h"
 #include "hal/publisher.h"
 #include "observation_queue.h"
 #include "record_task.h"
@@ -17,8 +18,8 @@
 class CollectorRole final : public IRole {
 public:
     CollectorRole(IBleRadio& radio, IObservationQueue& queue, IPublisher& out, IFingerprintUploader& uploader,
-                  IClock& clock, IEventSink& events)
-        : radio_(radio), queue_(queue), events_(events), task_(queue, out, uploader, clock, events) {}
+                  IMqttPublisher& mqtt, IClock& clock, IEventSink& events)
+        : radio_(radio), queue_(queue), events_(events), task_(queue, out, uploader, mqtt, clock, events) {}
 
     // Checks the scan interval and window, starts the scan and reports them. Returns false (after
     // reporting why) when the parameters are invalid or the radio could not start.

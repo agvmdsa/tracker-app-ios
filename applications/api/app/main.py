@@ -13,10 +13,12 @@ from sqlalchemy.orm import Session
 from app.broadcast import broadcaster
 from app.database import Base, engine, get_db
 from app.models import Fix, FingerprintRecord, Sighting
+from app.mqtt_consumer import start_mqtt_consumer, stop_mqtt_consumer
 from app.path_loss import distance_meters
 from app.schemas import FingerprintRecordIn, FixIn, FixOut, SightingIn
 
 app = FastAPI(title="TrackerApp Positioning API")
+_mqtt_client = None
 
 # The web map (applications/web) is a browser app on a different origin, so it needs CORS to
 # read GET /fixes/recent. CORS_ORIGINS is a comma-separated allowlist; default "*" is fine for
@@ -42,6 +44,17 @@ def require_api_key(x_api_key: str | None = Header(default=None, alias="X-API-Ke
 @app.on_event("startup")
 def create_tables() -> None:
     Base.metadata.create_all(bind=engine)
+
+
+@app.on_event("startup")
+def start_mqtt() -> None:
+    global _mqtt_client
+    _mqtt_client = start_mqtt_consumer()
+
+
+@app.on_event("shutdown")
+def stop_mqtt() -> None:
+    stop_mqtt_consumer(_mqtt_client)
 
 
 @app.get("/health")
