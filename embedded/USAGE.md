@@ -159,7 +159,40 @@ aparelho é ignorado. A identidade é o ID, nunca o endereço.
 
 O Wi-Fi fica desligado por padrão: ele divide o rádio com o BLE e pode cortar a varredura.
 
-## 7. Exportar os dados
+## 7. Enviar os dados pra API (upload automático)
+
+Cada linha `R` que o coletor grava (capítulo 6) também é enfileirada pra subir, em lote, pro
+`POST /fingerprints` da API de posicionamento — o mesmo endpoint que o app iOS usa pra treinar o
+modelo de fingerprinting. Isso evita o passo manual de copiar o log serial e converter à mão.
+
+**Configuração** (`include/config.h`):
+
+```c
+#define ENABLE_WIFI 1
+#define WIFI_SSID "sua-rede"
+#define WIFI_PASSWORD "sua-senha"
+#define API_HOST "api-tracker-app.onrender.com"
+#define API_KEY "a-mesma-chave-configurada-no-render"
+```
+
+Deixe `API_HOST` vazio (`""`) pra desligar o envio (o padrão do `config.example.h`) — por exemplo,
+enquanto estiver testando só com a serial, sem querer gastar a cota do Render. `API_KEY` precisa
+ser **exatamente** o mesmo valor da variável `API_KEY` do serviço da API no Render.
+
+**Como funciona:**
+
+- Grava local e sobe em lote são independentes: a linha `R` sempre sai na serial, com ou sem
+  Wi-Fi. O upload só acontece além disso, se `ENABLE_WIFI 1` e `API_HOST` não estiver vazio.
+- Lotes de até 20 linhas, ou a cada 5 segundos se tiver menos que isso esperando — não precisa de
+  `rec stop` pra subir, sobe durante a gravação mesmo.
+- Um lote que falhar (Wi-Fi caiu, API fora do ar, resposta de erro) é descartado, não é tentado de
+  novo — mais simples, ao custo de perder esse lote específico. Se isso importar, mantenha o log
+  serial como backup (`make monitor-log`).
+- **O Wi-Fi disputa o rádio com o BLE** (por isso fica desligado por padrão — capítulo 6). Ligar
+  `ENABLE_WIFI` pode reduzir a taxa de anúncios que o coletor recebe; se notar isso, teste com e
+  sem Wi-Fi ligado e compare a taxa (`taxa_por_s` nas linhas `S`).
+
+## 8. Publicar no broker MQTT
 
 _A completar (T067)._
 

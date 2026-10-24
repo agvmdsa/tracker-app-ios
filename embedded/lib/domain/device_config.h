@@ -26,6 +26,10 @@ struct DeviceConfiguration {
     char mqttUser[32] = {0};
     char mqttPassword[64] = {0};
     char topicPrefix[16] = {'t', 'r', 'a', 'c', 'k', 'e', 'r', 0};
+    // Fingerprint upload (POST /fingerprints): on only when wifiEnabled AND apiHost is non-empty.
+    // Needs its own Wi-Fi, same tradeoff as mqttEnabled — see config.example.h.
+    char apiHost[64] = {0};
+    char apiKey[64] = {0};
     char nodeId[7] = {0};  // 6 hex characters
     // Number of this boot (the NVS counter). Not a setting and never persisted: the supervisor
     // fills it in before starting the role, so every printed line can say which boot it belongs to.

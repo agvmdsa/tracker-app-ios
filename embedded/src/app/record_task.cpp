@@ -77,6 +77,7 @@ void RecordTask::handle(const domain::Observation& observation) {
                                    label->y};
     char line[kLineBytes];
     if (domain::formatRaw(line, sizeof(line), record) > 0) print(line);
+    uploader_.queueRow(record);
 }
 
 void RecordTask::printLive() {

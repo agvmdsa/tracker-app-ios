@@ -17,6 +17,7 @@
 #include "bounded_queue.h"
 #include "hal/ble_port.h"
 #include "hal/clock.h"
+#include "hal/fingerprint_uploader.h"
 #include "hal/publisher.h"
 #include "hal/store.h"
 #include "hal/system_info.h"
@@ -72,6 +73,28 @@ struct CapturePublisher : IPublisher {
             if (l.find(text) != std::string::npos) return true;
         }
         return false;
+    }
+};
+
+struct CaptureUploader : IFingerprintUploader {
+    std::vector<domain::RawRecord> rows;
+    bool queueRow(const domain::RawRecord& record) override {
+        // The real contract: copy out of the record's pointers before returning, since the
+        // caller doesn't keep them valid any longer than this call.
+        domain::RawRecord copy = record;
+        copy.node = own(record.node);
+        copy.beacon = own(record.beacon);
+        copy.session = own(record.session);
+        copy.point = own(record.point);
+        rows.push_back(copy);
+        return true;
+    }
+
+private:
+    std::deque<std::string> owned_;
+    const char* own(const char* text) {
+        owned_.emplace_back(text);
+        return owned_.back().c_str();
     }
 };
 

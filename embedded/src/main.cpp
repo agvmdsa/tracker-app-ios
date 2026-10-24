@@ -24,6 +24,7 @@
 #include "device_config.h"
 #include "hal/ble_adapter.h"
 #include "hal/clock.h"
+#include "hal/http_fingerprint_uploader.h"
 #include "hal/nvs_store.h"
 #include "hal/system_info.h"
 
@@ -56,6 +57,8 @@ domain::DeviceConfiguration buildDefaults() {
     copyString(c.mqttPassword, sizeof(c.mqttPassword), MQTT_PASSWORD);
     copyString(c.topicPrefix, sizeof(c.topicPrefix), TOPIC_PREFIX);
     copyString(c.nodeId, sizeof(c.nodeId), NODE_ID);
+    copyString(c.apiHost, sizeof(c.apiHost), API_HOST);
+    copyString(c.apiKey, sizeof(c.apiKey), API_KEY);
     return c;
 }
 
@@ -76,8 +79,9 @@ NvsStore gStore;
 SerialConsole gConsole;
 NimBleRadio gRadio;
 RtosObservationQueue gObservations;
+HttpFingerprintUploader gUploader;
 BeaconRole gBeacon(gRadio, gEvents);
-CollectorRole gCollector(gRadio, gObservations, gConsole, gClock, gEvents);
+CollectorRole gCollector(gRadio, gObservations, gConsole, gUploader, gClock, gEvents);
 RoleFactory gRoles(/*beacon=*/&gBeacon, /*collector=*/&gCollector);
 Supervisor gSupervisor(buildDefaults(), gStore, gClock, gSystem, gConsole, gConsole, gRoles, kFirmwareVersion);
 
@@ -87,11 +91,16 @@ void setup() {
     gConsole.begin(SERIAL_BAUD);
     gStore.begin();
     gObservations.begin();
+    gUploader.begin(WIFI_SSID, WIFI_PASSWORD, API_HOST, API_KEY);
     gEvents.target = &gSupervisor;
     gSupervisor.begin();
 }
 
 void loop() {
     gSupervisor.tick();
+    // Only ever does Wi-Fi/HTTP work when the collector role actually queued rows (see
+    // HttpFingerprintUploader::poll) — a no-op call otherwise, so it's safe to run unconditionally
+    // even in the beacon role or with uploading disabled.
+    gUploader.poll();
     vTaskDelay(pdMS_TO_TICKS(10));
 }

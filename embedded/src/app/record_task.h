@@ -14,6 +14,7 @@
 
 #include "events.h"
 #include "hal/clock.h"
+#include "hal/fingerprint_uploader.h"
 #include "hal/publisher.h"
 #include "live_view.h"
 #include "observation_queue.h"
@@ -22,8 +23,9 @@
 
 class RecordTask final : public IRecordingControl {
 public:
-    RecordTask(IObservationQueue& queue, IPublisher& out, IClock& clock, IEventSink& events)
-        : queue_(queue), out_(out), clock_(clock), events_(events) {}
+    RecordTask(IObservationQueue& queue, IPublisher& out, IFingerprintUploader& uploader, IClock& clock,
+               IEventSink& events)
+        : queue_(queue), out_(out), uploader_(uploader), clock_(clock), events_(events) {}
 
     // Starts a session of the collector: remembers the node and the boot number that go in every
     // line and restarts the live view. The label, if any, is kept.
@@ -44,6 +46,7 @@ private:
 
     IObservationQueue& queue_;
     IPublisher& out_;
+    IFingerprintUploader& uploader_;
     IClock& clock_;
     IEventSink& events_;
     domain::RecordingState state_;
