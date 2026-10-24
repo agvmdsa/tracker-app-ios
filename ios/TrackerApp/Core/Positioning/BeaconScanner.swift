@@ -1,0 +1,98 @@
+import CoreBluetooth
+import Observation
+import os
+
+@Observable
+@MainActor
+final class BeaconScanner: NSObject {
+    private static let logger = Logger(subsystem: "com.airtagclone.TrackerApp", category: "BeaconScanner")
+
+    nonisolated override init() {
+        centralManager = CBCentralManager(delegate: nil, queue: nil, options: [CBCentralManagerOptionShowPowerAlertKey: false])
+        super.init()
+        centralManager.delegate = self
+    }
+
+    private static let staleAfter: TimeInterval = 5.0
+    /// What CoreBluetooth reports when it couldn't read the signal strength.
+    private static let rssiUnavailable = 127
+
+    private(set) var sightings: [BeaconID: BeaconSighting] = [:]
+    private(set) var isBluetoothUnavailable = false
+    var onSighting: ((BeaconSighting) -> Void)?
+
+    private var recentRSSI: [BeaconID: [Int]] = [:]
+    private let centralManager: CBCentralManager
+    private var scanRequested = false
+    private var pruneTimer: Timer?
+
+    func startScanning() {
+        scanRequested = true
+        schedulePruning()
+        guard centralManager.state == .poweredOn else {
+            Self.logger.info("startScanning: waiting for poweredOn (current=\(self.centralManager.state.rawValue, privacy: .public))")
+            return
+        }
+        beginScanning()
+    }
+
+    func stopScanning() {
+        scanRequested = false
+        centralManager.stopScan()
+        pruneTimer?.invalidate()
+        pruneTimer = nil
+    }
+
+    private func schedulePruning() {
+        pruneTimer?.invalidate()
+        pruneTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            self?.pruneStaleSightings()
+        }
+    }
+
+    private func pruneStaleSightings() {
+        let cutoff = Date().addingTimeInterval(-Self.staleAfter)
+        sightings = sightings.filter { $0.value.seenAt >= cutoff }
+    }
+
+    func drainRecentRSSI(for beaconID: BeaconID) -> [Int] {
+        defer { recentRSSI[beaconID] = nil }
+        return recentRSSI[beaconID] ?? []
+    }
+
+    private func beginScanning() {
+        centralManager.scanForPeripherals(
+            withServices: [BeaconProtocol.serviceUUID],
+            options: [CBCentralManagerScanOptionAllowDuplicatesKey: true]
+        )
+    }
+}
+
+extension BeaconScanner: BeaconScanning {}
+
+extension BeaconScanner: CBCentralManagerDelegate {
+    func centralManagerDidUpdateState(_ central: CBCentralManager) {
+        Self.logger.info("centralManagerDidUpdateState: \(central.state.rawValue, privacy: .public)")
+        isBluetoothUnavailable = central.state.indicatesBluetoothUnavailable
+
+        if central.state == .poweredOn, scanRequested {
+            beginScanning()
+        }
+    }
+
+    func centralManager(
+        _ central: CBCentralManager,
+        didDiscover peripheral: CBPeripheral,
+        advertisementData: [String: Any],
+        rssi RSSI: NSNumber
+    ) {
+        guard let beaconID = BeaconProtocol.beaconID(in: advertisementData),
+              RSSI.intValue != Self.rssiUnavailable
+        else { return }
+        // Both clocks are read here, the earliest point the app sees the advertisement.
+        let sighting = BeaconSighting(beaconID: beaconID, rssi: RSSI.intValue, seenAt: Date(), monotonicMs: MonotonicClock.nowMs())
+        sightings[beaconID] = sighting
+        recentRSSI[beaconID, default: []].append(RSSI.intValue)
+        onSighting?(sighting)
+    }
+}

@@ -4,6 +4,15 @@
 .github/
 specs/
 
+# Research material and context notes (never versioned)
+docs/
+
+# ESP32 firmware (embedded/): secrets, build output and the local Python environment
+embedded/include/config.h
+embedded/.pio/
+embedded/.venv/
+embedded/logs/
+
 # Xcode / Swift
 .build/
 DerivedData/

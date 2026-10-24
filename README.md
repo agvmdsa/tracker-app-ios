@@ -1,6 +1,6 @@
 # TrackerApp (iOS)
 
-iOS AirTag clone with two features: 1:1 tracking between two paired iPhones (UWB), and indoor
+iOS AirTag clone with two features: 1:1 tracking between two nearby iPhones (UWB), and indoor
 positioning across multiple phones — anchors + an observer — designed to interoperate with a
 companion Android app ([`btloc`](https://github.com/filipe-ms/btloc)).
 
@@ -13,16 +13,25 @@ companion Android app ([`btloc`](https://github.com/filipe-ms/btloc)).
   advertising/scanning are not meaningfully testable in the Simulator.
 - UWB tracking needs an iPhone with a U1/U2 chip (iPhone 11 or newer). Indoor positioning (BLE)
   works on any iPhone.
+- **Without a paid developer account**, sign with a free *Personal Team*: in Xcode, sign in with
+  an Apple ID (Settings → Accounts), then in the TrackerApp target's Signing & Capabilities pick
+  that Personal Team (the project ships with someone else's `DEVELOPMENT_TEAM`). If Xcode says the
+  bundle ID is unavailable, change `com.airtagclone.TrackerApp` to something unique. On the iPhone,
+  turn on Developer Mode (Settings → Privacy & Security) and trust the certificate (Settings →
+  General → VPN & Device Management). The app needs no entitlements, so nothing is lost. The
+  install **expires after 7 days**: run it from Xcode again to renew. Recordings survive a reinstall
+  over the existing app, but not deleting the app, so export them regularly.
 
 ## Architecture
 
-The app follows **MV (Model-View)**, not MVVM or Clean Architecture: `ConnectionManager`,
-`UWBManager`, `BeaconAdvertiser`, and `BeaconScanner` are `@Observable` classes that double as
-both the data model and the business logic. Views read them directly — there is no separate
-ViewModel layer.
+The app follows **MV (Model-View)**, not MVVM or Clean Architecture: `ProximityTracker`,
+`BLEHandshake`, `UWBManager`, `BeaconAdvertiser`, and `BeaconScanner` are `@Observable` classes that
+double as both the data model and the business logic. Views read them directly — there is no
+separate ViewModel layer.
 
-Each manager has a matching protocol (`ConnectionManaging`, `UWBManaging`, `BeaconAdvertising`,
-`BeaconScanning`) so views depend on the interface, not the concrete networking implementation.
+Each manager has a matching protocol (`ProximityTracking`, `HandshakeChannel`, `UWBManaging`,
+`BeaconAdvertising`, `BeaconScanning`) so views depend on the interface, not the concrete
+networking implementation.
 Because Swift's `@EnvironmentObject`/`@StateObject`/`@ObservedObject` cannot bind to a protocol
 type (only concrete types can satisfy `ObservableObject`'s associated type), these are injected
 through a custom `EnvironmentKey` per manager (`EnvironmentValues+Managers.swift`,
@@ -33,10 +42,28 @@ swappable (e.g. for a fake in tests) rather than documentation-only.
 
 ### 1. Peer-to-peer tracking (AirTag-style)
 
-`ConnectionManager` (MultipeerConnectivity) discovers and connects to one nearby peer running
-this app, then exchanges NearbyInteraction discovery tokens over that link. `UWBManager`
-(NearbyInteraction) uses the exchanged token to range the peer, giving live distance and
-direction. See `TrackingView`.
+Tap **Start** in `TrackingView`. `ProximityTracker` glues two pieces together:
+
+- `BLEHandshake` (CoreBluetooth, behind the `HandshakeChannel` protocol) finds a nearby phone
+  running this app and swaps NearbyInteraction discovery tokens with it over a GATT characteristic.
+  Every phone is both a peripheral (serving its token) and a central (scanning for the service);
+  each advertises a random ID as its local name and only the phone with the smaller ID opens the
+  connection, so the two never connect to each other at once. There is no Wi-Fi, local-network
+  permission or pairing UI involved. It pairs with whichever nearby phone it finds first, so keep
+  other devices running the app out of range while testing.
+- `UWBManager` (NearbyInteraction) uses the peer's token to range it, giving live distance,
+  azimuth and elevation.
+
+`UWBManager` handles the quirks of newer iPhones: it starts with camera assistance right away on
+hardware that can't give a direction otherwise, and on everything else falls back to it when
+distance arrives but no angle does within 5 seconds. When the peer times out it retries with the
+same configuration, and when the peer ends its session `ProximityTracker` starts the handshake
+over, so the pairing recovers on its own.
+
+The azimuth comes from NearbyInteraction's direction vector as `atan2(x, -z)` (NI space: +x right,
++y up, -z out of the back of the phone), so 0 is straight ahead and positive is to the right. On
+camera-assisted-only models (iPhone 14 Pro and later) `direction` stays nil and the angle arrives
+as `horizontalAngle` instead, which `UWBManager.azimuth` falls back to.
 
 ### 2. Indoor positioning (BLE multilateration)
 
@@ -79,8 +106,11 @@ iOS's `CBPeripheralManager` cannot set manufacturer data when advertising (Apple
 > ⚠️ **Cross-platform interop is not finished — one small change needed on the `btloc` side.**
 > An iPhone can already be an *observer* of an Android anchor today: Android's advertiser keeps
 > using manufacturer data (its only good option — Android's `AdvertiseData` API has no way to set
-> a custom local name without renaming the whole device's Bluetooth adapter), and iOS already
-> decodes manufacturer data fine when scanning. What's missing is the reverse: an iPhone *anchor*
+> a custom local name without renaming the whole device's Bluetooth adapter), and
+> `BeaconProtocol.beaconID(in:)` reads the ID from manufacturer data (company ID `0xFFFF`, then the
+> 4 ID bytes) before falling back to the local name. The manufacturer data has to win: Android puts
+> its device name in the scan response, which iOS reports in the same local-name field. What's
+> missing is the reverse: an iPhone *anchor*
 > can only put its ID in local name (the one field `CBPeripheralManager` allows), so
 > `AndroidBleScanner.kt` needs a fallback — when manufacturer data for `MANUFACTURER_ID` isn't
 > present on a matched advertisement, try parsing `scanRecord.deviceName` as an 8-hex-character
@@ -111,15 +141,138 @@ hours, a floor-plan heatmap, etc.).
 > metrics (peak hours), and a small custom web frontend for the floor-plan heatmap itself (which
 > Grafana's panels don't natively render).
 
+### 3. Fingerprinting data collection
+
+**Indoor → "Coletar dados para fingerprinting"** (`FingerprintCollectorView`) records a labelled
+RSSI dataset for training a fingerprinting model later. It is the iPhone counterpart of the ESP32
+collector's `label` / `rec start` / `rec stop` (`embedded/USAGE.md`, chapter 6), except that a
+recording lasts a set time: type the session, the point and its x/y in metres, pick the duration
+(1–60 minutes), tap **Gravar por N min** and stay at the point until it stops on its own. Every
+point then gets the same amount of data. **Cancelar e descartar** stops early and deletes the
+file, since a shorter recording would unbalance the dataset; leaving the screen is blocked while
+recording for the same reason.
+
+When a recording ends, the screen shows how many rows each beacon produced and the rate per
+second, like the ESP32's `S` lines. The app writes a row for **every advertisement CoreBluetooth
+delivers**, with no sampling or deduplication. CoreBluetooth doesn't deliver every advertisement
+the beacons send, though: iOS picks its own scan duty cycle (there is no API for the scan
+interval/window the ESP32 collector sets), and shares the radio with Wi-Fi and other Bluetooth
+traffic. The ESP32 beacons advertise 10 times a second at the default 100 ms interval, so the rate
+shows what fraction reached the app.
+
+`FingerprintRecorder` writes one CSV per recording to
+`Documents/Fingerprints/<yyyyMMdd-HHmmss>_<session>_<point>.csv`, one row per advertisement
+received (`FingerprintRecord`):
+
+| Column | Content |
+|---|---|
+| `t_ms` | monotonic milliseconds when the advertisement arrived (`CLOCK_MONOTONIC`: never jumps, keeps counting in sleep, restarts on reboot). Order and window the rows by this one |
+| `timestamp_ms` | Unix time the advertisement arrived, in milliseconds. Only for lining up recordings from different devices: the wall clock can jump |
+| `node` | this phone's install ID (`DeviceIdentity.beaconID`) |
+| `model` | hardware model identifier, e.g. `"iPhone15,2"` — quoted, since it contains a comma |
+| `system_version` | e.g. `"iOS 26.0.1"` |
+| `beacon` | the 8-hex beacon ID, from the advertisement's manufacturer data or local name |
+| `rssi` | dBm, as CoreBluetooth reported it |
+| `accel_x`, `accel_y`, `accel_z` | latest accelerometer reading, in g (empty when there is none) |
+| `session`, `point`, `x`, `y` | the label |
+
+When a recording runs to the end, a **`.json` with the same name** is written next to it
+(`FingerprintRecordingMetadata`): the recording's start and end on both clocks
+(`started_t_ms`/`ended_t_ms`, `started_timestamp_ms`/`ended_timestamp_ms`), the planned duration,
+the rows per beacon, the label, the device, how the scan was done, the acceleration's units, and
+**`beacons`: where each beacon was** (`id`, `label`, `x`, `y`, `height_m`, the last one `null` when
+not entered).
+
+- **The window is what makes absences usable.** A beacon that iOS never delivered leaves no row,
+  and the number of advertisements per beacon per second varies on its own (scan duty cycle, radio
+  shared with Wi-Fi, body in the way). Without the window, "not heard during this recording" can't
+  be told apart from "not part of it", and per-window counts can't be computed for the start and
+  end of a recording.
+- **`beacons` is a copy of the anchors (`AnchorStore`) taken when the recording starts**, not a
+  reference: moving a beacon and correcting its position later doesn't rewrite older recordings,
+  so each file carries the layout it was recorded with. Fingerprinting models (kNN, random forest)
+  in one fixed room don't need it; models built on distances (path loss, per-beacon or per-phone
+  calibration) and checking the data (RSSI falling with distance, swapped IDs, a moved beacon) do.
+- **A CSV without its JSON is incomplete**: the app was killed before the time was up. The list
+  marks it "Incompleta — descarte"; leave it out of the dataset.
+- Sharing a recording, or "Exportar todas", sends the CSV and the JSON together.
+
+**Beacon positions.** The collector's **Beacons** section lists every beacon that is heard or has a
+position. Tap one (outside a recording) to enter or correct its x/y and, optionally, its height
+above the floor (`AnchorPositionEditor`, the same one the observer uses). Two warnings, also
+summarised next to the record button, catch a layout that would go out incomplete:
+
+- **"Sem posição cadastrada"** — heard, but with no position;
+- **"Não ouvido nos últimos segundos"** — has a position, but nothing heard in the last 5 s (off,
+  out of battery, or a wrong ID).
+
+Positions have to use **the same origin and axes as the points' x/y**. A room corner works well as
+(0, 0), with x and y along two walls, measured with a tape: in a 5×5 m room with one beacon at the
+middle of each wall, 0.75 m in, they are (2.5, 0.75), (4.25, 2.5), (2.5, 4.25) and (0.75, 2.5). The
+AR capture also works, but its origin and axes are wherever the phone was and faced when the AR
+session started, so start it at that corner facing along the y wall.
+
+**ESP32 beacons.** Give each board a fixed, readable ID of 8 hex characters (e.g. `id BEAC0001` …
+`BEAC0004`, see `embedded/USAGE.md`) and a sticker with it. The ID names the physical board, not
+the spot: a replacement board gets a new ID, since boards differ slightly in antenna and power. The
+phone can't read a beacon's transmit power or advertising interval from its advertisement, so they
+aren't in the JSON: keep them the same on every board (defaults `0 dBm` / `100 ms`, reported by
+each board at boot in its `E,…,advertising,…` line).
+
+**Static, then moving.** Recordings are taken standing at one labelled point. Collecting while
+walking needs more than this format has today — timestamped waypoints to interpolate the position
+between, and the full accelerometer stream rather than one sample per row — and is a planned
+extension, not something to fake by recording while moving.
+
+- **Mergeable with the ESP32 data.** Column names match the ESP32's `R` records wherever they
+  overlap, and `FingerprintLabel` applies the same rules as the ESP32's `label` command (session
+  and point are 1–16 characters of `[A-Za-z0-9_-]`), so the two datasets can be concatenated.
+- **Accelerometer.** `AccelerometerReader` (`CMMotionManager`, no permission prompt needed)
+  samples at 50 Hz and each row gets the most recent sample. The raw reading includes gravity, so
+  it tells how the phone was being held, which affects RSSI through antenna orientation and body
+  shadowing.
+- **Model and system version are on every row**, so files from different phones can be
+  concatenated and still tell apart radios that read RSSI differently.
+- **Getting the files off the phone:** share one from the list (AirDrop), use "Exportar todas",
+  or open Files → On My iPhone → TrackerApp → Fingerprints (`UIFileSharingEnabled`), or Finder
+  over USB.
+- **Keep the app in the foreground.** The screen doesn't auto-lock while recording, because iOS
+  stops BLE scanning in the background (the app has no `bluetooth-central` background mode).
+- `BeaconScanner` drops advertisements with RSSI 127, which is CoreBluetooth's "unavailable" value.
+
+#### Collecting the same data on Android
+
+The Android app is to be regenerated after this one, and a model trained on data from both only
+holds if both collect the same way. The iOS collector is the reference; an Android collector has
+to produce the same CSV and JSON, with these platform differences handled:
+
+| What | iOS (reference) | Android equivalent |
+|---|---|---|
+| Scan | `scanForPeripherals(withServices: [serviceUUID], options: [AllowDuplicates: true])`, foreground, screen kept on | `BluetoothLeScanner.startScan` with a `ScanFilter` on the service UUID, `SCAN_MODE_LOW_LATENCY`, `CALLBACK_TYPE_ALL_MATCHES`, report delay 0; foreground, screen kept on |
+| One row per | advertisement delivered (no dedup, no averaging) | `onScanResult` call (same) |
+| Beacon ID | manufacturer data (company `0xFFFF` + 4 bytes), else local name if it is 8 hex | the same order: `getManufacturerSpecificData(0xFFFF)`, else `scanRecord.deviceName` |
+| `t_ms` | `CLOCK_MONOTONIC` ms, read in the delegate callback | `ScanResult.getTimestampNanos() / 1_000_000` (same clock as `elapsedRealtime()`, taken at reception) |
+| `timestamp_ms` | Unix ms (`Date()`) | `System.currentTimeMillis()` |
+| `model` / `system_version` | `"iPhone15,2"` / `"iOS 26.0.1"` | `"<Build.MANUFACTURER> <Build.MODEL>"` / `"Android <Build.VERSION.RELEASE>"` |
+| Unavailable RSSI | 127, dropped | not expected; drop 127 anyway |
+| `accel_x/y/z` | CoreMotion, **g**, gravity included; lying still face up reads `z = -1` | `TYPE_ACCELEROMETER` is in **m/s² with the opposite sign** (face up reads `z = +9.81`): write `-value / 9.80665`. Same device axes, 50 Hz, latest sample per row |
+| JSON `platform` / `scan_api` | `"iOS"` / CoreBluetooth | `"Android"` / a description of the scan settings above |
+| JSON `beacons` | copy of `AnchorStore.anchors` at the start of the recording, sorted by ID | the same structure, from the Android app's own anchor list |
+
+The label rules (`FingerprintLabel`: 1–16 characters of `[A-Za-z0-9_-]`), the fixed-length
+recordings, discarding cancelled ones, writing the JSON only on completion and the beacon-position
+warnings are part of the format too, not iOS details.
+
 ## Project structure
 
 ```
 TrackerApp/
   App/                     App entry point, scene lifecycle
   Core/
-    ConnectionManager.swift / ConnectionManaging.swift      MultipeerConnectivity
+    ProximityTracker.swift / ProximityTracking.swift        Handshake + UWB glue, restarts on peer loss
+    BLEHandshake.swift / HandshakeChannel.swift             CoreBluetooth token exchange
     UWBManager.swift / UWBManaging.swift                    NearbyInteraction (UWB)
-    DeviceIdentity.swift                                    Persisted display name + BeaconID
+    DeviceIdentity.swift                                    Persisted BeaconID, model, system version
     EnvironmentValues+Managers.swift                        Protocol-based DI for the above
     EnvironmentValues+Positioning.swift                     Protocol-based DI for Positioning
     Positioning/
@@ -132,13 +285,15 @@ TrackerApp/
       PositioningEngine.swift                                Sightings + anchors -> fix
       PositioningReporting.swift / PositioningAPIClient.swift  Heatmap API client (placeholder)
       ARPositionTracker.swift / ARPositionTracking.swift       ARKit-based anchor position capture
-  Models/                  TrackerDevice, Payload, DiscoveryTokenWrapper
+      AccelerometerReader.swift / AccelerometerReading.swift   CoreMotion accelerometer
+      FingerprintRecord.swift / FingerprintRecorder.swift      Labelled RSSI dataset -> CSV
+  Models/                  HandshakeState, RangingState, TrackingLogEntry
   UI/
-    MainView.swift / TrackingView.swift / RawMCTestView.swift
+    MainView.swift / TrackingView.swift
     Positioning/
       PositioningModeView.swift / AnchorBroadcastView.swift
       ObserverView.swift / AnchorPositionEditor.swift
-      ARAnchorCaptureView.swift
+      ARAnchorCaptureView.swift / FingerprintCollectorView.swift
   Tests/TrackerAppTests/   XCTest — see below
 ```
 
@@ -146,13 +301,25 @@ TrackerApp/
 
 Run via `Product > Test` in Xcode, or `xcodebuild test` from an environment with Xcode 15+.
 
-- `ConnectionManagerTests`, `ConnectionManagerPayloadTests` — MultipeerConnectivity delegate
-  handling, connection state transitions.
-- `UWBManagerTests` — ranging state updates, signal loss handling.
+- `ProximityTrackerTests` — the handshake → ranging flow against fake `UWBManaging` and
+  `HandshakeChannel` implementations: start/stop, peer token handling, restart when the peer ends
+  its session, error surfacing, background/foreground.
+- `BLEHandshakeTests` — which side initiates the connection, oversized tokens. The CoreBluetooth
+  exchange itself needs two real phones.
+- `UWBManagerTests` — ranging state updates, signal loss handling, azimuth/elevation math.
 - `PositioningTests` — `Multilateration` (exact/inconsistent/degenerate ranges, N > 3 anchors)
   and `PathLossModel`, mirroring `btloc`'s `PositioningTest.kt` plus cases specific to this app's
   N-anchor (not fixed-triangle) design.
-- `BeaconIDTests` — identity encoding/validation.
+- `BeaconIDTests` — identity encoding/validation, and reading the ID from an advertisement (local
+  name, Android's manufacturer data, which one wins).
+- `FingerprintRecorderTests` — label validation, the CSV row format (quoting, empty
+  acceleration), and the recorder against fake `BeaconScanning` and `AccelerometerReading`
+  implementations: only advertisements received while recording are written, a recording stops on
+  its own when its time is up, cancelling discards the file, per-beacon counts and rates, the
+  metadata JSON (window on both clocks, counts, the beacon positions copied when the recording
+  started), the beacon-layout warnings, anchors saved before `height` existed still loading, how a
+  CSV without its JSON is reported, file listing
+  and deletion.
 
 The `Core/Positioning` math (`Point2D`, `Anchor`, `Multilateration`, `PathLossModel`, `BeaconID`)
 depends only on Foundation, so it can be typechecked and run outside Xcode with the `swift`
@@ -161,10 +328,11 @@ CLI if needed.
 ## Concurrency
 
 The project builds with `SWIFT_STRICT_CONCURRENCY = complete`. Every `@Observable` manager
-(`ConnectionManager`, `UWBManager`, `RawMultipeerDiagnostic`, `BeaconAdvertiser`, `BeaconScanner`,
-`AnchorStore`, `PositioningEngine`, `ARPositionTracker`, `BluetoothPermissionMonitor`, and the
-`PositioningPreviewFakes`) and their matching protocols (`ConnectionManaging`, `UWBManaging`,
-`BeaconAdvertising`, `BeaconScanning`, `ARPositionTracking`) are `@MainActor` — this is true in
+(`ProximityTracker`, `BLEHandshake`, `UWBManager`, `BeaconAdvertiser`, `BeaconScanner`,
+`AnchorStore`, `PositioningEngine`, `ARPositionTracker`, `AccelerometerReader`,
+`FingerprintRecorder`, `BluetoothPermissionMonitor`, and the `PositioningPreviewFakes`) and their
+matching protocols (`ProximityTracking`, `HandshakeChannel`, `UWBManaging`, `BeaconAdvertising`,
+`BeaconScanning`, `ARPositionTracking`, `AccelerometerReading`) are `@MainActor` — this is true in
 practice already (every delegate is registered with `queue: nil`, i.e. the main queue, and every
 `Timer` is scheduled from a main-actor context), so this just makes the compiler aware of it.
 Designated initializers referenced from an `EnvironmentKey`'s `defaultValue` (a non-isolated
@@ -177,10 +345,10 @@ This was verified for real, not just reasoned about: `swiftc -typecheck -strict-
 against the iPhoneSimulator SDK comes back clean for every file that doesn't need `Observation`
 (all the protocols, `PositioningReporting`/`PositioningAPIClient`, `PositioningPreviewFakes`).
 
-> ⚠️ **Known gap: delegate methods still warn under strict concurrency.** `ConnectionManager`,
-> `UWBManager`, `RawMultipeerDiagnostic`, `BeaconAdvertiser`, `BeaconScanner`,
-> `BluetoothPermissionMonitor`, and `ARPositionTracker` implement delegate protocols from
-> MultipeerConnectivity/NearbyInteraction/CoreBluetooth/ARKit whose requirements aren't
+> ⚠️ **Known gap: delegate methods still warn under strict concurrency.** `BLEHandshake`,
+> `UWBManager`, `BeaconAdvertiser`, `BeaconScanner`, `BluetoothPermissionMonitor`, and
+> `ARPositionTracker` implement delegate protocols from
+> NearbyInteraction/CoreBluetooth/ARKit whose requirements aren't
 > actor-isolated. Confirmed with a standalone repro against the iOS 17 SDK: a `@MainActor` type's
 > delegate method satisfying one of these requirements produces
 > `warning: main actor-isolated instance method ... cannot be used to satisfy nonisolated protocol
@@ -193,9 +361,13 @@ against the iPhoneSimulator SDK comes back clean for every file that doesn't nee
 
 ## Known gaps / next steps
 
-- Nothing in this app has been built or run on a real Xcode 15+ toolchain or device yet —
-  verified so far only via `swiftc -typecheck`/`-parse` and a standalone numeric check of the
-  positioning math.
+- The app builds and the unit tests pass on Xcode 26 / the iPhone 17 simulator, but UWB ranging,
+  the BLE handshake and the positioning flow have not been run on real devices in this version —
+  the Simulator can't exercise any of them. The BLE handshake and the camera-assistance fallback
+  were carried over from a standalone prototype that did range between two iPhones; the glue
+  around them (`ProximityTracker`, background/foreground handling) is new.
+- The fingerprinting collector is covered by unit tests only. The real scan rate, the
+  accelerometer and getting the files off the phone have not been tried on a device yet.
 - Android-side BLE protocol change (local name fallback in `AndroidBleScanner.kt`) needed for
   iPhone anchors to be visible to Android observers.
 - Android-side ARCore work (anchor-position entry screen + capture, neither of which exists in

@@ -1,0 +1,71 @@
+name: TrackerApp
+options:
+  bundleIdPrefix: com.airtagclone
+  deploymentTarget:
+    iOS: "17.0"
+  developmentLanguage: en
+
+targets:
+  TrackerApp:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: TrackerApp/App
+      - path: TrackerApp/UI
+      - path: TrackerApp/Core
+      - path: TrackerApp/Models
+    info:
+      path: TrackerApp/App/Info.plist
+      properties:
+        UILaunchScreen: {}
+        # Fingerprinting recordings (Documents/Fingerprints) show up in the Files app and Finder.
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        NSNearbyInteractionUsageDescription: "TrackerApp uses Nearby Interaction (Ultra Wideband) to measure the precise distance and direction to another nearby iPhone running TrackerApp."
+        NSMotionUsageDescription: "TrackerApp uses motion data (whether you're standing still or walking) to label fingerprinting recordings more accurately."
+        NSNearbyInteractionAllowOnceUsageDescription: "TrackerApp uses Nearby Interaction (Ultra Wideband) to measure the precise distance and direction to another nearby iPhone running TrackerApp."
+        NSBluetoothAlwaysUsageDescription: "TrackerApp uses Bluetooth to find another nearby iPhone running TrackerApp and swap the tokens it needs to measure the distance to it, and to detect indoor positioning anchors."
+        NSCameraUsageDescription: "TrackerApp uses the camera to improve direction accuracy when locating a nearby iPhone on models that require camera-assisted Nearby Interaction, and to track your position while placing anchors for indoor positioning."
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.airtagclone.TrackerApp
+        # Personal Team (free, 7-day profile). Swap for your own team ID when signing on another machine.
+        DEVELOPMENT_TEAM: GJ77CF4AK3
+        CODE_SIGN_STYLE: Automatic
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1"
+        SWIFT_STRICT_CONCURRENCY: complete
+    entitlements:
+      path: TrackerApp/App/TrackerApp.entitlements
+      properties: {}
+
+  TrackerAppTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: TrackerApp/Tests/TrackerAppTests
+    settings:
+      base:
+        SWIFT_VERSION: "5.0"
+        # Without it the test bundle has no Info.plist and Xcode 26 refuses to sign it.
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: TrackerApp
+
+schemes:
+  TrackerApp:
+    build:
+      targets:
+        TrackerApp: all
+        TrackerAppTests: [test]
+    test:
+      targets:
+        - TrackerAppTests
+    run:
+      config: Debug
