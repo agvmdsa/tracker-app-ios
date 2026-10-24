@@ -1,0 +1,45 @@
+.svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.floor {
+  fill: color-mix(in srgb, var(--accent) 5%, var(--panel));
+  stroke: var(--panel-border);
+  stroke-width: 1;
+}
+
+.grid {
+  stroke: color-mix(in srgb, var(--panel-border) 60%, transparent);
+  stroke-width: 1;
+}
+
+.station {
+  fill: var(--text-dim);
+  stroke: var(--text);
+  stroke-width: 1;
+}
+
+.stationLabel {
+  fill: var(--text-dim);
+  font-size: 10px;
+  font-family: ui-monospace, Menlo, monospace;
+}
+
+.mover {
+  /* Glide to the new position between polls instead of snapping. */
+  transition: transform 0.9s linear;
+}
+
+.moverLabel {
+  fill: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+  font-family: ui-monospace, Menlo, monospace;
+  paint-order: stroke;
+  stroke: var(--bg);
+  stroke-width: 3px;
+}

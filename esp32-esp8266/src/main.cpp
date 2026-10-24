@@ -8,11 +8,17 @@
 
 #include <cstring>
 
-#if __has_include("config.h")
-#include "config.h"
+// A relative path, not a bare "config.h": a bare name is resolved by searching every include
+// directory in order, and the toolchain itself ships its own generic config.h (e.g.
+// xtensa-esp32-elf/include/config.h) that can be found instead of this project's when
+// include/config.h doesn't exist yet — silently turning "you forgot to create config.h" into a
+// wall of unrelated "not declared in this scope" errors. The relative path names this exact file,
+// so there's nothing else it could ever match.
+#if __has_include("../include/config.h")
+#include "../include/config.h"
 #else
 #warning "include/config.h not found: building with config.example.h (placeholders). Copy it to config.h and edit it."
-#include "config.example.h"
+#include "../include/config.example.h"
 #endif
 
 #include "app/beacon_role.h"

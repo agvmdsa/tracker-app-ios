@@ -1,8 +1,29 @@
-# TrackerApp (iOS)
+# TrackerApp
 
 iOS AirTag clone with two features: 1:1 tracking between two nearby iPhones (UWB), and indoor
 positioning across multiple phones — anchors + an observer — designed to interoperate with a
-companion Android app ([`btloc`](https://github.com/filipe-ms/btloc)).
+companion Android app ([`btloc`](https://github.com/filipe-ms/btloc)). It's also the data source
+for an indoor-positioning (fingerprinting) machine-learning project, built on the same BLE
+anchors/observer infrastructure.
+
+## Repository layout
+
+A monorepo, following the structure the Sistemas Embarcados course's project spec requires:
+
+```
+applications/
+  ios/        This README's app (Xcode project) — see "Project structure" below
+  api/        FastAPI ingestion/positioning API + Postgres + Grafana (applications/api/README.md)
+  web/        Next.js live floor-plan map, reads the API (applications/web/README.md)
+esp32-esp8266/  ESP32 beacon/collector firmware, PlatformIO (esp32-esp8266/USAGE.md)
+docs/           Technical report (CSBC/ABNT2 template) — not written yet
+schematics/     Circuit diagrams — not made yet
+scripts/        Dev utilities (e.g. advertising a Mac as a BLE anchor for testing)
+```
+
+`applications/api` and `applications/web` were originally a separate repository
+(`api_tracker_app`); their own `README.md`s still describe them as such in places — read them from
+inside `applications/api/`/`applications/web/`, not as if they were the repository root.
 
 ## Build requirements
 
@@ -145,7 +166,7 @@ hours, a floor-plan heatmap, etc.).
 
 **Indoor → "Coletar dados para fingerprinting"** (`FingerprintCollectorView`) records a labelled
 RSSI dataset for training a fingerprinting model later. It is the iPhone counterpart of the ESP32
-collector's `label` / `rec start` / `rec stop` (`embedded/USAGE.md`, chapter 6), except that a
+collector's `label` / `rec start` / `rec stop` (`esp32-esp8266/USAGE.md`, chapter 6), except that a
 recording lasts a set time: type the session, the point and its x/y in metres, pick the duration
 (1–60 minutes), tap **Gravar por N min** and stay at the point until it stops on its own. Every
 point then gets the same amount of data. **Cancelar e descartar** stops early and deletes the
@@ -213,7 +234,7 @@ AR capture also works, but its origin and axes are wherever the phone was and fa
 session started, so start it at that corner facing along the y wall.
 
 **ESP32 beacons.** Give each board a fixed, readable ID of 8 hex characters (e.g. `id BEAC0001` …
-`BEAC0004`, see `embedded/USAGE.md`) and a sticker with it. The ID names the physical board, not
+`BEAC0004`, see `esp32-esp8266/USAGE.md`) and a sticker with it. The ID names the physical board, not
 the spot: a replacement board gets a new ID, since boards differ slightly in antenna and power. The
 phone can't read a beacon's transmit power or advertising interval from its advertisement, so they
 aren't in the JSON: keep them the same on every board (defaults `0 dBm` / `100 ms`, reported by
@@ -265,6 +286,8 @@ warnings are part of the format too, not iOS details.
 
 ## Project structure
 
+All paths below are relative to `applications/ios/`:
+
 ```
 TrackerApp/
   App/                     App entry point, scene lifecycle
@@ -283,10 +306,13 @@ TrackerApp/
       Multilateration.swift                                 N-anchor least-squares solver
       AnchorStore.swift                                      User-configured anchor positions
       PositioningEngine.swift                                Sightings + anchors -> fix
-      PositioningReporting.swift / PositioningAPIClient.swift  Heatmap API client (placeholder)
+      PositioningReporting.swift / PositioningAPIClient.swift  Positioning API client (Render)
+      FingerprintUploading.swift                              Uploads fingerprint rows for ML training
       ARPositionTracker.swift / ARPositionTracking.swift       ARKit-based anchor position capture
-      AccelerometerReader.swift / AccelerometerReading.swift   CoreMotion accelerometer
-      FingerprintRecord.swift / FingerprintRecorder.swift      Labelled RSSI dataset -> CSV
+      DeviceMotionReader.swift / DeviceMotionReading.swift     CoreMotion orientation (roll/pitch/yaw)
+      AltitudeReader.swift / AltitudeReading.swift             CoreMotion relative altitude
+      MotionActivityReader.swift / MotionActivityReading.swift CoreMotion activity (stationary/walking/...)
+      FingerprintRecord.swift / FingerprintRecorder.swift      Labelled RSSI dataset -> CSV + API upload
   Models/                  HandshakeState, RangingState, TrackingLogEntry
   UI/
     MainView.swift / TrackingView.swift
