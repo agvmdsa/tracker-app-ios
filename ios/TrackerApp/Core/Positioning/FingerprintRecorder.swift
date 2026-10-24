@@ -48,6 +48,10 @@ final class FingerprintRecorder {
     private let deviceMotion: any DeviceMotionReading
     private let altimeter: any AltitudeReading
     private let motionActivity: any MotionActivityReading
+    /// Uploads a finished recording's rows to the API for model training. Optional, same as
+    /// `PositioningEngine`'s reporter — nil just means "don't upload", the CSV is still written
+    /// either way.
+    private let uploader: (any FingerprintUploading)?
     /// The beacons with a position (`AnchorStore.anchors` in the app), copied into each recording.
     private let anchors: @MainActor () -> [Anchor]
     private let directory: URL
@@ -55,12 +59,16 @@ final class FingerprintRecorder {
     private var file: FileHandle?
     private var fileURL: URL?
     private var endTask: Task<Void, Never>?
+    /// Every row written by the recording in progress, kept only to upload them together once it
+    /// finishes — the CSV on disk, not this array, is the durable copy.
+    private var pendingUploadRows: [FingerprintRecord] = []
 
     init(
         scanner: any BeaconScanning,
         deviceMotion: any DeviceMotionReading,
         altimeter: any AltitudeReading,
         motionActivity: any MotionActivityReading,
+        uploader: (any FingerprintUploading)? = nil,
         anchors: @escaping @MainActor () -> [Anchor] = { [] },
         directory: URL = FingerprintRecorder.defaultDirectory,
         node: BeaconID = DeviceIdentity.beaconID,
@@ -71,6 +79,7 @@ final class FingerprintRecorder {
         self.deviceMotion = deviceMotion
         self.altimeter = altimeter
         self.motionActivity = motionActivity
+        self.uploader = uploader
         self.anchors = anchors
         self.directory = directory
         self.node = node
@@ -110,6 +119,7 @@ final class FingerprintRecorder {
     func startRecording(label: FingerprintLabel, duration: TimeInterval) {
         cancelRecording()
         errorMessage = nil
+        pendingUploadRows = []
         let startedAt = Date()
         let url = directory.appending(path: Self.fileName(for: label, startedAt: startedAt))
         do {
@@ -150,6 +160,7 @@ final class FingerprintRecorder {
         }
         activeRecording = nil
         recordsPerBeacon = [:]
+        pendingUploadRows = []
     }
 
     /// Deletes a recording's CSV and its metadata.
@@ -189,6 +200,24 @@ final class FingerprintRecorder {
         )
         self.activeRecording = nil
         recordsPerBeacon = [:]
+        let rowsToUpload = pendingUploadRows
+        pendingUploadRows = []
+        uploadIfConfigured(rowsToUpload)
+    }
+
+    /// The CSV (already safely on disk) is kept no matter what happens here — a failed upload
+    /// just means the training data stays local-only until someone exports it by hand, same as
+    /// before this existed.
+    private func uploadIfConfigured(_ records: [FingerprintRecord]) {
+        guard let uploader, !records.isEmpty else { return }
+        Task {
+            do {
+                try await uploader.upload(records)
+            } catch {
+                Self.logger.error("fingerprint upload failed, kept locally only: \(error.localizedDescription, privacy: .public)")
+                errorMessage = "Gravação salva localmente, mas o envio para a API falhou: \(error.localizedDescription)"
+            }
+        }
     }
 
     /// The CSV is kept even if this fails: its rows are fine, it just lacks the window and context.
@@ -268,6 +297,7 @@ final class FingerprintRecorder {
             return
         }
         recordsPerBeacon[sighting.beaconID, default: 0] += 1
+        pendingUploadRows.append(record)
     }
 
     /// Starts with the date so the files sort chronologically, e.g. `20261022-143005_S1_P3.csv`.

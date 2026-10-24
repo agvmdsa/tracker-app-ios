@@ -32,6 +32,7 @@
 		68AC6F72871FAA74F599010E /* BeaconAdvertiser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40EC633C4FFBC5ECFFF455EC /* BeaconAdvertiser.swift */; };
 		6987DD866EB806D4F71A095F /* TrackerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 007ACF35B52B1DAF1B483383 /* TrackerApp.swift */; };
 		775E98163F33433EE7BB2D83 /* PositioningReporting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57DA62D3129370861CA9F021 /* PositioningReporting.swift */; };
+		423BA3DC5E0B0F84D8AF5515 /* FingerprintUploading.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35A4DA66FFD50BC3B7A67D38 /* FingerprintUploading.swift */; };
 		782ADFAAA9875E62B74F803E /* UWBManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E93860EA18C14D02A6C521D7 /* UWBManagerTests.swift */; };
 		805E4EE5F93590FBA4A2E0E7 /* BeaconSighting.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10DEF21ACE2311185263682 /* BeaconSighting.swift */; };
 		81F17E9120E79A10DE5E10DF /* ProximityTrackerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38D23574686F211E6D22CCBB /* ProximityTrackerTests.swift */; };
@@ -103,6 +104,7 @@
 		5326BC2A5756FCFBA7532F2E /* NavigateToLocationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigateToLocationView.swift; sourceTree = "<group>"; };
 		53D34C1CE5EBA2625E44E41E /* PositioningModeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PositioningModeView.swift; sourceTree = "<group>"; };
 		57DA62D3129370861CA9F021 /* PositioningReporting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PositioningReporting.swift; sourceTree = "<group>"; };
+		35A4DA66FFD50BC3B7A67D38 /* FingerprintUploading.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FingerprintUploading.swift; sourceTree = "<group>"; };
 		5925B9AE366527BFB997200D /* FingerprintCollectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FingerprintCollectorView.swift; sourceTree = "<group>"; };
 		5D4DB0E7E1E098ADBCD33DB5 /* AnchorPositionEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnchorPositionEditor.swift; sourceTree = "<group>"; };
 		6F1935678E05D95388B7E6D5 /* FingerprintRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FingerprintRecorder.swift; sourceTree = "<group>"; };
@@ -242,6 +244,7 @@
 				1FD3CDEB0B5A211FF656A37F /* AnchorStore.swift */,
 				0BFCCF757915E07BEC77C5E5 /* PositioningEngine.swift */,
 				57DA62D3129370861CA9F021 /* PositioningReporting.swift */,
+				35A4DA66FFD50BC3B7A67D38 /* FingerprintUploading.swift */,
 				30524E0DD07A4CFB23211676 /* PositioningAPIClient.swift */,
 				122486DBAB88ED59DE4A0829 /* ARPositionTracking.swift */,
 				3B3EFE2E6949FDBA478FBDD1 /* ARPositionTracker.swift */,
@@ -367,6 +370,7 @@
 				F662DD02D49D978D56891744 /* AnchorStore.swift in Sources */,
 				59F620F3D6256160983BCF86 /* PositioningEngine.swift in Sources */,
 				775E98163F33433EE7BB2D83 /* PositioningReporting.swift in Sources */,
+				423BA3DC5E0B0F84D8AF5515 /* FingerprintUploading.swift in Sources */,
 				8AB635B98CC4D2FA42543424 /* PositioningAPIClient.swift in Sources */,
 				E19722A0C022957CA5402DFD /* EnvironmentValues+Positioning.swift in Sources */,
 				E3079AB0C0A5C7D6CFE7024C /* PositioningModeView.swift in Sources */,

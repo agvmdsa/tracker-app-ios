@@ -45,6 +45,18 @@ private final class FakeMotionActivity: MotionActivityReading {
     func stop() { isRunning = false }
 }
 
+private final class FakeFingerprintUploader: FingerprintUploading, @unchecked Sendable {
+    private(set) var uploadedBatches: [[FingerprintRecord]] = []
+    var errorToThrow: Error?
+
+    func upload(_ records: [FingerprintRecord]) async throws {
+        if let errorToThrow { throw errorToThrow }
+        uploadedBatches.append(records)
+    }
+}
+
+private struct SomeUploadError: Error {}
+
 @MainActor
 final class FingerprintRecorderTests: XCTestCase {
     private let node = BeaconID(hex: "9F3C1A02")!
@@ -56,6 +68,7 @@ final class FingerprintRecorderTests: XCTestCase {
     private var deviceMotion: FakeDeviceMotion!
     private var altimeter: FakeAltimeter!
     private var motionActivity: FakeMotionActivity!
+    private var uploader: FakeFingerprintUploader!
     /// What the recorder sees as the positioned beacons (the app's `AnchorStore.anchors`).
     private var anchors: [Anchor] = []
     private var sut: FingerprintRecorder!
@@ -67,6 +80,7 @@ final class FingerprintRecorderTests: XCTestCase {
         deviceMotion = FakeDeviceMotion()
         altimeter = FakeAltimeter()
         motionActivity = FakeMotionActivity()
+        uploader = FakeFingerprintUploader()
         anchors = []
         sut = makeRecorder()
     }
@@ -84,6 +98,7 @@ final class FingerprintRecorderTests: XCTestCase {
             deviceMotion: deviceMotion,
             altimeter: altimeter,
             motionActivity: motionActivity,
+            uploader: uploader,
             anchors: { [weak self] in self?.anchors ?? [] },
             directory: directory,
             node: node,
@@ -335,6 +350,81 @@ final class FingerprintRecorderTests: XCTestCase {
     private func metadataObject(of csv: URL) throws -> [String: Any] {
         let data = try Data(contentsOf: FingerprintRecorder.metadataURL(for: csv))
         return try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    }
+
+    // MARK: - Fingerprint upload
+
+    /// The upload is fired from `finishRecording()` without being awaited, so a test has to poll
+    /// for it the same way `waitForTheRecordingToEnd()` polls for the recording itself.
+    private func waitForAnUpload() async throws {
+        let deadline = Date().addingTimeInterval(2)
+        while uploader.uploadedBatches.isEmpty && errorFromUpload() == nil && Date() < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+    }
+
+    private func errorFromUpload() -> String? {
+        sut.errorMessage?.contains("envio") == true ? sut.errorMessage : nil
+    }
+
+    func test_finishedRecording_uploadsItsRowsToTheAPI() async throws {
+        sut.start()
+        sut.startRecording(label: label, duration: shortDuration)
+        scanner.deliver(beaconA, rssi: -61)
+        scanner.deliver(beaconB, rssi: -70)
+        try await waitForTheRecordingToEnd()
+        try await waitForAnUpload()
+
+        XCTAssertEqual(uploader.uploadedBatches.count, 1)
+        let uploaded = try XCTUnwrap(uploader.uploadedBatches.first)
+        XCTAssertEqual(uploaded.map(\.beacon), [beaconA, beaconB])
+        XCTAssertNil(sut.errorMessage)
+    }
+
+    func test_cancelledRecording_isNotUploaded() throws {
+        sut.start()
+        sut.startRecording(label: label, duration: 120)
+        scanner.deliver(beaconA, rssi: -61)
+
+        sut.cancelRecording()
+
+        XCTAssertTrue(uploader.uploadedBatches.isEmpty)
+    }
+
+    func test_recordingWithoutAnUploaderConfigured_stillWritesTheCSV() async throws {
+        let recorderWithoutUpload = FingerprintRecorder(
+            scanner: scanner,
+            deviceMotion: deviceMotion,
+            altimeter: altimeter,
+            motionActivity: motionActivity,
+            uploader: nil,
+            directory: directory,
+            node: node,
+            model: "iPhone15,2",
+            systemVersion: "iOS 26.0.1"
+        )
+        recorderWithoutUpload.start()
+        recorderWithoutUpload.startRecording(label: label, duration: shortDuration)
+        scanner.deliver(beaconA, rssi: -61)
+        let deadline = Date().addingTimeInterval(2)
+        while recorderWithoutUpload.isRecording && Date() < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+
+        XCTAssertFalse(recorderWithoutUpload.isRecording)
+        XCTAssertEqual(recorderWithoutUpload.recordings.count, 1)
+    }
+
+    func test_aFailedUpload_keepsTheRecordingAndReportsItSeparatelyFromAWriteFailure() async throws {
+        uploader.errorToThrow = SomeUploadError()
+        sut.start()
+        sut.startRecording(label: label, duration: shortDuration)
+        scanner.deliver(beaconA, rssi: -61)
+        try await waitForTheRecordingToEnd()
+        try await waitForAnUpload()
+
+        XCTAssertEqual(sut.recordings.count, 1, "the CSV is kept even when the upload fails")
+        XCTAssertNotNil(sut.errorMessage)
     }
 
     // MARK: - Beacon layout

@@ -180,6 +180,7 @@ struct FingerprintCollectorView: View {
                 deviceMotion: deviceMotion,
                 altimeter: altimeter,
                 motionActivity: motionActivity,
+                uploader: PositioningAPIClient(),
                 anchors: { anchorStore.anchors }
             )
             recorder = newRecorder
