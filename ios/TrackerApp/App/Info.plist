@@ -20,6 +20,11 @@
 	<string>1</string>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>TrackerApp uses Bluetooth to find another nearby iPhone running TrackerApp and swap the tokens it needs to measure the distance to it, and to detect indoor positioning anchors.</string>
 	<key>NSCameraUsageDescription</key>

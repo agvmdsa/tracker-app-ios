@@ -21,6 +21,7 @@ final class BeaconScanner: NSObject {
     private(set) var isBluetoothUnavailable = false
     var onSighting: ((BeaconSighting) -> Void)?
 
+    private var recentRSSI: [BeaconID: [Int]] = [:]
     private let centralManager: CBCentralManager
     private var scanRequested = false
     private var pruneTimer: Timer?
@@ -52,6 +53,11 @@ final class BeaconScanner: NSObject {
     private func pruneStaleSightings() {
         let cutoff = Date().addingTimeInterval(-Self.staleAfter)
         sightings = sightings.filter { $0.value.seenAt >= cutoff }
+    }
+
+    func drainRecentRSSI(for beaconID: BeaconID) -> [Int] {
+        defer { recentRSSI[beaconID] = nil }
+        return recentRSSI[beaconID] ?? []
     }
 
     private func beginScanning() {
@@ -86,6 +92,7 @@ extension BeaconScanner: CBCentralManagerDelegate {
         // Both clocks are read here, the earliest point the app sees the advertisement.
         let sighting = BeaconSighting(beaconID: beaconID, rssi: RSSI.intValue, seenAt: Date(), monotonicMs: MonotonicClock.nowMs())
         sightings[beaconID] = sighting
+        recentRSSI[beaconID, default: []].append(RSSI.intValue)
         onSighting?(sighting)
     }
 }
