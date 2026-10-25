@@ -229,6 +229,27 @@ testar a conexão de ponta a ponta; a lógica de timing do fallback tem teste au
 (`test/test_dual_stack_strategy`), mas o caminho IPv6 em si não foi validado em hardware real por
 falta de rede IPv6 disponível.
 
+**Como validar o caminho IPv6 de verdade** (precisa de uma rede com IPv6 real — Wi-Fi de casa ou
+da faculdade, não dá pra fazer isso contra o Render, que não tem IPv6):
+
+1. Confirme que a rede Wi-Fi tem IPv6, num computador conectado nela:
+   ```
+   ifconfig en0 | grep inet6
+   ```
+   Procure um endereço que **não** comece com `fe80` (esse é link-local, não serve) — algo como
+   `2804:...`/`2800:...`. Se não aparecer nenhum, essa rede não oferece IPv6 e esse teste não é
+   possível nela.
+2. Suba o broker local nesse mesmo computador (dentro de `applications/api`):
+   ```
+   docker compose up
+   ```
+3. Pegue o IPv4 e o IPv6 desse computador (`ifconfig en0 | grep "inet "` e `grep inet6`) e coloque
+   em `MQTT_HOST`/`MQTT_HOST_V6` no `config.h`, grave no ESP32, e ligue-o na mesma rede Wi-Fi.
+4. Acompanhe a serial do ESP32: `mqtt_connected` dizendo "connected over IPv6" confirma que a
+   conexão real aconteceu por IPv6; só cai pra `mqtt_ipv6_fallback` se o IPv6 falhar de verdade.
+5. Esse teste grava no Postgres **local** do `docker compose`, não no banco do Render — é só pra
+   provar que o fallback funciona, não atualiza o mapa/dashboard publicados.
+
 **Tópico**: `<TOPIC_PREFIX>/<node_id>/sightings` — por exemplo, `tracker/A1B2C3/sightings`. A API
 (`applications/api`) já tem um consumidor rodando (`app/mqtt_consumer.py`) que assina
 `tracker/+/sightings` (o `+` casa qualquer placa) e grava cada mensagem no Postgres, do mesmo jeito

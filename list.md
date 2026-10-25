@@ -135,13 +135,39 @@ qualquer melhoria de UI/paridade adicional que não estava no escopo original.
   (RAM 25.8%, Flash 51.3%). Documentado no `USAGE.md` cap. 8. O caminho IPv6 em si não foi validado
   em hardware real — nem o Mosquitto local nem o Render oferecem IPv6 para testar ponta a ponta;
   só a lógica de timing do fallback tem teste automatizado.
+  - [ ] **Falta rodar a validação de verdade**: passo a passo em `esp32-esp8266/USAGE.md`
+    cap. 8, seção "Como validar o caminho IPv6 de verdade" — precisa de uma rede Wi-Fi com
+    IPv6 real (de casa/faculdade, não o Render) e o `docker compose up` local
+    (`applications/api`) rodando no mesmo computador, servindo de broker. Grava no Postgres
+    local, não no do Render — só prova que o fallback funciona, não é o banco de produção.
 
 ## Infraestrutura / Deploy
 
 - [ ] **Reconectar os serviços do Render** pro repositório `tracker-app-ios` (hoje apontam pro
-  `api_tracker_app` antigo) — Root Directory `applications/api` (API) e
-  `applications/api/grafana` (Grafana). Provavelmente precisa apagar e recriar os serviços.
-  Variáveis de ambiente (`DATABASE_URL`, `API_KEY`, `POSTGRES_*`) precisam ser recriadas.
+  `api_tracker_app` antigo). Passo a passo (serviço por serviço, no painel do Render):
+  1. **Postgres** — não precisa tocar. É um banco gerenciado pelo Render, não está conectado a
+     nenhum repositório do GitHub — continua funcionando igual, independente da migração pro
+     monorepo. Só guarde os dados de conexão da página dele (host, porta, usuário, senha,
+     `Internal Database URL`), vai precisar deles no passo 2.
+  2. **API** (serviço web existente) — abrir o serviço → **Settings** → procurar
+     "Repository"/"Build & Deploy": trocar o repositório conectado de `api_tracker_app` pro
+     novo `tracker-app-ios`, e setar **Root Directory** = `applications/api` (é isso que diz
+     pro Render onde está o `Dockerfile` agora que ele não está mais na raiz do repo). Se o
+     painel não deixar trocar o repositório de um serviço existente, apagar e criar de novo
+     (New → Web Service → conectar `tracker-app-ios`, Root Directory `applications/api`).
+     Variáveis de ambiente a recriar: `DATABASE_URL` (a Internal Database URL do passo 1,
+     trocando `postgresql://` por `postgresql+psycopg://`), `API_KEY` (valor novo, só precisa
+     ser igual ao que for colocado no iOS/ESP32 — ver item abaixo).
+  3. **Grafana** (serviço web existente) — mesma troca de repositório, mas Root Directory =
+     `applications/api/grafana`. Variáveis: `POSTGRES_HOST`/`POSTGRES_PORT`/`POSTGRES_DB`/
+     `POSTGRES_USER`/`POSTGRES_PASSWORD` (do Postgres do passo 1), `POSTGRES_SSLMODE=require`,
+     `GF_SECURITY_ADMIN_USER`/`GF_SECURITY_ADMIN_PASSWORD` (não deixar `admin`/`admin` — esse
+     Grafana fica acessível por qualquer pessoa que achar a URL).
+  4. Depois do deploy dos dois, confirmar: `GET https://<api>.onrender.com/health` responde, e
+     o Grafana abre com o datasource do Postgres já provisionado (painel de hora de
+     pico/densidade/ocupação/permanência aparecendo, mesmo vazio).
+  Detalhes completos (incluindo o histórico de troca Railway→Render) em
+  `applications/api/README.md`, seção "Deploying to Render".
 - [ ] Decidir se o `applications/web` também vai pro Render, ou só roda localmente por enquanto.
 - [ ] Gerar/colar a `API_KEY` real nos 3 lugares (Render, `PositioningAPIClient.swift`,
   `esp32-esp8266/include/config.h`) — anotado antes, ainda pendente.
