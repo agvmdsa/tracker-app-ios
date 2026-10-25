@@ -49,6 +49,79 @@ Nada disso foi começado ainda — é a maior pendência geral do projeto:
 - [ ] Expandir o `docker-compose.yml` com os serviços que faltam: Airflow, MLflow (o broker MQTT já
   está lá).
 
+## Android (`applications/android`)
+
+App "BlueGuide" (pacote `br.org.cesar.blueguide`), antes um repositório separado, trazido pro
+monorepo e levado em direção à paridade com o iOS. SDK instalado localmente via
+`brew install --cask android-commandlinetools` (sem Android Studio) só pra poder compilar/testar.
+
+- [x] ~~Mover pro monorepo~~ — feito, em `applications/android/`. `./gradlew testDebugUnitTest
+  lintDebug` passa limpo.
+- [x] ~~Generalizar o posicionamento pra N âncoras, como o iOS~~ — feito:
+  `Multilateration.kt` (mínimos quadrados, substitui o `Trilateration.kt` fixo de 3) +
+  `AnchorStore`/`AnchorRepository` persistidos (substitui o `AnchorLayout` de triângulo
+  automático) + editor de âncora na UI (toque num dispositivo da lista). 24 testes JVM passando.
+- [x] ~~Integração com o backend~~ — feito: `PositioningApiClient` (Ktor + kotlinx.serialization)
+  manda `POST /sightings`/`POST /fixes` com `X-API-Key`, mesma API do iOS/ESP32. Upload
+  periódico (1s) ligado no `DeviceListViewModel` em modo Observer. `uploadFingerprints()` já
+  existe no cliente, esperando a Fase 3 (gravação) pra ser chamado. Testado com Ktor
+  `MockEngine` (sem bater na rede real) — 3 testes novos, 22 no total passando.
+- [x] ~~Gravação de fingerprint pra ML~~ — feito: `FingerprintRecorder` (CSV + metadata JSON,
+  mesmo schema do iOS, `platform: "Android"`) + leitores de sensor
+  (`AndroidOrientationReader`/`AndroidAltitudeReader` via `SensorManager`,
+  `AndroidMotionActivityReader` via Google Play Services `ActivityRecognitionClient`, precisa
+  da permissão `ACTIVITY_RECOGNITION`) + tela nova (`FingerprintCollectorScreen`, aba separada
+  no topo do app). Upload automático via `PositioningApiClient.upload()`. 7 testes novos (29 no
+  total), `lintDebug` limpo. Convenções de orientação (eixos do `getOrientation()` do Android,
+  diferentes do `CMDeviceMotion` do iOS) e confiança de atividade (0-100 do Android vs 0/1/2 do
+  iOS) documentadas no metadata, não convertidas — ver comentários em
+  `AndroidOrientationReader.kt`/`MotionActivityReading.kt`.
+  ~~**Gap conhecido**: a gravação não sobrevive a uma rotação de tela~~ — corrigido:
+  `FingerprintViewModel` agora encapsula o `FingerprintRecorder` (mesma garantia que o
+  `DeviceListViewModel` já dava pra aba de Posicionamento).
+- [x] ~~Ranging UWB~~ ("achar este celular") — feito: `androidx.core.uwb` 1.0.0 (API real
+  conferida via `javap` no `.aar` baixado, não só lembrada — mesmo cuidado que o
+  `espMqttClient` do ESP32 teve). Handshake BLE próprio (`BleUwbHandshakeChannel`, serviço
+  GATT separado do `BlueGuideProtocol`) decide quem é controller/controlee comparando IDs
+  (igual à regra "menor ID inicia" do `BLEHandshake` do iOS) e troca
+  `UwbHandshakePayload` (endereço + canal/sessão pro lado controller). `UwbProximityTracker`
+  junta os dois, com retomada automática quando o par desconecta — equivalente ao
+  `ProximityTracker` do iOS. Nova aba "Find" no app. 16 testes novos (45 no total) cobrindo a
+  lógica pura (comparação de ID, codificação do payload, orquestração com fakes);
+  `lintDebug` limpo.
+  **Não verificado em hardware real** — precisa de dois aparelhos com chip UWB (Pixel 6
+  Pro+, Galaxy S21 Ultra+ ou equivalente) que não existem neste ambiente; só dá pra garantir
+  que compila e que a lógica de decisão tem teste. UWB é Android-Android só — o protocolo do
+  iOS (NearbyInteraction) e o do Android (Jetpack UWB) não têm como interoperar aqui, mesmo
+  que o recurso "achar o celular" exista nos dois lados.
+- [x] ~~Tracking de posição via câmera~~ (equivalente ao ARKit) — feito: ARCore 1.57.0 (API
+  conferida via `javap` no `.aar` baixado, igual UWB/ESP32). `AndroidArPositionTracker`
+  resolve a posição a partir da pose da câmera (`session.update()` — ARCore é "pull", sem
+  callback de delegate como o ARKit, então faz polling a ~30 Hz); o espaço de câmera do
+  ARCore segue a mesma convenção OpenGL do ARKit (X direita, Y cima, -Z pra frente), então o
+  mapeamento `x = translation.x, y = -translation.z` do iOS vale sem alteração. Nova aba
+  "AR" no app, demo isolada (não plugada no fix BLE das outras abas — o equivalente no iOS,
+  `ARAnchorCaptureView`/`NavigateToLocationView`, é um fluxo de locais salvos separado que
+  não foi replicado, só o tracker em si). `lintDebug` limpo (precisou declarar
+  `android.hardware.camera` como opcional, senão o Play Store escondia o app em Chromebooks
+  sem câmera). 45 testes no total (sem teste novo isolado pra esse tracker — a lógica é só
+  mapeamento de eixos e polling, pouco a testar sem o ARCore real rodando).
+  **Não verificado em hardware real** — precisa de um aparelho com câmera e suporte a ARCore;
+  só dá pra garantir que compila.
+- [x] ~~Navegação de topo "de verdade"~~ (Navigation-Compose 2.10.2) — feito: `NavHost` com
+  uma rota por aba (Posicionamento/Fingerprint/Find/AR), troca de aba via
+  `navController.navigate` com `popUpTo`/`launchSingleTop`/`restoreState` (comportamento de
+  aba, não pilha de telas empilhando). Precisou subir `compileSdk` de 36.1 pra 37.2 (o
+  `navigation-compose` trouxe uma versão mais nova de `lifecycle-viewmodel-compose`/
+  `lifecycle-runtime-compose` que exige isso) — `targetSdk` continua 36, só o nível de
+  compilação mudou. 45 testes, `lintDebug` limpo.
+
+**Com isso, as 6 fases do plano original de port do Android estão completas** (mover pro
+monorepo, generalizar posicionamento, backend, fingerprint/ML, UWB, ARCore, navegação).
+O que resta é só o que já estava listado como gap conhecido em cada item acima — hardware
+real pra validar UWB/ARCore, e persistir fingerprint recorder durante configuração — e
+qualquer melhoria de UI/paridade adicional que não estava no escopo original.
+
 ## ESP32 / Embarcados (`esp32-esp8266`)
 
 - [ ] **Usar pelo menos 1-2 sensores/atuadores do kit físico** (LED RGB, sensor ultrassônico,

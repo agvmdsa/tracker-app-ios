@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Runtime permission since API 31. neverForLocation lets us skip
+         ACCESS_FINE_LOCATION entirely, since we never derive location from scans. -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation" />
+
+    <!-- Runtime permission since API 31, needed by broadcast mode to put this device
+         on the air as a BLE peripheral. -->
+    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
+
+    <!-- Runtime permission since API 31, needed by BleUwbHandshakeChannel's GATT
+         connect/server calls (connectGatt, openGattServer) for the UWB handshake. -->
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+
+    <!-- Runtime permission since API 31, needed by AndroidUwbSessionController
+         (androidx.core.uwb) to actually range. -->
+    <uses-permission android:name="android.permission.UWB_RANGING" />
+
+    <!-- Not a runtime permission: uploading sightings/fixes/fingerprints to the positioning
+         API (PositioningApiClient). -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Runtime permission since API 29, needed by AndroidMotionActivityReader (fingerprint
+         recording only). Missing it just means MotionActivitySample stays null, not a crash. -->
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+
+    <!-- Runtime permission, needed by AndroidArPositionTracker (ARCore) to open the camera.
+         ARKit needs no equivalent request on the iOS side — it owns the camera directly,
+         with its own system permission prompt tied to a different Info.plist key. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <uses-feature
+        android:name="android.hardware.bluetooth_le"
+        android:required="true" />
+
+    <!-- Not required: AndroidOrientationReader/AndroidAltitudeReader degrade to "no reading"
+         on hardware without these, same as the iOS app's device-motion/barometer readers. -->
+    <uses-feature android:name="android.hardware.sensor.barometer" android:required="false" />
+
+    <!-- Not required: AndroidUwbSessionController degrades to "unsupported" on hardware
+         without a UWB chip (most phones), same as the iOS app's UWBManager.isSupported. -->
+    <uses-feature android:name="android.hardware.uwb" android:required="false" />
+
+    <!-- Not required: this is an "AR Optional" app (the rest of BlueGuide works without
+         ARCore) — see the com.google.ar.core meta-data below, which Google Play requires
+         for exactly this case. -->
+    <uses-feature android:name="android.hardware.camera.ar" android:required="false" />
+
+    <!-- Not required: declaring CAMERA above would otherwise imply this app needs a
+         camera at all (and so hide it on cameraless large-screen/ChromeOS devices) unless
+         this is spelled out as optional too. -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+
+    <application
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.BlueGuide">
+
+        <!-- Required by Google Play for "AR Optional" apps: lets the Play Store still list
+             this app for devices that don't support ARCore, instead of hiding it entirely
+             (which "AR Required" apps, declared via android:required="true" on the
+             camera.ar feature above instead, would get). -->
+        <meta-data android:name="com.google.ar.core" android:value="optional" />
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.BlueGuide">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+
+</manifest>

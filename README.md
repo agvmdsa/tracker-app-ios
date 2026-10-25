@@ -2,9 +2,9 @@
 
 iOS AirTag clone with two features: 1:1 tracking between two nearby iPhones (UWB), and indoor
 positioning across multiple phones — anchors + an observer — designed to interoperate with a
-companion Android app ([`btloc`](https://github.com/filipe-ms/btloc)). It's also the data source
-for an indoor-positioning (fingerprinting) machine-learning project, built on the same BLE
-anchors/observer infrastructure.
+companion Android app (`applications/android`, package `br.org.cesar.blueguide`, app name
+"BlueGuide"). It's also the data source for an indoor-positioning (fingerprinting)
+machine-learning project, built on the same BLE anchors/observer infrastructure.
 
 ## Repository layout
 
@@ -13,6 +13,7 @@ A monorepo, following the structure the Sistemas Embarcados course's project spe
 ```
 applications/
   ios/        This README's app (Xcode project) — see "Project structure" below
+  android/    BlueGuide, the Android counterpart (Gradle/Kotlin, see applications/android/README.md)
   api/        FastAPI ingestion/positioning API + Postgres + Grafana (applications/api/README.md)
   web/        Next.js live floor-plan map, reads the API (applications/web/README.md)
 esp32-esp8266/  ESP32 beacon/collector firmware, PlatformIO (esp32-esp8266/USAGE.md)
@@ -24,6 +25,9 @@ scripts/        Dev utilities (e.g. advertising a Mac as a BLE anchor for testin
 `applications/api` and `applications/web` were originally a separate repository
 (`api_tracker_app`); their own `README.md`s still describe them as such in places — read them from
 inside `applications/api/`/`applications/web/`, not as if they were the repository root.
+`applications/android` was originally its own repository too (previously linked as
+[`btloc`](https://github.com/filipe-ms/btloc)); it's folded in here the same way, without its own
+git history.
 
 ## Build requirements
 
