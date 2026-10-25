@@ -207,6 +207,7 @@ monitoramento ao vivo, não pro dataset rotulado de ML.
 #define WIFI_PASSWORD "sua-senha"
 #define ENABLE_MQTT 1
 #define MQTT_HOST "192.168.0.10"   // IP do broker (Mosquitto local, Raspberry Pi, ou mosquitto do docker-compose da API)
+#define MQTT_HOST_V6 ""            // opcional, ver "IPv6 com fallback" abaixo
 #define MQTT_PORT 1883
 #define MQTT_USER ""               // vazio = sem autenticação
 #define MQTT_PASSWORD ""
@@ -216,6 +217,17 @@ monitoramento ao vivo, não pro dataset rotulado de ML.
 `ENABLE_MQTT` só tem efeito com `ENABLE_WIFI 1` também — sem Wi-Fi, não tem MQTT. Com `MQTT_USER`
 vazio, conecta sem usuário/senha (ok pro Mosquitto local do `docker-compose.yml` da API, que aceita
 conexão anônima; não use assim num broker exposto à internet).
+
+**IPv6 com fallback para IPv4** (requisito de detecção de falha de infraestrutura): se
+`MQTT_HOST_V6` for preenchido com o literal IPv6 do mesmo broker (ex.: `"2001:db8::10"`), cada
+tentativa de conexão nova tenta IPv6 primeiro; se não conectar em 5 segundos, troca para
+`MQTT_HOST` (IPv4) sozinho, sem reiniciar a placa. Deixar `MQTT_HOST_V6` vazio (padrão) pula essa
+etapa e vai direto para IPv4, igual antes dessa opção existir. A troca de família gera eventos na
+serial (`mqtt_dual_stack`, `mqtt_connected`, `mqtt_ipv6_fallback`) — é esse log que demonstra a
+detecção de falha, já que o broker atual (Mosquitto local e o Render) não oferece IPv6 real para
+testar a conexão de ponta a ponta; a lógica de timing do fallback tem teste automatizado
+(`test/test_dual_stack_strategy`), mas o caminho IPv6 em si não foi validado em hardware real por
+falta de rede IPv6 disponível.
 
 **Tópico**: `<TOPIC_PREFIX>/<node_id>/sightings` — por exemplo, `tracker/A1B2C3/sightings`. A API
 (`applications/api`) já tem um consumidor rodando (`app/mqtt_consumer.py`) que assina

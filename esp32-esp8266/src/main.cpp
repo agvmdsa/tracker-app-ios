@@ -59,6 +59,7 @@ domain::DeviceConfiguration buildDefaults() {
     copyString(c.wifiSsid, sizeof(c.wifiSsid), WIFI_SSID);
     copyString(c.wifiPassword, sizeof(c.wifiPassword), WIFI_PASSWORD);
     copyString(c.mqttHost, sizeof(c.mqttHost), MQTT_HOST);
+    copyString(c.mqttHostV6, sizeof(c.mqttHostV6), MQTT_HOST_V6);
     c.mqttPort = MQTT_PORT;
     copyString(c.mqttUser, sizeof(c.mqttUser), MQTT_USER);
     copyString(c.mqttPassword, sizeof(c.mqttPassword), MQTT_PASSWORD);
@@ -87,7 +88,7 @@ SerialConsole gConsole;
 NimBleRadio gRadio;
 RtosObservationQueue gObservations;
 HttpFingerprintUploader gUploader;
-EspMqttPublisher gMqttPublisher;
+EspMqttPublisher gMqttPublisher(gEvents);
 BeaconRole gBeacon(gRadio, gEvents);
 CollectorRole gCollector(gRadio, gObservations, gConsole, gUploader, gMqttPublisher, gClock, gEvents);
 RoleFactory gRoles(/*beacon=*/&gBeacon, /*collector=*/&gCollector);
@@ -109,8 +110,9 @@ void setup() {
     if (config.wifiEnabled) {
         gUploader.begin(config.wifiSsid, config.wifiPassword, config.apiHost, config.apiKey);
         if (config.mqttEnabled) {
-            gMqttPublisher.begin(config.wifiSsid, config.wifiPassword, config.mqttHost, config.mqttPort,
-                                 config.mqttUser, config.mqttPassword, config.topicPrefix, config.nodeId);
+            gMqttPublisher.begin(config.wifiSsid, config.wifiPassword, config.mqttHost, config.mqttHostV6,
+                                 config.mqttPort, config.mqttUser, config.mqttPassword, config.topicPrefix,
+                                 config.nodeId);
         }
     }
 }

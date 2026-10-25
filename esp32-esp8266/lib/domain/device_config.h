@@ -22,6 +22,9 @@ struct DeviceConfiguration {
     char wifiSsid[33] = {0};
     char wifiPassword[65] = {0};
     char mqttHost[64] = {0};
+    // IPv6 literal address of the same broker, e.g. "2001:db8::10". Empty = IPv6 not attempted,
+    // every connection goes straight to mqttHost (IPv4) — see dual_stack_strategy.h.
+    char mqttHostV6[46] = {0};
     uint16_t mqttPort = 1883;
     char mqttUser[32] = {0};
     char mqttPassword[64] = {0};

@@ -33,6 +33,12 @@
 
 // MQTT broker (placeholders).
 #define MQTT_HOST "192.168.0.10"
+// IPv6 literal of the same broker (e.g. "2001:db8::10") — tried first, falls back to MQTT_HOST
+// (IPv4) on its own after a few seconds if it doesn't connect. Leave empty to skip IPv6
+// entirely and go straight to IPv4, same as before this existed. Only matters with ENABLE_MQTT
+// 1; unverified on real hardware — there's no board/IPv6-capable network to test it against, see
+// src/hal/esp_mqtt_publisher.h.
+#define MQTT_HOST_V6 ""
 #define MQTT_PORT 1883
 #define MQTT_USER ""
 #define MQTT_PASSWORD ""

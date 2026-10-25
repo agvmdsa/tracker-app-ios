@@ -16,9 +16,9 @@ parte do relatório final (isso vai em `docs/`), é só controle interno do time
 
 ## Backend (`applications/api`)
 
-- [ ] **MQTT de verdade** — maior pendência. O PDF de Sistemas Embarcados exige o protocolo MQTT
-  explicitamente (não é só "tempo real" — isso já está resolvido via SSE). Nada implementado
-  ainda: nem broker, nem publicação, nem consumo.
+- [x] ~~MQTT de verdade~~ — feito: Mosquitto no `docker-compose.yml`, ESP32 publica telemetria
+  contínua (`esp32-esp8266/src/hal/esp_mqtt_publisher.*`, tópico `tracker/<node>/sightings`),
+  backend consome e persiste (`app/mqtt_consumer.py`). Validado de ponta a ponta com broker real.
 - [x] ~~Dashboards do Grafana~~ — feito: `grafana/provisioning/dashboards/json/positioning-overview.json`,
   4 painéis (hora de pico, densidade, ocupação, tempo de permanência), validados contra Postgres
   real via `docker compose up` + API do Grafana.
@@ -46,14 +46,22 @@ Nada disso foi começado ainda — é a maior pendência geral do projeto:
 - [ ] Otimização de hiperparâmetros (Grid/Random Search ou Optuna).
 - [ ] Validação cruzada (k-fold).
 - [ ] Integrar o modelo treinado ao pipeline (inferência automática sobre dados novos).
-- [ ] Expandir o `docker-compose.yml` com os serviços que faltam: broker MQTT, Airflow, MLflow.
+- [ ] Expandir o `docker-compose.yml` com os serviços que faltam: Airflow, MLflow (o broker MQTT já
+  está lá).
 
 ## ESP32 / Embarcados (`esp32-esp8266`)
 
 - [ ] **Usar pelo menos 1-2 sensores/atuadores do kit físico** (LED RGB, sensor ultrassônico,
   infravermelho, potenciômetro) — o projeto hoje só usa o rádio BLE, e o critério de
   "Prototipagem" do Check Point avalia uso de sensores/atuadores e organização do circuito.
-- [ ] Publicar via MQTT (ver item do backend acima — precisa dos dois lados).
+- [x] ~~Publicar via MQTT~~ — feito (ver item do backend acima).
+- [x] ~~IPv6 com fallback para IPv4 (detecção de falha de infra) no publisher MQTT~~ — feito:
+  `lib/domain/dual_stack_strategy.h` (lógica pura, 5/5 testes) + `src/hal/esp_mqtt_publisher.h/.cpp`
+  (tenta IPv6 primeiro quando `MQTT_HOST_V6` está preenchido, cai para IPv4 sozinho após 5s, loga
+  `mqtt_dual_stack`/`mqtt_connected`/`mqtt_ipv6_fallback`). Build real (`esp32dev`) passou
+  (RAM 25.8%, Flash 51.3%). Documentado no `USAGE.md` cap. 8. O caminho IPv6 em si não foi validado
+  em hardware real — nem o Mosquitto local nem o Render oferecem IPv6 para testar ponta a ponta;
+  só a lógica de timing do fallback tem teste automatizado.
 
 ## Infraestrutura / Deploy
 
@@ -74,6 +82,8 @@ Nada disso foi começado ainda — é a maior pendência geral do projeto:
 - [ ] **Declarar o tema oficial do projeto** no relatório (provavelmente "Computação" ou
   "Tecnologias Assistivas", dos 5 temas permitidos).
 - [ ] **Esclarecer com os professores se IPv6 é obrigatório ou só bônus** — aparece nos dois
-  lugares no PDF, ambíguo.
+  lugares no PDF, ambíguo. A implementação (fallback IPv6→IPv4 no MQTT, ver item do ESP32 acima)
+  já existe; falta confirmar se cobre o requisito e se o fato de não ter rede IPv6 real pra
+  demonstrar o caminho feliz é um problema pra nota.
 - [ ] Histórico de commits do backend/frontend não foi preservado na migração pro monorepo —
   decidir se isso importa pro critério "GitHub (Organização)" (commits colaborativos).
