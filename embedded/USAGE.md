@@ -21,10 +21,13 @@ cd embedded
 make setup           # uma vez: cria o venv, instala o PlatformIO e cria include/config.h
 make test            # testes de lógica no computador (make test-one T=test_label para um só)
 make build           # compila o firmware
-make flash           # compila e grava (com mais de uma placa: make flash PORT=/dev/cu.usbserial-XXXX)
+make flash ID=9F3C1A01   # compila, grava e já define o ID da placa (sem ID=, o ID padrão do config.h)
+make id ID=9F3C1A01      # só define o ID de uma placa que já está gravada
+                         # (com mais de uma placa: acrescente PORT=/dev/cu.usbserial-XXXX)
 make monitor         # monitor serial
 make monitor-log     # monitor serial que também grava em logs/device-monitor-<data>.log
 make flash-monitor   # grava e abre o monitor
+make test-scripts    # testes dos scripts em Python (ID da placa e conversor de dados)
 make                 # lista os alvos
 ```
 
@@ -36,17 +39,20 @@ quem preferir os comandos diretos.
 1. `make setup` só é preciso em um computador novo. Neste Mac o venv e o `include/config.h` já
    existem, e o alvo apenas mostra a versão do PlatformIO.
 2. `make test` (cerca de 40 s, opcional) e `make build` (cerca de 1 min) confirmam que tudo compila.
-3. **Uma placa por vez** no USB (cabo de dados). `make ports` mostra a porta; `make flash` grava (se
-   travar em `Connecting......`, segure **BOOT**); `make monitor` abre a serial. Com mais de uma
-   placa conectada, use `PORT=/dev/cu.usbserial-XXXX` nos dois comandos.
+3. **Uma placa por vez** no USB (cabo de dados). `make ports` mostra a porta; `make flash ID=9F3C1A01`
+   grava **e já dá o ID à placa** (se travar em `Connecting......`, segure **BOOT**); `make monitor`
+   abre a serial. Com mais de uma placa conectada, use `PORT=/dev/cu.usbserial-XXXX`.
 4. Na primeira placa confira o banner (`# fw=0.1.0 … role=beacon id=9F3C1A02`) e o evento
    `advertising` com o `packet=`; teste `id 9F3C1A0` e `id ZZZZZZZZ` (devem dar `ERR bad_id`) e veja se
    o **TrackerApp** do iPhone lista o ID (**Indoor → "Sou o observador" → Sinais próximos**). Só depois
    siga para as outras.
-5. **Dê um ID diferente a cada placa antes de ligar duas juntas.** Todas saem de fábrica com o
-   `DEFAULT_BEACON_ID` do `config.h` (`9F3C1A02`) e o papel `beacon`. Em cada uma, no monitor:
-   `id 9F3C1A01` (depois `…02`, `…03`) e `reboot`. O binário é o mesmo para todas: o ID fica na
-   memória da placa (NVS), então não é preciso editar o `config.h` nem compilar de novo.
+5. **Cada placa precisa de um ID diferente.** Use `make flash ID=9F3C1A01` (depois `…02`, `…03`): o
+   comando grava, manda `id` e `reboot` pela serial e **confere no banner** que a placa passou a
+   dizer `id=…` (mostra `OK: board <node> now advertises as 9F3C1A01`). Para uma placa que já está
+   gravada, `make id ID=9F3C1A02`, sem regravar. Sem `ID=`, a placa sai com o `DEFAULT_BEACON_ID`
+   do `config.h` (`9F3C1A02`), igual a todas as outras. O binário é o mesmo para todas: o ID fica
+   na memória da placa (NVS), então não é preciso editar o `config.h` nem compilar de novo. Se o
+   comando falhar (placa desligada, cabo só de carga, monitor aberto), ele diz o que conferir.
 6. Depois de configuradas, as placas só precisam de energia USB (carregador ou power bank); o PC
    volta a ser necessário apenas para o coletor (capítulo 6), que usa o monitor serial.
 
@@ -108,6 +114,25 @@ reboot
 As configurações são gravadas na memória da placa (NVS) e valem depois do `reboot`. Um ID inválido
 (`9F3C1A0`, `ZZZZZZZZ`) é recusado com `ERR bad_id`. Para voltar aos valores do `config.h`:
 `config reset` e `reboot`.
+
+### Onde colocar as placas
+
+O erro de distância por RSSI cresce com a distância (com 3 dB de ruído, cerca de 35% dela: 0,7 m a
+2 m e 2,8 m a 8 m). Por isso a posição das placas pesa tanto quanto o código:
+
+- **Em triângulo, nunca em linha reta.** Em linha a posição fica ambígua (espelhada em torno da
+  linha) e o cálculo degenera. Com você **dentro** do triângulo os erros se compensam; fora dele,
+  crescem.
+- **Na mesma altura, a do celular** (cerca de 1 a 1,2 m do chão). O app calcula em 2D, mas a
+  distância medida é 3D: uma placa a 2,5 m de altura, com você a 1 m dela no chão, "mede" cerca de
+  2,7 m, um erro enorme perto da placa.
+- **Perto da área de uso.** Quanto menor a distância máxima, mais leituras ficam na faixa em que o
+  RSSI é informativo (abaixo de uns 5 m). Numa área de 6 × 5 m, as placas nos cantos mantêm qualquer
+  ponto a 4 m ou menos da mais próxima; uma placa na sala ao lado quase não ajuda.
+- **Segure o celular sempre do mesmo jeito.** O corpo bloqueia o sinal e o RSSI muda conforme você
+  vira.
+- Meça a posição de cada placa com trena a partir de uma origem fixa e digite as mesmas coordenadas
+  no app.
 
 ## 5. Monitorar pela serial
 
@@ -194,7 +219,28 @@ ser **exatamente** o mesmo valor da variável `API_KEY` do serviço da API no Re
 
 ## 8. Publicar no broker MQTT
 
-_A completar (T067)._
+- **ESP32:** `make monitor-log` grava a serial em `embedded/logs/device-monitor-<data>.log`. As
+  linhas `R,…` são os registros rotulados; o resto (`L`, `S`, `E`, `#`) o conversor ignora.
+- **iPhone:** o TrackerApp (Indoor → "Coletar dados para fingerprinting") grava um `.csv` e um
+  `.json` por gravação em `Documents/Fingerprints`, que aparecem no app Arquivos e no Finder.
+  O `.json` só existe quando a gravação terminou normalmente; um `.csv` sem ele foi cortado (o app
+  foi encerrado) e o conversor o pula.
+- **Juntar os dois** (só biblioteca padrão do Python), da raiz do repositório:
+
+  ```bash
+  python3 -I scripts/merge_fingerprints.py \
+      --ios gravacao-1.csv gravacao-2.csv \
+      --esp32 embedded/logs/device-monitor-*.log \
+      -o merged.csv --summary resumo.csv
+  ```
+
+  `merged.csv` tem uma linha por anúncio, com a coluna `source` (`ios` ou `esp32`) e o mesmo
+  rótulo (`session`, `point`, `x`, `y`) nas duas origens. `resumo.csv` traz n, média, mediana,
+  desvio, mínimo e máximo do RSSI por origem, ponto e beacon: a diferença entre as médias de
+  `ios` e `esp32` no mesmo ponto e beacon é o desvio de RSSI entre os receptores. Os `t_ms` dos
+  dois **não** se comparam (o ESP32 não tem relógio de parede): o alinhamento é pelo rótulo.
+  Linhas cortadas ou inválidas são contadas e avisadas, não misturadas aos dados. Testes:
+  `python3 -m unittest discover -s scripts -p "test_merge_fingerprints.py"`.
 
 ## 8. Publicar no broker MQTT
 

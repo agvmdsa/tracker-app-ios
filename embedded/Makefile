@@ -23,12 +23,13 @@ UPLOAD_PORT := $(if $(PORT),--upload-port $(PORT),)
 MONITOR_PORT := $(if $(PORT),--port $(PORT),)
 
 .DEFAULT_GOAL := help
-.PHONY: help setup test test-one build flash monitor monitor-log flash-monitor ports clean
+.PHONY: help setup test test-one test-scripts build flash id monitor monitor-log flash-monitor ports clean
 
 help: ## Lista os alvos
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*## / {printf "  make %-14s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 	@echo
-	@echo "  Variaveis: PORT=<porta serial>  T=<pasta de teste>  (ex.: make test-one T=test_label)"
+	@echo "  Variaveis: ID=<8 hex>  PORT=<porta serial>  T=<pasta de teste>"
+	@echo "  Exemplos:  make flash ID=9F3C1A01    make test-one T=test_label"
 
 $(PIO):
 	$(PYTHON) -m venv .venv
@@ -48,11 +49,20 @@ test-one: $(PIO) ## Um teste so: make test-one T=test_label
 	@test -n "$(T)" || { echo "Informe o teste: make test-one T=test_label"; exit 1; }
 	$(PIO) test -e native -f $(T)
 
+test-scripts: $(PIO) ## Testes dos scripts em Python (ID da placa e conversor de dados)
+	.venv/bin/python -m unittest discover -s scripts -p "test_*.py"
+	.venv/bin/python -m unittest discover -s ../scripts -p "test_*.py"
+
 build: $(PIO) include/config.h ## Compila o firmware (esp32dev)
 	$(PIO) run -e $(ENV)
 
-flash: $(PIO) include/config.h ## Compila e grava na placa
+flash: $(PIO) include/config.h ## Compila e grava na placa (com ID=<8 hex> ja define o ID dela)
 	$(PIO) run -e $(ENV) -t upload $(UPLOAD_PORT)
+	@$(if $(ID),"$(MAKE)" --no-print-directory id,true)
+
+id: $(PIO) ## Define o ID da placa pela serial e confere: make id ID=9F3C1A01
+	@test -n "$(ID)" || { echo "Informe o ID: make id ID=9F3C1A01"; exit 1; }
+	.venv/bin/python scripts/set_beacon_id.py --id $(ID) $(if $(PORT),--port $(PORT),)
 
 monitor: $(PIO) ## Abre o monitor serial (Ctrl+C sai)
 	$(PIO) device monitor -b $(BAUD) $(MONITOR_PORT)
