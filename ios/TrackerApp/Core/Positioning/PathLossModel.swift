@@ -1,20 +1,72 @@
 import Foundation
 
+/// The two numbers of the log-distance model, `rssi = referenceRSSI - 10 * exponent * log10(d)`,
+/// as calibrated from what the phone reads in the middle of the anchors and touching one.
+struct PathLossCalibration: Equatable {
+    /// The RSSI at 1 m.
+    let referenceRSSI: Double
+    let exponent: Double
+    /// False when the touching reading could not be used (missing, or not stronger than the
+    /// center's) and the center alone calibrated, with the nominal exponent.
+    let usesTouchRSSI: Bool
+
+    func distanceMeters(rssi: Double) -> Double {
+        pow(10.0, (referenceRSSI - rssi) / (10.0 * exponent))
+    }
+
+    func rssi(atDistance distance: Double) -> Double {
+        referenceRSSI - 10.0 * exponent * log10(distance)
+    }
+}
+
 enum PathLossModel {
+    /// The free-space exponent, used when only the center RSSI is known. `Multilateration` also
+    /// sizes its RSSI noise with it.
     static let pathLossExponent: Double = 2.0
     /// What the iPhone reads from each ESP32 beacon in the middle of the 2.5 m bench square, 1.77 m
     /// from every corner. The app lets it be set again for another room or phone.
     static let defaultCenterRSSI: Double = -70.0
-    /// The RSSI at 1 m that `defaultCenterRSSI` implies on the bench square: about -65 dBm.
-    static let referenceRSSI: Double = referenceRSSI(centerRSSI: defaultCenterRSSI, centerDistanceMeters: 2.5 / 2.0.squareRoot())
+    /// What the phone reads touching a beacon. Measured between -34 and -42 dBm; -30 is the base.
+    static let defaultTouchRSSI: Double = -30.0
+    /// How far apart the antennas are with the phone touching a beacon: the phone's antenna and the
+    /// board's are a few centimetres inside each case.
+    static let touchDistanceMeters: Double = 0.1
+    /// Exponents outside this are not a room but a wrong reading (the phone was not touching, or
+    /// not in the middle), so the touching RSSI is then ignored.
+    static let plausibleExponents: ClosedRange<Double> = 1.0...6.0
 
-    static func distanceMeters(rssi: Double, referenceRSSI: Double = referenceRSSI) -> Double {
-        pow(10.0, (referenceRSSI - rssi) / (10.0 * pathLossExponent))
+    /// The bench calibration: the default readings on the 2.5 m square.
+    static let defaultCalibration = calibration(
+        centerRSSI: defaultCenterRSSI,
+        centerDistanceMeters: 2.5 / 2.0.squareRoot(),
+        touchRSSI: defaultTouchRSSI
+    )
+    /// The RSSI at 1 m of `defaultCalibration`: about -62 dBm.
+    static var referenceRSSI: Double { defaultCalibration.referenceRSSI }
+
+    static func distanceMeters(rssi: Double, calibration: PathLossCalibration = defaultCalibration) -> Double {
+        calibration.distanceMeters(rssi: rssi)
     }
 
-    /// The RSSI at 1 m for which `centerRSSI` reads as `centerDistanceMeters`.
-    static func referenceRSSI(centerRSSI: Double, centerDistanceMeters: Double) -> Double {
-        centerRSSI + 10.0 * pathLossExponent * log10(centerDistanceMeters)
+    /// Reads `centerRSSI` as `centerDistanceMeters` and `touchRSSI` as `touchDistanceMeters`, which
+    /// fixes both the RSSI at 1 m and the exponent. Without a usable touching reading, the center
+    /// alone fixes the RSSI at 1 m, with the nominal exponent.
+    static func calibration(centerRSSI: Double, centerDistanceMeters: Double, touchRSSI: Double?) -> PathLossCalibration {
+        if let touchRSSI, centerDistanceMeters > touchDistanceMeters {
+            let exponent = (touchRSSI - centerRSSI) / (10.0 * log10(centerDistanceMeters / touchDistanceMeters))
+            if plausibleExponents.contains(exponent) {
+                return PathLossCalibration(
+                    referenceRSSI: centerRSSI + 10.0 * exponent * log10(centerDistanceMeters),
+                    exponent: exponent,
+                    usesTouchRSSI: true
+                )
+            }
+        }
+        return PathLossCalibration(
+            referenceRSSI: centerRSSI + 10.0 * pathLossExponent * log10(centerDistanceMeters),
+            exponent: pathLossExponent,
+            usesTouchRSSI: false
+        )
     }
 
     /// How far the anchors are, on average, from their middle (the mean of their positions). Nil

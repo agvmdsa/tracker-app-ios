@@ -101,8 +101,9 @@ xcodebuild test -project TrackerApp.xcodeproj -scheme TrackerApp \
 2. Place the boards at the corners of a square (2.5 m on a side was the bench test) and power them.
 3. Install the app: Xcode on the iPhone, or `make android` on the Android phone.
 4. In the Observer screen, tap each beacon under "Sinais próximos" and type its x/y in metres.
-5. Stand in the middle and, under "Calibração", tap "Usar a leitura de agora". The position should
-   then stay inside the square.
+5. Under "Calibração", stand in the middle and tap "Usar a leitura de agora" next to "RSSI no
+   centro"; then touch the phone to a beacon and tap the one next to "RSSI encostado". The position
+   should then stay inside the square.
 
 # iOS app (`ios/`)
 
@@ -210,11 +211,15 @@ manufacturer data, which iOS reads first.
 **Distance/position math** (`Core/Positioning`; the Android app uses the same model, solver and
 constants):
 
-- `PathLossModel` — converts RSSI to distance with the log-distance path loss model (exponent 2).
-  The RSSI at 1 m is calibrated from the **"RSSI no centro"** setting in the Observer screen: the
-  RSSI heard standing in the middle of the anchors, read as the anchors' mean distance to their
-  middle (1.77 m in a 2.5 m square). The default, -70 dBm, is what the iPhone read on the bench,
-  i.e. about -65 dBm at 1 m. "Usar a leitura de agora" takes the mean of what the phone hears now.
+- `PathLossModel` — converts RSSI to distance with the log-distance path loss model, calibrated
+  from two readings in the Observer screen: **"RSSI no centro"**, heard standing in the middle of
+  the anchors and read as their mean distance to the middle (1.77 m in a 2.5 m square), and
+  **"RSSI encostado"**, heard touching a beacon and read as 0.1 m. Two readings fix both the RSSI
+  at 1 m and the path loss exponent. The defaults are -70 dBm (what the iPhone read on the bench)
+  and -30 dBm (touching read -34 to -42), which give about -62 dBm at 1 m and an exponent of 3.2.
+  A touching reading no stronger than the center's, or one giving an exponent outside 1–6, is
+  ignored and the center alone calibrates with exponent 2. "Usar a leitura de agora" takes the
+  mean of the anchors' medians (center) or the strongest one (touching).
 - `RSSIWindow` — the median of each beacon's advertisements in the last 3 s. A stray reading does
   not move it, and a beacon heard 30 times does not count more than one heard 3 times.
 - `Multilateration` — any N ≥ 3 anchors. Weighted least squares (weight 1/d², since a fixed RSSI

@@ -42,7 +42,7 @@ import br.org.cesar.blueguide.data.ble.AndroidBleScanner
 import br.org.cesar.blueguide.data.ble.SharedPrefsLocalDeviceIdProvider
 import br.org.cesar.blueguide.data.network.PositioningApiClient
 import br.org.cesar.blueguide.data.positioning.SharedPrefsAnchorRepository
-import br.org.cesar.blueguide.data.positioning.SharedPrefsCenterRssiRepository
+import br.org.cesar.blueguide.data.positioning.SharedPrefsCalibrationRepository
 import br.org.cesar.blueguide.data.positioning.SharedPrefsSavedLocationRepository
 import br.org.cesar.blueguide.domain.ble.BroadcastStatus
 import br.org.cesar.blueguide.domain.entity.BleDevice
@@ -117,7 +117,7 @@ class MainActivity : ComponentActivity() {
                                 advertiser = AndroidBleAdvertiser(appContext, localDeviceId),
                                 localDeviceId = localDeviceId,
                                 anchorStore = AnchorStore(SharedPrefsAnchorRepository(appContext)),
-                                centerRssiRepository = SharedPrefsCenterRssiRepository(appContext),
+                                calibrationRepository = SharedPrefsCalibrationRepository(appContext),
                                 savedLocationStore = SavedLocationStore(SharedPrefsSavedLocationRepository(appContext)),
                                 deviceModel = Build.MODEL,
                                 nowMs = SystemClock::elapsedRealtime,
@@ -218,6 +218,7 @@ class MainActivity : ComponentActivity() {
                                 state = state,
                                 onDeviceClick = { id -> editingAnchorId = id },
                                 onCenterRssiChange = vm::setCenterRssi,
+                                onTouchRssiChange = vm::setTouchRssi,
                                 onSaveLocation = vm::saveCurrentLocation,
                                 onRemoveLocation = vm::removeSavedLocation
                             )

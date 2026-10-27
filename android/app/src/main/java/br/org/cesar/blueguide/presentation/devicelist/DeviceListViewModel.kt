@@ -12,7 +12,7 @@ import br.org.cesar.blueguide.domain.network.ObserverFixReport
 import br.org.cesar.blueguide.domain.network.PositioningReport
 import br.org.cesar.blueguide.domain.network.PositioningReporting
 import br.org.cesar.blueguide.domain.position.AnchorStore
-import br.org.cesar.blueguide.domain.position.CenterRssiRepository
+import br.org.cesar.blueguide.domain.position.CalibrationRepository
 import br.org.cesar.blueguide.domain.position.SavedLocationStore
 import br.org.cesar.blueguide.domain.position.Point2D
 import java.time.Instant
@@ -36,7 +36,7 @@ class DeviceListViewModel(
     private val advertiser: BleAdvertiser,
     private val localDeviceId: LocalDeviceIdProvider,
     private val anchorStore: AnchorStore,
-    private val centerRssiRepository: CenterRssiRepository,
+    private val calibrationRepository: CalibrationRepository,
     private val savedLocationStore: SavedLocationStore,
     /** The phone model sent with every report, as the iOS app's `deviceModel`. */
     private val deviceModel: String,
@@ -83,8 +83,11 @@ class DeviceListViewModel(
         }
 
         viewModelScope.launch {
-            withContext(Dispatchers.IO) { centerRssiRepository.load() }
-                ?.let { dispatch(DeviceListIntent.CenterRssiChanged(it)) }
+            val (center, touch) = withContext(Dispatchers.IO) {
+                calibrationRepository.loadCenterRssi() to calibrationRepository.loadTouchRssi()
+            }
+            center?.let { dispatch(DeviceListIntent.CenterRssiChanged(it)) }
+            touch?.let { dispatch(DeviceListIntent.TouchRssiChanged(it)) }
         }
 
         viewModelScope.launch {
@@ -207,7 +210,13 @@ class DeviceListViewModel(
     /** The "RSSI no centro" setting: ranges again at once, and is kept for the next launch. */
     fun setCenterRssi(rssi: Double) {
         dispatch(DeviceListIntent.CenterRssiChanged(rssi))
-        viewModelScope.launch(Dispatchers.IO) { centerRssiRepository.save(rssi) }
+        viewModelScope.launch(Dispatchers.IO) { calibrationRepository.saveCenterRssi(rssi) }
+    }
+
+    /** The "RSSI encostado" setting: ranges again at once, and is kept for the next launch. */
+    fun setTouchRssi(rssi: Double) {
+        dispatch(DeviceListIntent.TouchRssiChanged(rssi))
+        viewModelScope.launch(Dispatchers.IO) { calibrationRepository.saveTouchRssi(rssi) }
     }
 
     /** Saves where the fix puts the phone now under [label] ("Salvar posição atual"). */

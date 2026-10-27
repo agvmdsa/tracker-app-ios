@@ -22,6 +22,8 @@ sealed interface DeviceListIntent {
     data class Refreshed(val nowMs: Long) : DeviceListIntent
     /** The "RSSI no centro" setting, loaded from disk or changed on screen. */
     data class CenterRssiChanged(val rssi: Double) : DeviceListIntent
+    /** The "RSSI encostado" setting, loaded from disk or changed on screen. */
+    data class TouchRssiChanged(val rssi: Double) : DeviceListIntent
     /** Fired whenever `SavedLocationStore`'s list changes. */
     data class SavedLocationsChanged(val locations: List<SavedLocation>) : DeviceListIntent
 }

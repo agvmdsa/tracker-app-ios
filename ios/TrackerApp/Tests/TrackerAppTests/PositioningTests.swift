@@ -310,9 +310,62 @@ final class PositioningTests: XCTestCase {
         XCTAssertNil(PathLossModel.centerDistanceMeters(of: []))
     }
 
-    func test_referenceFromTheCenterRSSI_readsThatRSSIAsTheCenterDistance() {
-        let reference = PathLossModel.referenceRSSI(centerRSSI: -76, centerDistanceMeters: 3)
-        XCTAssertEqual(PathLossModel.distanceMeters(rssi: -76, referenceRSSI: reference), 3, accuracy: 1e-9)
+    /// The default touching RSSI, -30 dBm, reads as the touching distance.
+    func test_thirtyDbm_isTheTouchingDistance() {
+        XCTAssertEqual(PathLossModel.distanceMeters(rssi: -30), PathLossModel.touchDistanceMeters, accuracy: 1e-9)
+    }
+
+    /// Two readings, two unknowns: the center RSSI is the center distance and the touching RSSI is
+    /// the touching distance, which fixes both the RSSI at 1 m and the path loss exponent.
+    func test_calibration_readsTheCenterAndTheTouchingRSSIAsTheirDistances() {
+        let calibration = PathLossModel.calibration(centerRSSI: -76, centerDistanceMeters: 3, touchRSSI: -38)
+
+        XCTAssertTrue(calibration.usesTouchRSSI)
+        XCTAssertEqual(calibration.distanceMeters(rssi: -76), 3, accuracy: 1e-9)
+        XCTAssertEqual(calibration.distanceMeters(rssi: -38), PathLossModel.touchDistanceMeters, accuracy: 1e-9)
+        // 38 dB over a 30x change in distance.
+        XCTAssertEqual(calibration.exponent, 38 / (10 * log10(30.0)), accuracy: 1e-9)
+    }
+
+    func test_calibration_rssiAtADistance_isTheInverseOfTheDistanceForAnRSSI() {
+        let calibration = PathLossModel.calibration(centerRSSI: -70, centerDistanceMeters: 2, touchRSSI: -36)
+
+        XCTAssertEqual(calibration.distanceMeters(rssi: calibration.rssi(atDistance: 3.3)), 3.3, accuracy: 1e-9)
+    }
+
+    /// A touching RSSI no stronger than the center's would make the signal grow with the distance:
+    /// it is ignored, and the center alone calibrates with the nominal exponent, as before.
+    func test_calibration_withATouchingRSSINoStrongerThanTheCenter_usesTheCenterAlone() {
+        for touch in [-76.0, -80.0] {
+            let calibration = PathLossModel.calibration(centerRSSI: -76, centerDistanceMeters: 3, touchRSSI: touch)
+
+            XCTAssertFalse(calibration.usesTouchRSSI, "\(touch) dBm")
+            XCTAssertEqual(calibration.exponent, PathLossModel.pathLossExponent, accuracy: 1e-9)
+            XCTAssertEqual(calibration.distanceMeters(rssi: -76), 3, accuracy: 1e-9)
+        }
+    }
+
+    /// Readings so far apart that the exponent comes out beyond what any room gives are a mistake
+    /// (the phone was not touching, or not in the middle): the center alone calibrates.
+    func test_calibration_withAnImplausibleExponent_usesTheCenterAlone() {
+        let calibration = PathLossModel.calibration(centerRSSI: -95, centerDistanceMeters: 1.77, touchRSSI: -15)
+
+        XCTAssertFalse(calibration.usesTouchRSSI)
+        XCTAssertEqual(calibration.distanceMeters(rssi: -95), 1.77, accuracy: 1e-9)
+    }
+
+    func test_calibration_withAnchorsCloserThanTheTouchingDistance_usesTheCenterAlone() {
+        let calibration = PathLossModel.calibration(centerRSSI: -40, centerDistanceMeters: 0.05, touchRSSI: -30)
+
+        XCTAssertFalse(calibration.usesTouchRSSI)
+        XCTAssertEqual(calibration.distanceMeters(rssi: -40), 0.05, accuracy: 1e-9)
+    }
+
+    func test_calibration_withoutATouchingRSSI_usesTheCenterAlone() {
+        let calibration = PathLossModel.calibration(centerRSSI: -76, centerDistanceMeters: 3, touchRSSI: nil)
+
+        XCTAssertFalse(calibration.usesTouchRSSI)
+        XCTAssertEqual(calibration.distanceMeters(rssi: -76), 3, accuracy: 1e-9)
     }
 
     func test_referenceRSSI_meansOneMetre() {
@@ -396,13 +449,14 @@ final class PositioningEngineTests: XCTestCase {
         let rig = makeRig(anchorsAt: anchors)
         defer { rig.engine.stop() }
         // What a phone at (2, 2) would hear by the engine's model, rounded to whole dBm.
-        let reference = PathLossModel.referenceRSSI(
+        let calibration = PathLossModel.calibration(
             centerRSSI: rig.engine.centerRSSI,
-            centerDistanceMeters: try XCTUnwrap(PathLossModel.centerDistanceMeters(of: anchors))
+            centerDistanceMeters: try XCTUnwrap(PathLossModel.centerDistanceMeters(of: anchors)),
+            touchRSSI: rig.engine.touchRSSI
         )
         let phone = Point2D(x: 2, y: 2)
         for (index, anchor) in anchors.enumerated() {
-            let rssi = reference - 10 * PathLossModel.pathLossExponent * log10(anchor.distance(to: phone))
+            let rssi = calibration.rssi(atDistance: anchor.distance(to: phone))
             for _ in 0..<5 { hear(rig, index, rssi: Int(rssi.rounded())) }
         }
 
@@ -453,6 +507,41 @@ final class PositioningEngineTests: XCTestCase {
         XCTAssertLessThan(fix.uncertaintyMeters, 1e-6)
     }
 
+    /// The touching RSSI is read as the touching distance, with the center RSSI still the center's.
+    func test_refresh_theTouchingRSSIIsReadAsTheTouchingDistance() throws {
+        let corners = [Point2D(x: 0, y: 0), Point2D(x: 2.5, y: 0), Point2D(x: 2.5, y: 2.5), Point2D(x: 0, y: 2.5)]
+        let rig = makeRig(anchorsAt: corners)
+        defer { rig.engine.stop() }
+        rig.engine.centerRSSI = -72
+        rig.engine.touchRSSI = -38
+        for _ in 0..<5 { hear(rig, 0, rssi: -38) }
+        for index in 1..<4 {
+            for _ in 0..<5 { hear(rig, index, rssi: -72) }
+        }
+
+        rig.engine.refresh()
+
+        let ranges = Dictionary(uniqueKeysWithValues: rig.engine.anchorRanges.map { ($0.anchor.position, $0.distanceMeters) })
+        XCTAssertEqual(try XCTUnwrap(ranges[corners[0]]), PathLossModel.touchDistanceMeters, accuracy: 1e-9)
+        XCTAssertEqual(try XCTUnwrap(ranges[corners[1]]), 2.5 / 2.0.squareRoot(), accuracy: 1e-9)
+        XCTAssertTrue(rig.engine.calibration.usesTouchRSSI)
+    }
+
+    /// Touching one beacon and taking what the phone hears now: the strongest anchor's median.
+    func test_currentTouchRSSI_isTheStrongestRangedAnchorsMedian() throws {
+        let corners = [Point2D(x: 0, y: 0), Point2D(x: 2.5, y: 0), Point2D(x: 2.5, y: 2.5)]
+        let rig = makeRig(anchorsAt: corners)
+        defer { rig.engine.stop() }
+        XCTAssertNil(rig.engine.currentTouchRSSI, "nothing heard yet")
+        for (index, rssi) in [-80, -37, -75].enumerated() {
+            for _ in 0..<3 { hear(rig, index, rssi: rssi) }
+        }
+
+        rig.engine.refresh()
+
+        XCTAssertEqual(try XCTUnwrap(rig.engine.currentTouchRSSI), -37, accuracy: 1e-9)
+    }
+
     /// Standing in the middle and taking what the phone hears now: the mean of the anchors' medians.
     func test_currentCenterRSSI_isTheMeanOfTheRangedAnchorsMedians() throws {
         let corners = [Point2D(x: 0, y: 0), Point2D(x: 2.5, y: 0), Point2D(x: 2.5, y: 2.5), Point2D(x: 0, y: 2.5)]
@@ -488,7 +577,7 @@ final class PositionMapViewTests: XCTestCase {
         let truth = Point2D(x: 2.6, y: 2.0)
         let ranges = anchors.map { anchor -> AnchorRange in
             let distance = anchor.position.distance(to: truth) * 1.08
-            return AnchorRange(anchor: anchor, distanceMeters: distance, rssi: PathLossModel.referenceRSSI - 20 * log10(distance))
+            return AnchorRange(anchor: anchor, distanceMeters: distance, rssi: PathLossModel.defaultCalibration.rssi(atDistance: distance))
         }
         return (anchors, ranges, Multilateration.solve(readings: ranges)!)
     }

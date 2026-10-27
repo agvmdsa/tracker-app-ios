@@ -18,6 +18,25 @@ final class PositioningEngine {
     /// The RSSI heard from the anchors standing in their middle. It calibrates the model: it is read
     /// as the anchors' mean distance to their middle.
     var centerRSSI: Double = PathLossModel.defaultCenterRSSI
+    /// The RSSI heard with the phone touching a beacon, read as `PathLossModel.touchDistanceMeters`.
+    /// With the center's it fixes the path loss exponent too.
+    var touchRSSI: Double = PathLossModel.defaultTouchRSSI
+
+    /// The model the ranges come from, for the anchors configured now. Fewer than two anchors have
+    /// no middle, so the bench square's is used.
+    var calibration: PathLossCalibration {
+        PathLossModel.calibration(
+            centerRSSI: centerRSSI,
+            centerDistanceMeters: PathLossModel.centerDistanceMeters(of: anchorStore.anchors.map(\.position)) ?? 2.5 / 2.0.squareRoot(),
+            touchRSSI: touchRSSI
+        )
+    }
+
+    /// The strongest anchor's current median, to take as `touchRSSI` while touching it. Nil until an
+    /// anchor is ranged.
+    var currentTouchRSSI: Double? {
+        anchorRanges.compactMap(\.rssi).max()
+    }
 
     /// The mean of the anchors' current median RSSIs, to take as `centerRSSI` while standing in the
     /// middle. Nil until an anchor is ranged.
@@ -69,9 +88,7 @@ final class PositioningEngine {
 
     func refresh() {
         let now = MonotonicClock.nowMs()
-        let referenceRSSI = PathLossModel.centerDistanceMeters(of: anchorStore.anchors.map(\.position))
-            .map { PathLossModel.referenceRSSI(centerRSSI: centerRSSI, centerDistanceMeters: $0) }
-            ?? PathLossModel.referenceRSSI
+        let calibration = calibration
         var readings: [AnchorRange] = []
         var medianRSSI: [BeaconID: Double] = [:]
         var sampleStats: [BeaconID: (count: Int, stdDev: Double)] = [:]
@@ -82,7 +99,7 @@ final class PositioningEngine {
             guard let median = rssiWindows[anchor.id]?.median(atMs: now) else { continue }
             medianRSSI[anchor.id] = median
             sampleStats[anchor.id] = (samples.count, Self.standardDeviation(of: samples))
-            let distance = PathLossModel.distanceMeters(rssi: median, referenceRSSI: referenceRSSI)
+            let distance = calibration.distanceMeters(rssi: median)
             readings.append(AnchorRange(anchor: anchor, distanceMeters: distance, rssi: median))
         }
         anchorRanges = readings

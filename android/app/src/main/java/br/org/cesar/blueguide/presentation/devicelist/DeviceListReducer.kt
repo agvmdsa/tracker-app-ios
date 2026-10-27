@@ -3,7 +3,6 @@ package br.org.cesar.blueguide.presentation.devicelist
 import br.org.cesar.blueguide.domain.entity.DeviceId
 import br.org.cesar.blueguide.domain.position.AnchorRange
 import br.org.cesar.blueguide.domain.position.Multilateration
-import br.org.cesar.blueguide.domain.position.PathLossModel
 import br.org.cesar.blueguide.domain.position.RssiWindow
 import kotlin.math.sqrt
 
@@ -91,17 +90,18 @@ object DeviceListReducer {
 
             is DeviceListIntent.Refreshed -> refreshed(state, intent.nowMs)
 
-            is DeviceListIntent.CenterRssiChanged -> {
-                val calibrated = state.copy(centerRssi = intent.rssi)
-                state.lastRefreshMs?.let { refreshed(calibrated, it) } ?: calibrated
-            }
+            is DeviceListIntent.CenterRssiChanged -> rangedAgain(state.copy(centerRssi = intent.rssi))
+
+            is DeviceListIntent.TouchRssiChanged -> rangedAgain(state.copy(touchRssi = intent.rssi))
         }
+
+    /** A new calibration ranges again at once, from the last refresh's windows. */
+    private fun rangedAgain(state: DeviceListState): DeviceListState =
+        state.lastRefreshMs?.let { refreshed(state, it) } ?: state
 
     /** The counterpart of the iOS app's `PositioningEngine.refresh()`. */
     private fun refreshed(state: DeviceListState, nowMs: Long): DeviceListState {
-        val referenceRssi = PathLossModel.centerDistanceMeters(state.anchors.map { it.position })
-            ?.let { PathLossModel.referenceRssi(state.centerRssi, it) }
-            ?: PathLossModel.REFERENCE_RSSI
+        val calibration = state.calibration
         val stats = mutableMapOf<DeviceId, SampleStats>()
         val ranges = state.anchors.mapNotNull { anchor ->
             // An anchor not heard within the window has no range this time.
@@ -109,7 +109,7 @@ object DeviceListReducer {
             val median = window.median(nowMs) ?: return@mapNotNull null
             val samples = window.samples(sinceMs = nowMs - REFRESH_INTERVAL_MS)
             stats[anchor.id] = SampleStats(samples.size, standardDeviation(samples))
-            AnchorRange(anchor, PathLossModel.distanceMeters(median, referenceRssi), median)
+            AnchorRange(anchor, calibration.distanceMeters(median), median)
         }
         return state.copy(
             devicesByKey = state.devicesByKey.filterValues { it.lastSeenAtMillis >= nowMs - STALE_AFTER_MS },

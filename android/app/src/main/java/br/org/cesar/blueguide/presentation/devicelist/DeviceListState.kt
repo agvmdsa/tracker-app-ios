@@ -7,6 +7,7 @@ import br.org.cesar.blueguide.domain.position.Anchor
 import br.org.cesar.blueguide.domain.position.AnchorLayoutCheck
 import br.org.cesar.blueguide.domain.position.AnchorRange
 import br.org.cesar.blueguide.domain.position.ObserverFix
+import br.org.cesar.blueguide.domain.position.PathLossCalibration
 import br.org.cesar.blueguide.domain.position.PathLossModel
 import br.org.cesar.blueguide.domain.position.RssiWindow
 import br.org.cesar.blueguide.domain.position.SavedLocation
@@ -24,6 +25,9 @@ data class DeviceListState(
     /** The RSSI heard from the anchors standing in their middle ("RSSI no centro"). It
      *  calibrates the model: it is read as the anchors' mean distance to their middle. */
     val centerRssi: Double = PathLossModel.DEFAULT_CENTER_RSSI,
+    /** The RSSI heard touching a beacon ("RSSI encostado"), read as
+     *  [PathLossModel.TOUCH_DISTANCE_METERS]. With the center's it fixes the exponent too. */
+    val touchRssi: Double = PathLossModel.DEFAULT_TOUCH_RSSI,
     /** The ranges of the last refresh, one per anchor heard within the window. */
     val anchorRanges: List<AnchorRange> = emptyList(),
     /** The observer's own position from [anchorRanges], null until three anchors are ranged. */
@@ -50,6 +54,20 @@ data class DeviceListState(
             val configured = anchors.map { it.id }.toSet()
             return devicesByKey.values.filter { it.device.id != null && it.device.id !in configured }.sortedByDescending { it.rssi }
         }
+
+    /** The model the ranges come from, for the anchors configured now. Fewer than two anchors
+     *  have no middle, so the bench square's is used. */
+    val calibration: PathLossCalibration
+        get() = PathLossModel.calibration(
+            centerRssi,
+            PathLossModel.centerDistanceMeters(anchors.map { it.position }) ?: PathLossModel.BENCH_CENTER_DISTANCE_METERS,
+            touchRssi
+        )
+
+    /** The strongest anchor's current median, to take as [touchRssi] while touching it. Null
+     *  until an anchor is ranged. */
+    val currentTouchRssi: Double?
+        get() = anchorRanges.mapNotNull { it.rssi }.maxOrNull()
 
     /** The mean of the anchors' current median RSSIs, to take as [centerRssi] while standing in
      *  the middle. Null until an anchor is ranged. */

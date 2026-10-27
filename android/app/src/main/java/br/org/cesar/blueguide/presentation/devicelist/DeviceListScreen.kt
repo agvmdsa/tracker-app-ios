@@ -65,13 +65,14 @@ fun DeviceListScreen(
     /** Tapping a device with a known id opens the anchor editor for it (`AnchorEditorDialog`). */
     onDeviceClick: (DeviceId) -> Unit = {},
     onCenterRssiChange: (Double) -> Unit = {},
+    onTouchRssiChange: (Double) -> Unit = {},
     onSaveLocation: (String) -> Unit = {},
     onRemoveLocation: (String) -> Unit = {}
 ) {
     when (state.mode) {
         AppMode.OBSERVER ->
             if (state.scanGranted) {
-                ObserverContent(state, modifier, onDeviceClick, onCenterRssiChange, onSaveLocation, onRemoveLocation)
+                ObserverContent(state, modifier, onDeviceClick, onCenterRssiChange, onTouchRssiChange, onSaveLocation, onRemoveLocation)
             } else {
                 CenteredMessage(stringResource(R.string.scan_permission_required), modifier)
             }
@@ -96,6 +97,7 @@ private fun ObserverContent(
     modifier: Modifier,
     onDeviceClick: (DeviceId) -> Unit,
     onCenterRssiChange: (Double) -> Unit,
+    onTouchRssiChange: (Double) -> Unit,
     onSaveLocation: (String) -> Unit,
     onRemoveLocation: (String) -> Unit
 ) {
@@ -200,7 +202,7 @@ private fun ObserverContent(
         }
 
         item { SectionHeader("Calibração") }
-        item { CalibrationSection(state.centerRssi, state.currentCenterRssi, onCenterRssiChange) }
+        item { CalibrationSection(state, onCenterRssiChange, onTouchRssiChange) }
         item { Spacer(Modifier.height(24.dp)) }
     }
 
@@ -215,33 +217,59 @@ private fun ObserverContent(
     }
 }
 
-/** "RSSI no centro": a stepper of 1 dBm from -100 to -30, and taking what the phone hears now. */
+/** "RSSI no centro" and "RSSI encostado": a stepper of 1 dBm each, and taking what the phone
+ *  hears now; under them the model the two give, as in the iOS app. */
 @Composable
-private fun CalibrationSection(centerRssi: Double, currentCenterRssi: Double?, onChange: (Double) -> Unit) {
+private fun CalibrationSection(
+    state: DeviceListState,
+    onCenterRssiChange: (Double) -> Unit,
+    onTouchRssiChange: (Double) -> Unit
+) {
     Column(Modifier.padding(horizontal = 16.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("RSSI no centro", Modifier.weight(1f))
-            OutlinedButton(onClick = { onChange((centerRssi - 1).coerceIn(-100.0, -30.0)) }, enabled = centerRssi > -100.0) { Text("−") }
-            Text(
-                String.format(Locale.ROOT, "%.0f dBm", centerRssi),
-                modifier = Modifier.width(76.dp),
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            OutlinedButton(onClick = { onChange((centerRssi + 1).coerceIn(-100.0, -30.0)) }, enabled = centerRssi < -30.0) { Text("+") }
-        }
-        TextButton(
-            onClick = { currentCenterRssi?.let { onChange(Math.round(it).toDouble()) } },
-            enabled = currentCenterRssi != null
-        ) {
-            Text(
-                currentCenterRssi?.let { String.format(Locale.ROOT, "Usar a leitura de agora (%.0f dBm)", it) }
-                    ?: "Usar a leitura de agora"
-            )
-        }
+        RssiStepper("RSSI no centro", state.centerRssi, -100.0..-30.0, state.currentCenterRssi, onCenterRssiChange)
+        RssiStepper("RSSI encostado", state.touchRssi, -60.0..-10.0, state.currentTouchRssi, onTouchRssiChange)
+        val calibration = state.calibration
+        val model = String.format(Locale.ROOT, "%.0f dBm a 1 m, expoente %.1f", calibration.referenceRssi, calibration.exponent)
+            .replace('.', ',')
+        Text(
+            if (calibration.usesTouchRssi) "Modelo: $model."
+            else "O RSSI encostado precisa ser mais forte que o do centro (e coerente com ele); usando só o centro. Modelo: $model.",
+            style = MaterialTheme.typography.bodySmall,
+            color = if (calibration.usesTouchRssi) MaterialTheme.colorScheme.onSurfaceVariant else MapPalette.beacon()
+        )
         Caption(
-            "O RSSI que o celular lê no meio das âncoras. O app o trata como a distância média das âncoras até o meio " +
-                "(1,77 m num quadrado de 2,5 m). Fique no meio e toque em \"Usar a leitura de agora\"."
+            "RSSI no centro: o que o celular lê no meio das âncoras, tratado como a distância média delas até o meio " +
+                "(1,77 m num quadrado de 2,5 m). RSSI encostado: o que ele lê encostado num beacon, tratado como 10 cm. " +
+                "Com os dois o app calcula o RSSI a 1 m e o expoente de perda. Fique no meio (ou encoste num beacon) e " +
+                "toque em \"Usar a leitura de agora\".",
+            Modifier.padding(top = 8.dp)
+        )
+    }
+}
+
+@Composable
+private fun RssiStepper(
+    title: String,
+    value: Double,
+    range: ClosedFloatingPointRange<Double>,
+    current: Double?,
+    onChange: (Double) -> Unit
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(title, Modifier.weight(1f))
+        OutlinedButton(onClick = { onChange((value - 1).coerceIn(range)) }, enabled = value > range.start) { Text("−") }
+        Text(
+            String.format(Locale.ROOT, "%.0f dBm", value),
+            modifier = Modifier.width(76.dp),
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        OutlinedButton(onClick = { onChange((value + 1).coerceIn(range)) }, enabled = value < range.endInclusive) { Text("+") }
+    }
+    TextButton(onClick = { current?.let { onChange(Math.round(it).toDouble()) } }, enabled = current != null) {
+        Text(
+            current?.let { String.format(Locale.ROOT, "Usar a leitura de agora (%.0f dBm)", it) }
+                ?: "Usar a leitura de agora"
         )
     }
 }

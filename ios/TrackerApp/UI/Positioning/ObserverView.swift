@@ -12,6 +12,7 @@ struct ObserverView: View {
     @State private var isSavingLocation = false
     @State private var newLocationLabel = ""
     @AppStorage("trackerapp.positioning.centerRSSI") private var centerRSSI = PathLossModel.defaultCenterRSSI
+    @AppStorage("trackerapp.positioning.touchRSSI") private var touchRSSI = PathLossModel.defaultTouchRSSI
 
     var body: some View {
         List {
@@ -134,10 +135,38 @@ struct ObserverView: View {
                     }
                 }
                 .disabled(engine?.currentCenterRSSI == nil)
+
+                Stepper(value: $touchRSSI, in: -60...(-10), step: 1) {
+                    HStack {
+                        Text("RSSI encostado")
+                        Spacer()
+                        Text(String(format: "%.0f dBm", touchRSSI))
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Button {
+                    if let current = engine?.currentTouchRSSI {
+                        touchRSSI = current.rounded()
+                    }
+                } label: {
+                    if let current = engine?.currentTouchRSSI {
+                        Text(String(format: "Usar a leitura de agora (%.0f dBm)", current))
+                    } else {
+                        Text("Usar a leitura de agora")
+                    }
+                }
+                .disabled(engine?.currentTouchRSSI == nil)
+
+                if let calibration = engine?.calibration {
+                    Text(calibrationSummary(calibration))
+                        .font(.caption)
+                        .foregroundStyle(calibration.usesTouchRSSI ? Color.secondary : Color.orange)
+                }
             } header: {
                 Text("Calibração")
             } footer: {
-                Text("O RSSI que o iPhone lê no meio das âncoras. O app o trata como a distância média das âncoras até o meio (1,77 m num quadrado de 2,5 m). Fique no meio e toque em \"Usar a leitura de agora\".")
+                Text("RSSI no centro: o que o iPhone lê no meio das âncoras, tratado como a distância média delas até o meio (1,77 m num quadrado de 2,5 m). RSSI encostado: o que ele lê encostado num beacon, tratado como 10 cm. Com os dois o app calcula o RSSI a 1 m e o expoente de perda. Fique no meio (ou encoste num beacon) e toque em \"Usar a leitura de agora\".")
             }
         }
         .navigationTitle("Observador")
@@ -173,16 +202,30 @@ struct ObserverView: View {
             )
             engine = newEngine
             newEngine.centerRSSI = centerRSSI
+            newEngine.touchRSSI = touchRSSI
             newEngine.start()
         }
         .onChange(of: centerRSSI) { _, newValue in
             engine?.centerRSSI = newValue
             engine?.refresh()
         }
+        .onChange(of: touchRSSI) { _, newValue in
+            engine?.touchRSSI = newValue
+            engine?.refresh()
+        }
         .onDisappear {
             engine?.stop()
             engine = nil
         }
+    }
+
+    /// The model the two readings give, or why the touching one is being ignored.
+    private func calibrationSummary(_ calibration: PathLossCalibration) -> String {
+        let model = String(format: "%.0f dBm a 1 m, expoente %.1f", calibration.referenceRSSI, calibration.exponent)
+            .replacingOccurrences(of: ".", with: ",")
+        return calibration.usesTouchRSSI
+            ? "Modelo: " + model + "."
+            : "O RSSI encostado precisa ser mais forte que o do centro (e coerente com ele); usando só o centro. Modelo: " + model + "."
     }
 
     private var unconfiguredSightings: [BeaconSighting] {

@@ -6,7 +6,6 @@ import br.org.cesar.blueguide.domain.entity.DeviceSighting
 import br.org.cesar.blueguide.domain.position.Anchor
 import br.org.cesar.blueguide.domain.position.PathLossModel
 import br.org.cesar.blueguide.domain.position.Point2D
-import kotlin.math.log10
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 import org.junit.Assert.assertEquals
@@ -57,10 +56,10 @@ class DeviceListReducerTest {
     fun `refresh locates the phone from three anchors`() {
         val anchors = listOf(Point2D(0.0, 0.0), Point2D(6.0, 0.0), Point2D(3.0, 5.0))
         var state = observing(anchors)
-        val reference = PathLossModel.referenceRssi(state.centerRssi, requireNotNull(PathLossModel.centerDistanceMeters(anchors)))
+        val calibration = PathLossModel.calibration(state.centerRssi, requireNotNull(PathLossModel.centerDistanceMeters(anchors)), state.touchRssi)
         val phone = Point2D(2.0, 2.0)
         anchors.forEachIndexed { index, anchor ->
-            val rssi = reference - 10 * PathLossModel.PATH_LOSS_EXPONENT * log10(anchor.distanceTo(phone))
+            val rssi = calibration.rssi(atDistance = anchor.distanceTo(phone))
             repeat(5) { state = state.hear(index, rssi.roundToInt(), NOW) }
         }
 
@@ -106,6 +105,34 @@ class DeviceListReducerTest {
         state = DeviceListReducer.reduce(state, DeviceListIntent.CenterRssiChanged(-76.0))
 
         state.anchorRanges.forEach { assertEquals(2.5 / sqrt(2.0), it.distanceMeters, 1e-9) }
+    }
+
+    /** The touching RSSI is read as the touching distance, with the center RSSI still the center's. */
+    @Test
+    fun `the touching RSSI is read as the touching distance`() {
+        var state = DeviceListReducer.reduce(observing(square), DeviceListIntent.CenterRssiChanged(-72.0))
+        state = DeviceListReducer.reduce(state, DeviceListIntent.TouchRssiChanged(-38.0))
+        repeat(5) { state = state.hear(0, -38, NOW) }
+        (1..3).forEach { index -> repeat(5) { state = state.hear(index, -72, NOW) } }
+
+        state = state.refresh(NOW)
+
+        val ranges = state.anchorRanges.associate { it.anchor.position to it.distanceMeters }
+        assertEquals(PathLossModel.TOUCH_DISTANCE_METERS, requireNotNull(ranges[square[0]]), 1e-9)
+        assertEquals(2.5 / sqrt(2.0), requireNotNull(ranges[square[1]]), 1e-9)
+        assertTrue(state.calibration.usesTouchRssi)
+    }
+
+    /** Touching one beacon and taking what the phone hears now: the strongest anchor's median. */
+    @Test
+    fun `current touch RSSI is the strongest ranged anchor's median`() {
+        var state = observing(square.take(3))
+        assertNull("nothing heard yet", state.currentTouchRssi)
+        listOf(-80, -37, -75).forEachIndexed { index, rssi -> repeat(3) { state = state.hear(index, rssi, NOW) } }
+
+        state = state.refresh(NOW)
+
+        assertEquals(-37.0, requireNotNull(state.currentTouchRssi), 1e-9)
     }
 
     /** Standing in the middle and taking what the phone hears now: the mean of the anchors' medians. */

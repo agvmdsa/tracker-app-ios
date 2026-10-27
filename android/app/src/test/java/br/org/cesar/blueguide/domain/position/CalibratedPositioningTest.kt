@@ -4,6 +4,7 @@ import br.org.cesar.blueguide.domain.entity.DeviceId
 import kotlin.math.log10
 import kotlin.math.sqrt
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -85,10 +86,58 @@ class CalibratedPositioningTest {
     }
 
     @Test
-    fun `the reference from the center RSSI reads that RSSI as the center distance`() {
-        val reference = PathLossModel.referenceRssi(centerRssi = -76.0, centerDistanceMeters = 3.0)
+    fun `thirty dBm is the touching distance`() {
+        assertEquals(PathLossModel.TOUCH_DISTANCE_METERS, PathLossModel.distanceMeters(-30.0), 1e-9)
+    }
 
-        assertEquals(3.0, PathLossModel.distanceMeters(-76.0, reference), 1e-9)
+    /** Two readings, two unknowns: the center RSSI is the center distance and the touching RSSI is
+     *  the touching distance, which fixes both the RSSI at 1 m and the path loss exponent. */
+    @Test
+    fun `the calibration reads the center and the touching RSSI as their distances`() {
+        val calibration = PathLossModel.calibration(centerRssi = -76.0, centerDistanceMeters = 3.0, touchRssi = -38.0)
+
+        assertTrue(calibration.usesTouchRssi)
+        assertEquals(3.0, calibration.distanceMeters(-76.0), 1e-9)
+        assertEquals(PathLossModel.TOUCH_DISTANCE_METERS, calibration.distanceMeters(-38.0), 1e-9)
+        // 38 dB over a 30x change in distance.
+        assertEquals(38 / (10 * log10(30.0)), calibration.exponent, 1e-9)
+    }
+
+    /** A touching RSSI no stronger than the center's would make the signal grow with the distance:
+     *  it is ignored, and the center alone calibrates with the nominal exponent. */
+    @Test
+    fun `a touching RSSI no stronger than the center is ignored`() {
+        for (touch in listOf(-76.0, -80.0)) {
+            val calibration = PathLossModel.calibration(-76.0, 3.0, touch)
+
+            assertFalse("$touch dBm", calibration.usesTouchRssi)
+            assertEquals(PathLossModel.PATH_LOSS_EXPONENT, calibration.exponent, 1e-9)
+            assertEquals(3.0, calibration.distanceMeters(-76.0), 1e-9)
+        }
+    }
+
+    @Test
+    fun `an implausible exponent ignores the touching RSSI`() {
+        val calibration = PathLossModel.calibration(-95.0, 1.77, -15.0)
+
+        assertFalse(calibration.usesTouchRssi)
+        assertEquals(1.77, calibration.distanceMeters(-95.0), 1e-9)
+    }
+
+    @Test
+    fun `anchors closer than the touching distance ignore the touching RSSI`() {
+        val calibration = PathLossModel.calibration(-40.0, 0.05, -30.0)
+
+        assertFalse(calibration.usesTouchRssi)
+        assertEquals(0.05, calibration.distanceMeters(-40.0), 1e-9)
+    }
+
+    @Test
+    fun `without a touching RSSI the center alone calibrates`() {
+        val calibration = PathLossModel.calibration(-76.0, 3.0, null)
+
+        assertFalse(calibration.usesTouchRssi)
+        assertEquals(3.0, calibration.distanceMeters(-76.0), 1e-9)
     }
 
     @Test
@@ -103,10 +152,9 @@ class CalibratedPositioningTest {
 
     @Test
     fun `rssi for a distance is the inverse of the distance for an rssi`() {
-        val reference = PathLossModel.referenceRssi(-70.0, 2.0)
-        val rssi = reference - 10 * PathLossModel.PATH_LOSS_EXPONENT * log10(3.3)
+        val calibration = PathLossModel.calibration(-70.0, 2.0, -36.0)
 
-        assertEquals(3.3, PathLossModel.distanceMeters(rssi, reference), 1e-9)
+        assertEquals(3.3, calibration.distanceMeters(calibration.rssi(atDistance = 3.3)), 1e-9)
     }
 
     // RSSI window
