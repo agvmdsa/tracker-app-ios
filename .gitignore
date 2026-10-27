@@ -13,6 +13,9 @@ embedded/.pio/
 embedded/.venv/
 embedded/logs/
 
+# Python bytecode (from running the scripts' tests)
+__pycache__/
+
 # Xcode / Swift
 .build/
 DerivedData/
