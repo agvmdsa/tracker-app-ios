@@ -49,9 +49,9 @@ test-one: $(PIO) ## Um teste so: make test-one T=test_label
 	@test -n "$(T)" || { echo "Informe o teste: make test-one T=test_label"; exit 1; }
 	$(PIO) test -e native -f $(T)
 
-test-scripts: $(PIO) ## Testes dos scripts em Python (ID da placa e conversor de dados)
+test-scripts: $(PIO) ## Testes dos scripts em Python (ID da placa; e os de ../scripts, se houver)
 	.venv/bin/python -m unittest discover -s scripts -p "test_*.py"
-	.venv/bin/python -m unittest discover -s ../scripts -p "test_*.py"
+	@if ls ../scripts/test_*.py >/dev/null 2>&1; then .venv/bin/python -m unittest discover -s ../scripts -p "test_*.py"; fi
 
 build: $(PIO) include/config.h ## Compila o firmware (esp32dev)
 	$(PIO) run -e $(ENV)
