@@ -1,0 +1,42 @@
+<resources>
+    <string name="app_name">BlueGuide</string>
+    <string name="scan_permission_required">Bluetooth scan permission is required to find nearby devices.</string>
+    <string name="advertise_permission_required">Bluetooth advertise permission is required to broadcast this device.</string>
+
+    <string name="mode_observer">Observador</string>
+    <string name="mode_broadcast">Âncora</string>
+    <string name="broadcast_your_id">Your ID</string>
+    <string name="broadcast_starting">Starting broadcast…</string>
+    <string name="broadcast_advertising">Broadcasting. Nearby devices can see this one.</string>
+    <string name="broadcast_failed">Could not broadcast.</string>
+    <string name="broadcast_failed_bluetooth_off">Turn Bluetooth on to broadcast.</string>
+    <string name="broadcast_failed_unsupported">This device cannot broadcast over Bluetooth LE.</string>
+
+    <string name="anchor_editor_title_new">Nova âncora</string>
+    <string name="anchor_editor_title_edit">Editar âncora</string>
+    <string name="anchor_editor_label">Rótulo (opcional, ex: A)</string>
+    <string name="anchor_editor_x">x (metros)</string>
+    <string name="anchor_editor_y">y (metros)</string>
+    <string name="anchor_editor_height">Altura do chão (opcional)</string>
+    <string name="anchor_editor_hint">Use a mesma origem e os mesmos eixos dos pontos de coleta.</string>
+    <string name="anchor_editor_save">Salvar</string>
+    <string name="anchor_editor_remove">Remover âncora</string>
+    <string name="anchor_editor_cancel">Cancelar</string>
+
+    <string name="fingerprint_tab">Fingerprint</string>
+    <string name="positioning_tab">Positioning</string>
+    <string name="fingerprint_session">Session (e.g. S1)</string>
+    <string name="fingerprint_point">Point (e.g. P3)</string>
+    <string name="fingerprint_x">x (m)</string>
+    <string name="fingerprint_y">y (m)</string>
+    <string name="fingerprint_duration">Duration: %1$d min</string>
+    <string name="fingerprint_start">Record for %1$d min</string>
+    <string name="fingerprint_cancel">Cancel and discard</string>
+    <string name="fingerprint_recording">Recording %1$s / %2$s — %3$d rows</string>
+    <string name="fingerprint_layout_warning_not_heard">Configured but not heard right now: %1$s</string>
+    <string name="fingerprint_layout_warning_no_position">Heard but not configured as an anchor: %1$s</string>
+    <string name="fingerprint_last_recording">Last recording: %1$s / %2$s, %3$d s</string>
+    <string name="fingerprint_last_recording_empty">No beacons heard.</string>
+    <string name="fingerprint_recordings">Saved recordings</string>
+    <string name="fingerprint_delete">Delete</string>
+</resources>
