@@ -7,16 +7,32 @@ import os
 final class PositioningEngine {
     private static let logger = Logger(subsystem: "com.airtagclone.TrackerApp", category: "PositioningEngine")
     private static let refreshInterval: TimeInterval = 1.0
+    /// How long an advertisement counts toward a beacon's range. A longer window is steadier but
+    /// trails a walking phone (about half the window: 1.5 m at 1 m/s).
+    private static let rssiWindowMs: Int64 = 3_000
+    /// Room for 3 s of advertisements at up to 40 per second.
+    private static let rssiWindowCapacity = 120
 
     private(set) var anchorRanges: [AnchorRange] = []
     private(set) var fix: ObserverFix?
+    /// The RSSI heard from the anchors standing in their middle. It calibrates the model: it is read
+    /// as the anchors' mean distance to their middle.
+    var centerRSSI: Double = PathLossModel.defaultCenterRSSI
+
+    /// The mean of the anchors' current median RSSIs, to take as `centerRSSI` while standing in the
+    /// middle. Nil until an anchor is ranged.
+    var currentCenterRSSI: Double? {
+        let rssis = anchorRanges.compactMap(\.rssi)
+        guard !rssis.isEmpty else { return nil }
+        return rssis.reduce(0, +) / Double(rssis.count)
+    }
 
     private let scanner: any BeaconScanning
     private let anchorStore: AnchorStore
     private let observerID: BeaconID
     private let reporter: (any PositioningReporting)?
 
-    private var smoothedRSSI: [BeaconID: Double] = [:]
+    private var rssiWindows: [BeaconID: RSSIWindow] = [:]
     private var refreshTimer: Timer?
 
     init(
@@ -32,6 +48,11 @@ final class PositioningEngine {
     }
 
     func start() {
+        rssiWindows = [:]
+        // Every advertisement, not just the latest per beacon: the range comes from their median.
+        scanner.onSighting = { [weak self] sighting in
+            self?.record(sighting)
+        }
         scanner.startScanning()
         refreshTimer?.invalidate()
         refreshTimer = Timer.scheduledTimer(withTimeInterval: Self.refreshInterval, repeats: true) { [weak self] _ in
@@ -40,22 +61,29 @@ final class PositioningEngine {
     }
 
     func stop() {
+        scanner.onSighting = nil
         scanner.stopScanning()
         refreshTimer?.invalidate()
         refreshTimer = nil
     }
 
     func refresh() {
+        let now = MonotonicClock.nowMs()
+        let referenceRSSI = PathLossModel.centerDistanceMeters(of: anchorStore.anchors.map(\.position))
+            .map { PathLossModel.referenceRSSI(centerRSSI: centerRSSI, centerDistanceMeters: $0) }
+            ?? PathLossModel.referenceRSSI
         var readings: [AnchorRange] = []
+        var medianRSSI: [BeaconID: Double] = [:]
         var sampleStats: [BeaconID: (count: Int, stdDev: Double)] = [:]
         for anchor in anchorStore.anchors {
-            guard let sighting = scanner.sightings[anchor.id] else { continue }
-            let smoothed = PathLossModel.smooth(previous: smoothedRSSI[anchor.id], reading: sighting.rssi)
-            smoothedRSSI[anchor.id] = smoothed
-            readings.append(AnchorRange(anchor: anchor, distanceMeters: PathLossModel.distanceMeters(rssi: smoothed)))
-
+            // Drained every refresh, heard or not, so the scanner's buffer stays bounded.
             let samples = scanner.drainRecentRSSI(for: anchor.id)
+            // An anchor not heard within the window has no range this time.
+            guard let median = rssiWindows[anchor.id]?.median(atMs: now) else { continue }
+            medianRSSI[anchor.id] = median
             sampleStats[anchor.id] = (samples.count, Self.standardDeviation(of: samples))
+            let distance = PathLossModel.distanceMeters(rssi: median, referenceRSSI: referenceRSSI)
+            readings.append(AnchorRange(anchor: anchor, distanceMeters: distance, rssi: median))
         }
         anchorRanges = readings
         fix = Multilateration.solve(readings: readings)
@@ -68,7 +96,7 @@ final class PositioningEngine {
             return PositioningReport(
                 observerID: observerID.value,
                 anchorID: reading.anchor.id.value,
-                rssi: scanner.sightings[reading.anchor.id]?.rssi ?? 0,
+                rssi: Int((medianRSSI[reading.anchor.id] ?? 0).rounded()),
                 distanceMeters: reading.distanceMeters,
                 seenAt: Date(),
                 sampleCount: stats.count,
@@ -109,5 +137,13 @@ final class PositioningEngine {
         let mean = Double(samples.reduce(0, +)) / Double(samples.count)
         let variance = samples.reduce(0.0) { $0 + pow(Double($1) - mean, 2) } / Double(samples.count - 1)
         return variance.squareRoot()
+    }
+
+    /// Only the beacons with a position are kept: the others are not ranged, and this keeps the
+    /// memory bounded by the number of anchors however many devices pass by.
+    private func record(_ sighting: BeaconSighting) {
+        guard anchorStore.anchor(id: sighting.beaconID) != nil else { return }
+        rssiWindows[sighting.beaconID, default: RSSIWindow(durationMs: Self.rssiWindowMs, capacity: Self.rssiWindowCapacity)]
+            .add(rssi: sighting.rssi, atMs: sighting.monotonicMs)
     }
 }

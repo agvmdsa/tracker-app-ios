@@ -1,5 +1,8 @@
+import SwiftUI
 import XCTest
 @testable import TrackerApp
+// SwiftUI has its own `Anchor`; the scoped import makes the app's one win in this file.
+@testable import struct TrackerApp.Anchor
 
 final class PositioningTests: XCTestCase {
     private let tolerance = 1e-6
@@ -76,6 +79,242 @@ final class PositioningTests: XCTestCase {
         XCTAssertEqual(fix.position.y, truth.y, accuracy: tolerance)
     }
 
+    // MARK: Decimal input
+
+    func test_decimalInput_acceptsADotOrACommaAsTheSeparator() {
+        // A Portuguese keyboard types "2,5"; Swift's own `Double("2,5")` is nil.
+        XCTAssertEqual(DecimalInput.parse("2.5"), 2.5)
+        XCTAssertEqual(DecimalInput.parse("2,5"), 2.5)
+        XCTAssertEqual(DecimalInput.parse("-1,25"), -1.25)
+        XCTAssertEqual(DecimalInput.parse("+3"), 3)
+        XCTAssertEqual(DecimalInput.parse("4"), 4)
+        XCTAssertEqual(DecimalInput.parse(",5"), 0.5)
+        XCTAssertEqual(DecimalInput.parse(".5"), 0.5)
+        XCTAssertEqual(DecimalInput.parse("2."), 2)
+        XCTAssertEqual(DecimalInput.parse("0"), 0)
+    }
+
+    func test_decimalInput_ignoresSurroundingSpaces() {
+        XCTAssertEqual(DecimalInput.parse("  2,5 "), 2.5)
+    }
+
+    func test_decimalInput_refusesWhatIsNotAPlainNumber() {
+        for text in ["", " ", ",", ".", "-", "+", "abc", "2,5m", "1,2,3", "1.2.3", "1.234,5", "1,234.5", "1e3", "nan", "inf", "-inf", "--1", "2 5", "٢"] {
+            XCTAssertNil(DecimalInput.parse(text), "\"\(text)\" is not a number to accept")
+        }
+    }
+
+    func test_decimalInput_textForAFieldIsPlainDecimalWithoutExponentOrTrailingZeros() {
+        XCTAssertEqual(DecimalInput.text(for: 2.5), "2.5")
+        XCTAssertEqual(DecimalInput.text(for: 2), "2")
+        XCTAssertEqual(DecimalInput.text(for: -1.25), "-1.25")
+        XCTAssertEqual(DecimalInput.text(for: 0.125), "0.125")
+        XCTAssertEqual(DecimalInput.text(for: 0.00001), "0", "no exponent notation that the field could not read back")
+        XCTAssertEqual(DecimalInput.text(for: -0.0001), "0", "no negative zero")
+        XCTAssertEqual(DecimalInput.text(for: .nan), "")
+    }
+
+    func test_decimalInput_whatAFieldShowsCanBeReadBack() {
+        for value in [0.0, 2.5, -1.25, 3.0, 12.375, -0.5] {
+            XCTAssertEqual(DecimalInput.parse(DecimalInput.text(for: value)), value)
+        }
+    }
+
+    // MARK: Map projection
+
+    private let mapSize = CGSize(width: 360, height: 300)
+
+    func test_projection_keepsEveryPointInsideTheMargin() {
+        let points = [Point2D(x: 0.4, y: 0.4), Point2D(x: 5.6, y: 0.4), Point2D(x: 3.0, y: 4.6), Point2D(x: 7.0, y: -1.0)]
+
+        let projection = MapProjection(fitting: points, in: mapSize, margin: 28)
+
+        for point in points {
+            let v = projection.viewPoint(for: point)
+            XCTAssertGreaterThanOrEqual(v.x, 28 - 1e-9)
+            XCTAssertLessThanOrEqual(v.x, mapSize.width - 28 + 1e-9)
+            XCTAssertGreaterThanOrEqual(v.y, 28 - 1e-9)
+            XCTAssertLessThanOrEqual(v.y, mapSize.height - 28 + 1e-9)
+        }
+    }
+
+    func test_projection_usesTheSameScaleOnBothAxes() {
+        let projection = MapProjection(fitting: [Point2D(x: 0, y: 0), Point2D(x: 6, y: 5)], in: mapSize)
+
+        let origin = projection.viewPoint(for: Point2D(x: 0, y: 0))
+        let oneRight = projection.viewPoint(for: Point2D(x: 1, y: 0))
+        let oneUp = projection.viewPoint(for: Point2D(x: 0, y: 1))
+
+        XCTAssertEqual(oneRight.x - origin.x, origin.y - oneUp.y, accuracy: 1e-9, "1 m to the right is as long as 1 m up")
+        XCTAssertEqual(oneRight.x - origin.x, projection.scale, accuracy: 1e-9)
+    }
+
+    func test_projection_putsLargerYHigherOnTheScreen() {
+        let projection = MapProjection(fitting: [Point2D(x: 0, y: 0), Point2D(x: 6, y: 5)], in: mapSize)
+
+        XCTAssertLessThan(projection.viewPoint(for: Point2D(x: 1, y: 4)).y, projection.viewPoint(for: Point2D(x: 1, y: 1)).y)
+    }
+
+    func test_projection_aSinglePointIsCenteredWithoutDividingByZero() {
+        let projection = MapProjection(fitting: [Point2D(x: 3, y: 2)], in: mapSize)
+
+        let v = projection.viewPoint(for: Point2D(x: 3, y: 2))
+        XCTAssertEqual(v.x, mapSize.width / 2, accuracy: 1e-9)
+        XCTAssertEqual(v.y, mapSize.height / 2, accuracy: 1e-9)
+        XCTAssertTrue(projection.scale.isFinite && projection.scale > 0)
+    }
+
+    func test_projection_withoutPointsStillWorks() {
+        let projection = MapProjection(fitting: [], in: mapSize)
+
+        XCTAssertTrue(projection.scale.isFinite && projection.scale > 0)
+        XCTAssertTrue(projection.viewPoint(for: Point2D(x: 0, y: 0)).x.isFinite)
+    }
+
+    func test_projection_theVisibleRangeCoversWhatTheViewShows() {
+        let projection = MapProjection(fitting: [Point2D(x: 0, y: 0), Point2D(x: 6, y: 5)], in: mapSize)
+
+        let left = projection.viewPoint(for: Point2D(x: projection.visibleX.lowerBound, y: 0)).x
+        let right = projection.viewPoint(for: Point2D(x: projection.visibleX.upperBound, y: 0)).x
+        XCTAssertEqual(left, 0, accuracy: 1e-6)
+        XCTAssertEqual(right, mapSize.width, accuracy: 1e-6)
+    }
+
+    func test_gridStep_growsAsTheMapShrinks() {
+        XCTAssertEqual(MapProjection.gridStep(forScale: 100), 0.5, accuracy: 1e-9)
+        XCTAssertEqual(MapProjection.gridStep(forScale: 40), 1, accuracy: 1e-9)
+        XCTAssertEqual(MapProjection.gridStep(forScale: 20), 2, accuracy: 1e-9)
+        XCTAssertEqual(MapProjection.gridStep(forScale: 5), 10, accuracy: 1e-9)
+    }
+
+    // MARK: RSSI window
+
+    /// A window filled with `readings`, 100 ms apart starting at 0.
+    private func window(_ readings: [Int], capacity: Int = 100, durationMs: Int64 = 3_000) -> RSSIWindow {
+        var window = RSSIWindow(durationMs: durationMs, capacity: capacity)
+        for (index, rssi) in readings.enumerated() {
+            window.add(rssi: rssi, atMs: Int64(index) * 100)
+        }
+        return window
+    }
+
+    func test_window_medianOfAnOddCount() throws {
+        XCTAssertEqual(try XCTUnwrap(window([-70, -60, -65]).median(atMs: 300)), -65, accuracy: tolerance)
+    }
+
+    func test_window_medianOfAnEvenCount_isTheMeanOfTheTwoMiddleReadings() throws {
+        XCTAssertEqual(try XCTUnwrap(window([-70, -60, -64, -66]).median(atMs: 400)), -65, accuracy: tolerance)
+    }
+
+    func test_window_aSingleOutlier_doesNotMoveTheMedian() throws {
+        XCTAssertEqual(try XCTUnwrap(window([-60, -61, -60, -92, -59]).median(atMs: 500)), -60, accuracy: tolerance)
+    }
+
+    func test_window_dropsReadingsOlderThanItsDuration() throws {
+        var window = RSSIWindow(durationMs: 3_000, capacity: 100)
+        window.add(rssi: -90, atMs: 0)
+        window.add(rssi: -60, atMs: 2_900)
+
+        XCTAssertEqual(try XCTUnwrap(window.median(atMs: 3_500)), -60, accuracy: tolerance, "the reading from 3.5 s ago is gone")
+        XCTAssertNil(window.median(atMs: 6_000), "nothing heard in the last 3 s")
+    }
+
+    func test_window_withoutReadings_hasNoMedian() {
+        XCTAssertNil(RSSIWindow(durationMs: 3_000, capacity: 10).median(atMs: 0))
+    }
+
+    func test_window_whenFull_keepsTheNewestReadings() throws {
+        let full = window([-90, -90, -60, -61, -62], capacity: 3)
+
+        XCTAssertEqual(full.count, 3)
+        XCTAssertEqual(try XCTUnwrap(full.median(atMs: 400)), -61, accuracy: tolerance)
+    }
+
+    // MARK: Weighted multilateration
+
+    /// Four anchors at the corners of an 8 x 6 m room, a phone near one corner, and every reading off
+    /// by a fixed fraction of its distance, as RSSI noise makes it: the far anchors err by metres, the
+    /// near one by centimetres. `order` picks which corner comes first in the list.
+    private func roomReadings(order: [Int] = [0, 1, 2, 3]) -> (readings: [AnchorRange], truth: Point2D) {
+        let corners = [Point2D(x: 0, y: 0), Point2D(x: 8, y: 0), Point2D(x: 8, y: 6), Point2D(x: 0, y: 6)]
+        let factors = [1.05, 1.30, 0.80, 1.10]
+        let truth = Point2D(x: 1, y: 1)
+        let readings = order.map { index -> AnchorRange in
+            let anchor = Anchor(id: BeaconID.random(), label: "\(index)", position: corners[index])
+            return AnchorRange(anchor: anchor, distanceMeters: corners[index].distance(to: truth) * factors[index])
+        }
+        return (readings, truth)
+    }
+
+    func test_proportionalRangeErrors_theNearAnchorCountsMoreThanTheFarOnes() throws {
+        let (readings, truth) = roomReadings()
+
+        let fix = try XCTUnwrap(Multilateration.solve(readings: readings))
+
+        // Counting every reading the same puts the fix about 1.6 m away from the phone.
+        XCTAssertLessThan(fix.position.distance(to: truth), 0.3)
+    }
+
+    func test_solve_doesNotDependOnTheOrderOfTheReadings() throws {
+        let forward = try XCTUnwrap(Multilateration.solve(readings: roomReadings().readings))
+        let reversed = try XCTUnwrap(Multilateration.solve(readings: roomReadings(order: [3, 2, 1, 0]).readings))
+
+        XCTAssertEqual(forward.position.x, reversed.position.x, accuracy: 1e-4)
+        XCTAssertEqual(forward.position.y, reversed.position.y, accuracy: 1e-4)
+    }
+
+    func test_weight_fallsWithTheSquareOfTheDistance_andStopsGrowingNearTheAnchor() {
+        // 1 / error², with the error proportional to the distance: 4x the distance, 16x less weight.
+        let ratio = Multilateration.weight(forDistance: 2) / Multilateration.weight(forDistance: 8)
+        XCTAssertEqual(ratio, 16, accuracy: 0.01)
+
+        XCTAssertEqual(
+            Multilateration.weight(forDistance: 0.1),
+            Multilateration.weight(forDistance: 0.5),
+            accuracy: tolerance,
+            "below the minimum error the weight stops growing"
+        )
+        XCTAssertTrue(Multilateration.weight(forDistance: 0).isFinite)
+    }
+
+    /// The corners of a 2.5 m square, the layout of the bench test.
+    private let squareCorners = [Point2D(x: 0, y: 0), Point2D(x: 2.5, y: 0), Point2D(x: 2.5, y: 2.5), Point2D(x: 0, y: 2.5)]
+    private let squareCenter = Point2D(x: 1.25, y: 1.25)
+
+    /// The same RSSI from every corner means the same distance to each, so the fix is the center
+    /// whatever that distance is: shorter than the real 1.77 m, equal to it, or much longer, as an
+    /// uncalibrated model gives.
+    func test_equalRSSIFromTheCornersOfASquare_isTheCenter() throws {
+        for rssi in [-50.0, -60.0, -64.0, -70.0, -80.0] {
+            let readings = squareCorners.map { corner in
+                AnchorRange(
+                    anchor: Anchor(id: BeaconID.random(), label: "", position: corner),
+                    distanceMeters: PathLossModel.distanceMeters(rssi: rssi)
+                )
+            }
+            let fix = try XCTUnwrap(Multilateration.solve(readings: readings))
+            XCTAssertLessThan(fix.position.distance(to: squareCenter), 1e-6, "\(rssi) dBm")
+        }
+    }
+
+    /// Measured on the bench: in the middle of the 2.5 m square of ESP32 beacons the iPhone reads
+    /// about -70 dBm from each, and the middle is 1.77 m from every corner.
+    func test_seventyDbm_isTheDistanceFromTheCornerToTheCenterOfTheBenchSquare() {
+        XCTAssertEqual(PathLossModel.distanceMeters(rssi: -70), 2.5 / 2.0.squareRoot(), accuracy: 0.02)
+    }
+
+    func test_centerDistance_isTheMeanDistanceFromTheAnchorsToTheirMiddle() throws {
+        let square = [Point2D(x: 0, y: 0), Point2D(x: 2.5, y: 0), Point2D(x: 2.5, y: 2.5), Point2D(x: 0, y: 2.5)]
+        XCTAssertEqual(try XCTUnwrap(PathLossModel.centerDistanceMeters(of: square)), 2.5 / 2.0.squareRoot(), accuracy: 1e-9)
+        XCTAssertNil(PathLossModel.centerDistanceMeters(of: [Point2D(x: 1, y: 1)]), "one anchor has no middle to be away from")
+        XCTAssertNil(PathLossModel.centerDistanceMeters(of: []))
+    }
+
+    func test_referenceFromTheCenterRSSI_readsThatRSSIAsTheCenterDistance() {
+        let reference = PathLossModel.referenceRSSI(centerRSSI: -76, centerDistanceMeters: 3)
+        XCTAssertEqual(PathLossModel.distanceMeters(rssi: -76, referenceRSSI: reference), 3, accuracy: 1e-9)
+    }
+
     func test_referenceRSSI_meansOneMetre() {
         XCTAssertEqual(PathLossModel.distanceMeters(rssi: PathLossModel.referenceRSSI), 1.0, accuracy: tolerance)
     }
@@ -86,13 +325,212 @@ final class PositioningTests: XCTestCase {
 
         XCTAssertGreaterThan(far, near)
     }
+}
 
-    func test_smoothing_startsAtTheFirstReading_thenLags() {
-        let first = PathLossModel.smooth(previous: nil, reading: -70)
-        XCTAssertEqual(first, -70.0, accuracy: tolerance)
+/// The engine ranges from the median of every advertisement heard in the last few seconds, not from
+/// the last one it happened to read.
+@MainActor
+final class PositioningEngineTests: XCTestCase {
+    /// `AnchorStore`'s key in `UserDefaults`: it persists on every change, so a test starts and ends clean.
+    private let anchorsKey = "trackerapp.positioning.anchors"
 
-        let second = PathLossModel.smooth(previous: first, reading: -90)
-        XCTAssertEqual(second, -70.0 + PathLossModel.smoothing * -20.0, accuracy: tolerance)
-        XCTAssertGreaterThan(second, -75.0, "outlier must not be adopted wholesale")
+    override func setUp() {
+        UserDefaults.standard.removeObject(forKey: anchorsKey)
+    }
+
+    override func tearDown() {
+        UserDefaults.standard.removeObject(forKey: anchorsKey)
+    }
+
+    private struct Rig {
+        let engine: PositioningEngine
+        let scanner: FakeBeaconScanning
+        let ids: [BeaconID]
+    }
+
+    private func makeRig(anchorsAt positions: [Point2D]) -> Rig {
+        let scanner = FakeBeaconScanning()
+        let store = AnchorStore()
+        let ids = positions.map { _ in BeaconID.random() }
+        for (id, position) in zip(ids, positions) {
+            store.addAnchor(id: id, position: position)
+        }
+        let engine = PositioningEngine(scanner: scanner, anchorStore: store, observerID: BeaconID.random())
+        engine.start()
+        return Rig(engine: engine, scanner: scanner, ids: ids)
+    }
+
+    /// One advertisement, `ageMs` old by the time the engine looks at it.
+    private func hear(_ rig: Rig, _ index: Int, rssi: Int, ageMs: Int64 = 0) {
+        rig.scanner.onSighting?(
+            BeaconSighting(beaconID: rig.ids[index], rssi: rssi, seenAt: Date(), monotonicMs: MonotonicClock.nowMs() - ageMs)
+        )
+    }
+
+    func test_refresh_rangesFromTheMedianOfTheRecentAdvertisements() throws {
+        let rig = makeRig(anchorsAt: [Point2D(x: 0, y: 0)])
+        defer { rig.engine.stop() }
+        for rssi in [-60, -61, -60, -92, -59] {
+            hear(rig, 0, rssi: rssi)  // the last one heard is -59, the median is -60
+        }
+
+        rig.engine.refresh()
+
+        let range = try XCTUnwrap(rig.engine.anchorRanges.first)
+        XCTAssertEqual(range.distanceMeters, PathLossModel.distanceMeters(rssi: -60), accuracy: 1e-9)
+        XCTAssertEqual(try XCTUnwrap(range.rssi), -60, accuracy: 1e-9, "the range keeps the median RSSI it was computed from")
+    }
+
+    func test_refresh_ignoresAdvertisementsOlderThanTheWindow() {
+        let rig = makeRig(anchorsAt: [Point2D(x: 0, y: 0)])
+        defer { rig.engine.stop() }
+        hear(rig, 0, rssi: -70, ageMs: 10_000)
+
+        rig.engine.refresh()
+
+        XCTAssertTrue(rig.engine.anchorRanges.isEmpty, "an anchor that has not been heard lately has no range")
+    }
+
+    func test_refresh_locatesThePhoneFromThreeAnchors() throws {
+        let anchors = [Point2D(x: 0, y: 0), Point2D(x: 6, y: 0), Point2D(x: 3, y: 5)]
+        let rig = makeRig(anchorsAt: anchors)
+        defer { rig.engine.stop() }
+        // What a phone at (2, 2) would hear by the engine's model, rounded to whole dBm.
+        let reference = PathLossModel.referenceRSSI(
+            centerRSSI: rig.engine.centerRSSI,
+            centerDistanceMeters: try XCTUnwrap(PathLossModel.centerDistanceMeters(of: anchors))
+        )
+        let phone = Point2D(x: 2, y: 2)
+        for (index, anchor) in anchors.enumerated() {
+            let rssi = reference - 10 * PathLossModel.pathLossExponent * log10(anchor.distance(to: phone))
+            for _ in 0..<5 { hear(rig, index, rssi: Int(rssi.rounded())) }
+        }
+
+        rig.engine.refresh()
+
+        let fix = try XCTUnwrap(rig.engine.fix)
+        XCTAssertLessThan(fix.position.distance(to: Point2D(x: 2, y: 2)), 0.1)
+    }
+
+    /// Beacons advertise at their own pace and the phone misses some packets, so one may be heard 30
+    /// times in the window and another 3: each range is that beacon's own median, so the count does
+    /// not weigh in, and the same RSSI still puts the phone in the center.
+    func test_refresh_beaconsHeardAtDifferentRates_withTheSameRSSI_isTheCenter() throws {
+        let corners = [Point2D(x: 0, y: 0), Point2D(x: 2.5, y: 0), Point2D(x: 2.5, y: 2.5), Point2D(x: 0, y: 2.5)]
+        let rig = makeRig(anchorsAt: corners)
+        defer { rig.engine.stop() }
+        for (index, count) in [30, 3, 10, 1].enumerated() {
+            for packet in 0..<count {
+                hear(rig, index, rssi: -66, ageMs: Int64(packet * 2_900 / count))
+            }
+        }
+
+        rig.engine.refresh()
+
+        XCTAssertEqual(rig.engine.anchorRanges.count, 4)
+        let fix = try XCTUnwrap(rig.engine.fix)
+        XCTAssertLessThan(fix.position.distance(to: Point2D(x: 1.25, y: 1.25)), 1e-6)
+    }
+
+    /// The RSSI set as the center's is read as the distance from the anchors to their middle, so
+    /// hearing it from every corner puts the phone there with the ranges agreeing.
+    func test_refresh_theCenterRSSIIsReadAsTheDistanceToTheMiddleOfTheAnchors() throws {
+        let corners = [Point2D(x: 0, y: 0), Point2D(x: 2.5, y: 0), Point2D(x: 2.5, y: 2.5), Point2D(x: 0, y: 2.5)]
+        let rig = makeRig(anchorsAt: corners)
+        defer { rig.engine.stop() }
+        rig.engine.centerRSSI = -76
+        for index in corners.indices {
+            for _ in 0..<5 { hear(rig, index, rssi: -76) }
+        }
+
+        rig.engine.refresh()
+
+        for range in rig.engine.anchorRanges {
+            XCTAssertEqual(range.distanceMeters, 2.5 / 2.0.squareRoot(), accuracy: 1e-9)
+        }
+        let fix = try XCTUnwrap(rig.engine.fix)
+        XCTAssertLessThan(fix.position.distance(to: Point2D(x: 1.25, y: 1.25)), 1e-6)
+        XCTAssertLessThan(fix.uncertaintyMeters, 1e-6)
+    }
+
+    /// Standing in the middle and taking what the phone hears now: the mean of the anchors' medians.
+    func test_currentCenterRSSI_isTheMeanOfTheRangedAnchorsMedians() throws {
+        let corners = [Point2D(x: 0, y: 0), Point2D(x: 2.5, y: 0), Point2D(x: 2.5, y: 2.5), Point2D(x: 0, y: 2.5)]
+        let rig = makeRig(anchorsAt: corners)
+        defer { rig.engine.stop() }
+        XCTAssertNil(rig.engine.currentCenterRSSI, "nothing heard yet")
+        for (index, rssi) in [-70, -72, -74, -76].enumerated() {
+            for _ in 0..<3 { hear(rig, index, rssi: rssi) }
+        }
+
+        rig.engine.refresh()
+
+        XCTAssertEqual(try XCTUnwrap(rig.engine.currentCenterRSSI), -73, accuracy: 1e-9)
+    }
+
+    func test_stop_detachesFromTheScanner() {
+        let rig = makeRig(anchorsAt: [Point2D(x: 0, y: 0)])
+
+        rig.engine.stop()
+
+        XCTAssertNil(rig.scanner.onSighting)
+    }
+}
+
+/// The map draws without a device: it is rendered to an image. With TRACKERAPP_MAP_PNG set (run with
+/// TEST_RUNNER_TRACKERAPP_MAP_PNG=/tmp/map) the images also go to <path>-light.png and <path>-dark.png.
+@MainActor
+final class PositionMapViewTests: XCTestCase {
+    private func sample() -> (anchors: [Anchor], ranges: [AnchorRange], fix: ObserverFix) {
+        let anchors = [("A", 0.4, 0.4), ("B", 5.6, 0.4), ("C", 3.0, 4.6)].map {
+            Anchor(id: BeaconID.random(), label: $0.0, position: Point2D(x: $0.1, y: $0.2))
+        }
+        let truth = Point2D(x: 2.6, y: 2.0)
+        let ranges = anchors.map { anchor -> AnchorRange in
+            let distance = anchor.position.distance(to: truth) * 1.08
+            return AnchorRange(anchor: anchor, distanceMeters: distance, rssi: PathLossModel.referenceRSSI - 20 * log10(distance))
+        }
+        return (anchors, ranges, Multilateration.solve(readings: ranges)!)
+    }
+
+    private func render(_ scheme: ColorScheme, anchors: [Anchor], ranges: [AnchorRange], fix: ObserverFix?) -> UIImage? {
+        let view = PositionMapView(anchors: anchors, ranges: ranges, fix: fix)
+            .frame(width: 360, height: 300)
+            .background(Color(.systemBackground))
+            .environment(\.colorScheme, scheme)
+        let renderer = ImageRenderer(content: view)
+        renderer.scale = 2
+        return renderer.uiImage
+    }
+
+    /// How many different pixel values the image has: a blank image has one.
+    private func distinctPixels(_ image: UIImage) -> Int {
+        guard let data = image.cgImage?.dataProvider?.data, let bytes = CFDataGetBytePtr(data) else { return 0 }
+        var seen = Set<UInt32>()
+        let count = CFDataGetLength(data) / 4
+        for i in stride(from: 0, to: count, by: 7) {
+            seen.insert(UInt32(bytes[i * 4]) << 16 | UInt32(bytes[i * 4 + 1]) << 8 | UInt32(bytes[i * 4 + 2]))
+        }
+        return seen.count
+    }
+
+    func test_theMapRendersBeaconsAndTheiPhone_inLightAndDark() throws {
+        let s = sample()
+        for (name, scheme) in [("light", ColorScheme.light), ("dark", ColorScheme.dark)] {
+            let image = try XCTUnwrap(render(scheme, anchors: s.anchors, ranges: s.ranges, fix: s.fix), name)
+            XCTAssertEqual(image.size.width, 360, accuracy: 0.5)
+            XCTAssertEqual(image.size.height, 300, accuracy: 0.5)
+            XCTAssertGreaterThan(distinctPixels(image), 8, "\(name): the map is not blank")
+            if let base = ProcessInfo.processInfo.environment["TRACKERAPP_MAP_PNG"], let png = image.pngData() {
+                try png.write(to: URL(fileURLWithPath: "\(base)-\(name).png"))
+            }
+        }
+    }
+
+    func test_theMapRendersWithoutAFix_andWithoutAnchors() throws {
+        let s = sample()
+        XCTAssertNotNil(render(.light, anchors: s.anchors, ranges: [], fix: nil), "beacons only, before there is a position")
+        let empty = try XCTUnwrap(render(.light, anchors: [], ranges: [], fix: nil))
+        XCTAssertGreaterThan(distinctPixels(empty), 2, "the empty map still shows its hint")
     }
 }
