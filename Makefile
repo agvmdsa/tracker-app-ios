@@ -1,11 +1,11 @@
-# Atalhos da raiz do repositorio. Cada projeto tem o proprio Makefile (android/, ios/, embedded/);
-# estes alvos so chamam o deles. `make` sozinho lista os alvos.
+# Atalhos da raiz do repositorio. Cada projeto tem o proprio Makefile (applications/android/,
+# applications/ios/, esp32-esp8266/); estes alvos so chamam o deles. `make` sozinho lista os alvos.
 
 DEVICE ?=
 TEAM ?=
 BUNDLE_ID ?=
-ANDROID_MAKE = "$(MAKE)" --no-print-directory -C android $(if $(DEVICE),DEVICE="$(DEVICE)",)
-IOS_MAKE = "$(MAKE)" --no-print-directory -C ios $(if $(DEVICE),DEVICE="$(DEVICE)",) $(if $(TEAM),TEAM=$(TEAM),) $(if $(BUNDLE_ID),BUNDLE_ID=$(BUNDLE_ID),)
+ANDROID_MAKE = "$(MAKE)" --no-print-directory -C applications/android $(if $(DEVICE),DEVICE="$(DEVICE)",)
+IOS_MAKE = "$(MAKE)" --no-print-directory -C applications/ios $(if $(DEVICE),DEVICE="$(DEVICE)",) $(if $(TEAM),TEAM=$(TEAM),) $(if $(BUNDLE_ID),BUNDLE_ID=$(BUNDLE_ID),)
 
 .DEFAULT_GOAL := help
 .PHONY: help android android-setup android-build android-test android-devices android-logs ios ios-build ios-test ios-devices ios-sim ios-open
@@ -15,7 +15,7 @@ help: ## Lista os alvos
 	@echo
 	@echo "  Com mais de um celular ligado: make android DEVICE=<serial>  ou  make ios DEVICE=<nome do iPhone>"
 	@echo "  Assinatura do iOS: make ios TEAM=<seu time>  (e BUNDLE_ID=<bundle> se o do projeto for de outro time)"
-	@echo "  Firmware das ESP32: veja make -C embedded"
+	@echo "  Firmware das ESP32: veja make -C esp32-esp8266"
 
 android: ## Compila, instala e abre o app Android no celular ligado por USB
 	@$(ANDROID_MAKE) run

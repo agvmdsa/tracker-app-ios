@@ -1,0 +1,95 @@
+{
+  "title": "Positioning Overview",
+  "uid": "positioning-overview",
+  "editable": true,
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-24h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Peak hours",
+      "description": "Distinct observers and raw fix count per hour. grafana/queries.sql #3.",
+      "type": "timeseries",
+      "datasource": { "type": "postgres", "uid": "positioning-postgres" },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": { "custom": { "drawStyle": "bars", "fillOpacity": 40 } },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawSql": "SELECT\n    date_trunc('hour', recorded_at) AS time,\n    count(DISTINCT observer_id) AS distinct_observers,\n    count(*) AS fix_count\nFROM fixes\nWHERE $__timeFilter(recorded_at)\nGROUP BY time\nORDER BY time;"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Heatmap density (by grid cell)",
+      "description": "Grid cells weighted by fix confidence. grafana/queries.sql #1 — the same binning the live map's heatmap layer (applications/web) uses.",
+      "type": "table",
+      "datasource": { "type": "postgres", "uid": "positioning-postgres" },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 9 },
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "options": {
+        "showHeader": true,
+        "sortBy": [{ "displayName": "weighted_density", "desc": true }]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT\n    round(x / 0.5) * 0.5 AS grid_x,\n    round(y / 0.5) * 0.5 AS grid_y,\n    count(*) AS fix_count,\n    sum(1.0 / greatest(uncertainty_meters, 0.1)) AS weighted_density\nFROM fixes\nWHERE $__timeFilter(recorded_at)\nGROUP BY grid_x, grid_y\nORDER BY weighted_density DESC;"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Occupancy (distinct observers by grid cell)",
+      "description": "How many different phones/stations were seen in each area — not raw fix count, so one phone sending often doesn't look like a crowd. grafana/queries.sql #2.",
+      "type": "table",
+      "datasource": { "type": "postgres", "uid": "positioning-postgres" },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 9 },
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "options": {
+        "showHeader": true,
+        "sortBy": [{ "displayName": "distinct_observers", "desc": true }]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT\n    round(x / 0.5) * 0.5 AS grid_x,\n    round(y / 0.5) * 0.5 AS grid_y,\n    count(DISTINCT observer_id) AS distinct_observers\nFROM fixes\nWHERE $__timeFilter(recorded_at)\nGROUP BY grid_x, grid_y\nORDER BY distinct_observers DESC;"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Dwell time (seconds stopped, by grid cell)",
+      "description": "Inferred from consecutive fixes: time spent where an observer's position barely moved (< 0.5m) counts as dwelling there, not passing through. grafana/queries.sql #4.",
+      "type": "table",
+      "datasource": { "type": "postgres", "uid": "positioning-postgres" },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 18 },
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "options": {
+        "showHeader": true,
+        "sortBy": [{ "displayName": "dwell_seconds", "desc": true }]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "WITH ordered_fixes AS (\n    SELECT\n        observer_id,\n        x,\n        y,\n        recorded_at,\n        lag(x) OVER (PARTITION BY observer_id ORDER BY recorded_at) AS prev_x,\n        lag(y) OVER (PARTITION BY observer_id ORDER BY recorded_at) AS prev_y,\n        lag(recorded_at) OVER (PARTITION BY observer_id ORDER BY recorded_at) AS prev_time\n    FROM fixes\n    WHERE $__timeFilter(recorded_at)\n),\nmovement AS (\n    SELECT\n        x,\n        y,\n        sqrt(power(x - prev_x, 2) + power(y - prev_y, 2)) AS distance_moved,\n        extract(epoch FROM (recorded_at - prev_time)) AS seconds_elapsed\n    FROM ordered_fixes\n    WHERE prev_x IS NOT NULL\n)\nSELECT\n    round(x / 0.5) * 0.5 AS grid_x,\n    round(y / 0.5) * 0.5 AS grid_y,\n    sum(CASE WHEN distance_moved < 0.5 THEN seconds_elapsed ELSE 0 END) AS dwell_seconds\nFROM movement\nGROUP BY grid_x, grid_y\nORDER BY dwell_seconds DESC;"
+        }
+      ]
+    }
+  ]
+}

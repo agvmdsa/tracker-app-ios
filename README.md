@@ -1,27 +1,43 @@
 # TrackerApp
 
-Indoor positioning with fixed ESP32 BLE beacons: an iPhone or Android phone hears the beacons,
-turns each one's RSSI into a distance and places itself on a map. The iOS app also does 1:1
-tracking between two nearby iPhones over UWB, and both apps record labelled RSSI datasets for
-fingerprinting.
+iOS AirTag clone with two features: 1:1 tracking between two nearby iPhones (UWB), and indoor
+positioning across multiple phones — anchors + an observer — designed to interoperate with a
+companion Android app (`applications/android`, package `br.org.cesar.blueguide`, app name
+"BlueGuide"). It's also the data source for an indoor-positioning (fingerprinting)
+machine-learning project, built on the same BLE anchors/observer infrastructure.
 
 ## Repository layout
 
-Each folder is an independent project; the shared contract is the BLE protocol (service UUID
-`fc979812-36dd-4722-9316-d2a7908888dd`, an 8-hex beacon ID in the local name or in manufacturer
-data `0xFFFF`).
+A monorepo, following the structure the Sistemas Embarcados course's project spec requires:
 
-| Folder | What | Docs |
-|---|---|---|
-| `ios/` | TrackerApp, the iOS app (Swift, SwiftUI) | this README, from "iOS app" on |
-| `android/` | BlueGuide, the Android app (Kotlin, Compose) | [`android/README.md`](android/README.md) |
-| `embedded/` | ESP32 firmware: beacon and collector roles (PlatformIO, Arduino-ESP32) | [`embedded/USAGE.md`](embedded/USAGE.md) |
-| `scripts/` | Helper scripts (`mac-anchor.swift`: a Mac as a test beacon) | |
+```
+applications/
+  ios/        This README's app (Xcode project) — see "Project structure" below
+  android/    BlueGuide, the Android counterpart (Gradle/Kotlin, see applications/android/README.md)
+  api/        FastAPI ingestion/positioning API + Postgres + Grafana (applications/api/README.md)
+  web/        Next.js live floor-plan map, reads the API (applications/web/README.md)
+esp32-esp8266/  ESP32 beacon/collector firmware, PlatformIO (esp32-esp8266/USAGE.md)
+docs/           Technical report (CSBC/ABNT2 template) — not written yet
+schematics/     Circuit diagrams — not made yet
+scripts/        Dev utilities (e.g. advertising a Mac as a BLE anchor for testing)
+```
+
+`applications/api` and `applications/web` were originally a separate repository
+(`api_tracker_app`); their own `README.md`s still describe them as such in places — read them from
+inside `applications/api/`/`applications/web/`, not as if they were the repository root.
+`applications/android` was originally its own repository too (previously linked as
+[`btloc`](https://github.com/filipe-ms/btloc)); it's folded in here the same way, without its own
+git history.
 
 ## Commands
 
-Every Makefile lists its targets when run with no target (`make`, `make -C android`,
-`make -C ios`, `make -C embedded`).
+Every Makefile lists its targets when run with no target (`make`, `make -C applications/android`,
+`make -C applications/ios`, `make -C esp32-esp8266`).
+
+The API key stays out of Git: the apps read it from `Secrets.swift` (iOS) and `Secrets.kt`
+(Android), which the Makefiles create from their `.example` the first time. The apps build and run
+with the example's placeholder; to upload to the API, put the real key (the `API_KEY` of the Render
+service) in those files.
 
 ### From the repository root
 
@@ -45,7 +61,7 @@ With more than one phone connected, pick one with `DEVICE=`: the serial from
 from `make ios-devices` (`make ios DEVICE="iPhone de Ana"`). For iOS, `TEAM=` and `BUNDLE_ID=`
 are passed on too (see below).
 
-### Android app (`cd android`)
+### Android app (`cd applications/android`)
 
 Needs Java 17 or newer on the `PATH` (Gradle then downloads the JDK 21 the project asks for) and
 the Android SDK (Android Studio's works; it is found through `ANDROID_HOME`, `ANDROID_SDK_ROOT`,
@@ -68,10 +84,10 @@ phone, turn on Developer options → USB debugging and accept the "Allow USB deb
 `DEVICE=<serial>` works here too. `install`, `run`, `logs` and `uninstall` stop with a plain
 message when no phone is connected, it has not authorised the computer, or several are connected.
 
-### ESP32 firmware (`cd embedded`)
+### ESP32 firmware (`cd esp32-esp8266`)
 
-`make setup` creates a Python venv with PlatformIO inside `embedded/` and `include/config.h` from
-the example (ignored by Git). Full guide, including where to place the boards: `embedded/USAGE.md`.
+`make setup` creates a Python venv with PlatformIO inside `esp32-esp8266/` and `include/config.h` from
+the example (ignored by Git). Full guide, including where to place the boards: `esp32-esp8266/USAGE.md`.
 
 | Command | What it does |
 |---|---|
@@ -91,7 +107,7 @@ the example (ignored by Git). Full guide, including where to place the boards: `
 `PORT=<serial port>` picks the board when several are connected, e.g.
 `make flash ID=9F3C1A02 PORT=/dev/cu.usbserial-0001`.
 
-### iOS app (`cd ios`)
+### iOS app (`cd applications/ios`)
 
 Needs Xcode 15 or newer, opened once, with your Apple ID added in Xcode → Settings → Accounts:
 `xcodebuild` then creates the signing profile itself (`-allowProvisioningUpdates`). On the iPhone,
@@ -124,7 +140,7 @@ was picked. The install from a free account expires after 7 days: run `make run`
 
 ### Bench test in short
 
-1. Flash each ESP32 with its own ID: `cd embedded && make setup && make flash ID=9F3C1A01`, then
+1. Flash each ESP32 with its own ID: `cd esp32-esp8266 && make setup && make flash ID=9F3C1A01`, then
    the next board with `ID=9F3C1A02`, and so on.
 2. Place the boards at the corners of a square (2.5 m on a side was the bench test) and power them.
 3. Install the app: `make ios TEAM=<your team>` on the iPhone, or `make android` on the Android
@@ -134,11 +150,11 @@ was picked. The install from a free account expires after 7 days: run `make run`
    centro"; then touch the phone to a beacon and tap the one next to "RSSI encostado". The position
    should then stay inside the square.
 
-# iOS app (`ios/`)
+# iOS app (`applications/ios/`)
 
 The iOS app has two features: 1:1 tracking between two nearby iPhones (UWB), and indoor
 positioning with fixed beacons (ESP32 boards, or phones as anchors) and an observer phone. It
-interoperates with the Android app in `android/`.
+interoperates with the Android app in `applications/android/`.
 
 ## Build requirements
 
@@ -222,7 +238,7 @@ stays open while placing multiple anchors, so they all share the same origin/fra
 fresh session per anchor would reset the origin each time and make the anchors' positions
 inconsistent with each other.
 
-> The Android app (`android/`) has no AR capture yet: its anchors are typed in by hand. Its
+> The Android app (`applications/android/`) has no AR capture yet: its anchors are typed in by hand. Its
 > ARCore position tracker exists (the AR tab) but is not wired to anchor placement.
 
 **Wire protocol** (`BeaconProtocol`) — a fixed service UUID marks a BLE advertisement as this
@@ -284,7 +300,7 @@ collector post to the same API.
 
 **Indoor → "Coletar dados para fingerprinting"** (`FingerprintCollectorView`) records a labelled
 RSSI dataset for training a fingerprinting model later. It is the iPhone counterpart of the ESP32
-collector's `label` / `rec start` / `rec stop` (`embedded/USAGE.md`, chapter 6), except that a
+collector's `label` / `rec start` / `rec stop` (`esp32-esp8266/USAGE.md`, chapter 6), except that a
 recording lasts a set time: type the session, the point and its x/y in metres, pick the duration
 (1–60 minutes), tap **Gravar por N min** and stay at the point until it stops on its own. Every
 point then gets the same amount of data. **Cancelar e descartar** stops early and deletes the
@@ -354,7 +370,7 @@ AR capture also works, but its origin and axes are wherever the phone was and fa
 session started, so start it at that corner facing along the y wall.
 
 **ESP32 beacons.** Give each board a fixed, readable ID of 8 hex characters (e.g. `id BEAC0001` …
-`BEAC0004`, see `embedded/USAGE.md`) and a sticker with it. The ID names the physical board, not
+`BEAC0004`, see `esp32-esp8266/USAGE.md`) and a sticker with it. The ID names the physical board, not
 the spot: a replacement board gets a new ID, since boards differ slightly in antenna and power. The
 phone can't read a beacon's transmit power or advertising interval from its advertisement, so they
 aren't in the JSON: keep them the same on every board (defaults `0 dBm` / `100 ms`, reported by
@@ -387,7 +403,7 @@ extension, not something to fake by recording while moving.
 #### Collecting the same data on Android
 
 A model trained on data from both apps only holds if both collect the same way. The iOS collector
-is the reference; the Android collector (`android/`, Fingerprint tab) writes the same CSV and JSON,
+is the reference; the Android collector (`applications/android/`, Fingerprint tab) writes the same CSV and JSON,
 with these platform differences handled:
 
 | What | iOS (reference) | Android equivalent |
@@ -410,8 +426,10 @@ warnings are part of the format too, not iOS details.
 
 ## Project structure
 
+All paths below are relative to `applications/ios/`:
+
 ```
-ios/TrackerApp/
+TrackerApp/
   App/                     App entry point, scene lifecycle
   Core/
     ProximityTracker.swift / ProximityTracking.swift        Handshake + UWB glue, restarts on peer loss
@@ -430,9 +448,12 @@ ios/TrackerApp/
       AnchorStore.swift                                      User-configured anchor positions
       PositioningEngine.swift                                Sightings + anchors -> fix
       PositioningReporting.swift / PositioningAPIClient.swift  Positioning API client (Render)
+      FingerprintUploading.swift                              Uploads fingerprint rows for ML training
       ARPositionTracker.swift / ARPositionTracking.swift       ARKit-based anchor position capture
-      DeviceMotionReader / AltitudeReader / MotionActivityReader  CoreMotion sensors per row
-      FingerprintRecord.swift / FingerprintRecorder.swift      Labelled RSSI dataset -> CSV
+      DeviceMotionReader.swift / DeviceMotionReading.swift     CoreMotion orientation (roll/pitch/yaw)
+      AltitudeReader.swift / AltitudeReading.swift             CoreMotion relative altitude
+      MotionActivityReader.swift / MotionActivityReading.swift CoreMotion activity (stationary/walking/...)
+      FingerprintRecord.swift / FingerprintRecorder.swift      Labelled RSSI dataset -> CSV + API upload
   Models/                  HandshakeState, RangingState, TrackingLogEntry
   UI/
     MainView.swift / TrackingView.swift
