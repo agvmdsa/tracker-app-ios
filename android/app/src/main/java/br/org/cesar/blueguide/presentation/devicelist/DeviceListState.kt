@@ -6,11 +6,16 @@ import br.org.cesar.blueguide.domain.entity.DeviceSighting
 import br.org.cesar.blueguide.domain.position.Anchor
 import br.org.cesar.blueguide.domain.position.AnchorLayoutCheck
 import br.org.cesar.blueguide.domain.position.AnchorRange
+import br.org.cesar.blueguide.domain.position.MotionLimit
 import br.org.cesar.blueguide.domain.position.ObserverFix
+import br.org.cesar.blueguide.domain.position.Point2D
 import br.org.cesar.blueguide.domain.position.PathLossCalibration
 import br.org.cesar.blueguide.domain.position.PathLossModel
 import br.org.cesar.blueguide.domain.position.RssiWindow
 import br.org.cesar.blueguide.domain.position.SavedLocation
+
+/** A position shown on the map, and when (on the sightings' clock). */
+data class TimedPosition(val position: Point2D, val atMs: Long)
 
 /** How many advertisements one range was built from since the last refresh, and their spread
  *  in dB — reported to the API the same as the iOS app's `sampleCount`/`rssiStdDev`. */
@@ -28,6 +33,14 @@ data class DeviceListState(
     /** The RSSI heard touching a beacon ("RSSI encostado"), read as
      *  [PathLossModel.TOUCH_DISTANCE_METERS]. With the center's it fixes the exponent too. */
     val touchRssi: Double = PathLossModel.DEFAULT_TOUCH_RSSI,
+    /** "Limitar pela velocidade": the position shown moves at most [maxSpeedKmh] towards each fix. */
+    val isSpeedLimited: Boolean = true,
+    val maxSpeedKmh: Double = MotionLimit.DEFAULT_MAX_SPEED_KMH,
+    /** The last position shown and when, where the next refresh is limited from. */
+    val lastShown: TimedPosition? = null,
+    /** Where the last refresh was limited from, so ranging again at the same moment (a new
+     *  calibration) starts from there and not from that refresh's own result. */
+    val limitedFrom: TimedPosition? = null,
     /** The ranges of the last refresh, one per anchor heard within the window. */
     val anchorRanges: List<AnchorRange> = emptyList(),
     /** The observer's own position from [anchorRanges], null until three anchors are ranged. */
@@ -54,6 +67,9 @@ data class DeviceListState(
             val configured = anchors.map { it.id }.toSet()
             return devicesByKey.values.filter { it.device.id != null && it.device.id !in configured }.sortedByDescending { it.rssi }
         }
+
+    val speedLimitKmh: Double?
+        get() = if (isSpeedLimited) maxSpeedKmh else null
 
     /** The model the ranges come from, for the anchors configured now. Fewer than two anchors
      *  have no middle, so the bench square's is used. */

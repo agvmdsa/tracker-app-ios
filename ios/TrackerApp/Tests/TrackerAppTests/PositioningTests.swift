@@ -269,12 +269,93 @@ final class PositioningTests: XCTestCase {
         XCTAssertEqual(ratio, 16, accuracy: 0.01)
 
         XCTAssertEqual(
-            Multilateration.weight(forDistance: 0.1),
-            Multilateration.weight(forDistance: 0.5),
+            Multilateration.weight(forDistance: 0.05),
+            Multilateration.weight(forDistance: 0.2),
             accuracy: tolerance,
             "below the minimum error the weight stops growing"
         )
         XCTAssertTrue(Multilateration.weight(forDistance: 0).isFinite)
+    }
+
+    /// Touching a beacon is the surest reading there is: indoors the far beacons read stronger than
+    /// the model expects (here all three as the center), and with a 0.5 m floor on the error they
+    /// pulled the fix 0.6 m towards the middle.
+    func test_aBeaconAFewCentimetresAway_decidesTheFix_evenWhenTheFarOnesReadShort() throws {
+        let truth = Point2D(x: 0.2, y: 0.2)
+        let readings = squareCorners.enumerated().map { index, corner in
+            AnchorRange(
+                anchor: Anchor(id: BeaconID.random(), label: "", position: corner),
+                distanceMeters: index == 0 ? corner.distance(to: truth) : 2.5 / 2.0.squareRoot()
+            )
+        }
+
+        let fix = try XCTUnwrap(Multilateration.solve(readings: readings))
+
+        XCTAssertLessThan(fix.position.distance(to: truth), 0.1, "fix at \(fix.position)")
+    }
+
+    private func squareReadings(_ distances: [Double]) -> [AnchorRange] {
+        zip(squareCorners, distances).map { corner, distance in
+            AnchorRange(anchor: Anchor(id: BeaconID.random(), label: "", position: corner), distanceMeters: distance)
+        }
+    }
+
+    /// Reading as touching a beacon ("RSSI encostado", the touching distance) puts the phone on it,
+    /// however wrong the others are: here they claim 0.6 m, which no point near A allows.
+    func test_aBeaconReadAsTouching_putsThePhoneOnIt_whateverTheOthersSay() throws {
+        for others in [[0.6, 0.6, 0.6], [4.0, 6.0, 6.0], [1.77, 1.77, 1.77], [2.5, 0.6, 6.0]] {
+            for touching in [PathLossModel.touchDistanceMeters, 0.05] {
+                let fix = try XCTUnwrap(Multilateration.solve(readings: squareReadings([touching] + others)))
+
+                XCTAssertEqual(fix.position.distance(to: squareCorners[0]), 0, accuracy: 1e-9, "others \(others): fix at \(fix.position)")
+            }
+        }
+    }
+
+    /// A little weaker than touching, the phone stays within the extra distance of the beacon,
+    /// counted from touching it: 0.3 m by the model is at most 0.2 m from A.
+    func test_aBeaconReadNearTouching_keepsThePhoneWithinTheExtraDistance() throws {
+        for others in [[1.0, 1.0, 1.0], [1.77, 1.77, 1.77]] {
+            let fix = try XCTUnwrap(Multilateration.solve(readings: squareReadings([0.3] + others)))
+
+            XCTAssertLessThanOrEqual(fix.position.distance(to: squareCorners[0]), 0.3 - PathLossModel.touchDistanceMeters + 1e-9, "others \(others)")
+        }
+    }
+
+    /// A first step that made things worse used to end the search where it started: here 1.6 m from
+    /// A, which reads 0.8 m. Halving the step instead goes on to the minimum.
+    func test_aBadStart_doesNotStrandTheFix() throws {
+        let fix = try XCTUnwrap(Multilateration.solve(readings: squareReadings([0.8, 1.77, 2.5, 6])))
+
+        XCTAssertEqual(fix.position.distance(to: squareCorners[0]), 0.8, accuracy: 0.15, "fix at \(fix.position)")
+    }
+
+    // MARK: Speed limit
+
+    func test_speedLimit_movesTowardsTheNewFix_byAtMostTheSpeedTimesTheTime() {
+        // 3.6 km/h is 1 m/s: 2 s allow 2 m of the 5 m to (3, 4).
+        let limited = MotionLimit.limited(from: Point2D(x: 0, y: 0), to: Point2D(x: 3, y: 4), maxSpeedKmh: 3.6, elapsedSeconds: 2)
+
+        XCTAssertEqual(limited.x, 1.2, accuracy: 1e-9)
+        XCTAssertEqual(limited.y, 1.6, accuracy: 1e-9)
+    }
+
+    func test_speedLimit_withinReach_isTheNewFix() {
+        let limited = MotionLimit.limited(from: Point2D(x: 0, y: 0), to: Point2D(x: 0.3, y: 0.4), maxSpeedKmh: 3.6, elapsedSeconds: 1)
+
+        XCTAssertEqual(limited, Point2D(x: 0.3, y: 0.4))
+    }
+
+    func test_speedLimit_withoutAPreviousFixOrALimit_isTheNewFix() {
+        let target = Point2D(x: 3, y: 4)
+        XCTAssertEqual(MotionLimit.limited(from: nil, to: target, maxSpeedKmh: 2, elapsedSeconds: 1), target)
+        XCTAssertEqual(MotionLimit.limited(from: Point2D(x: 0, y: 0), to: target, maxSpeedKmh: nil, elapsedSeconds: 1), target)
+    }
+
+    func test_speedLimit_withNoTimeElapsed_staysPut() {
+        let previous = Point2D(x: 1, y: 1)
+        XCTAssertEqual(MotionLimit.limited(from: previous, to: Point2D(x: 3, y: 4), maxSpeedKmh: 2, elapsedSeconds: 0), previous)
+        XCTAssertEqual(MotionLimit.limited(from: previous, to: Point2D(x: 3, y: 4), maxSpeedKmh: 2, elapsedSeconds: -1), previous)
     }
 
     /// The corners of a 2.5 m square, the layout of the bench test.
@@ -285,7 +366,7 @@ final class PositioningTests: XCTestCase {
     /// whatever that distance is: shorter than the real 1.77 m, equal to it, or much longer, as an
     /// uncalibrated model gives.
     func test_equalRSSIFromTheCornersOfASquare_isTheCenter() throws {
-        for rssi in [-50.0, -60.0, -64.0, -70.0, -80.0] {
+        for rssi in [-30.0, -40.0, -50.0, -60.0, -64.0, -70.0, -80.0] {
             let readings = squareCorners.map { corner in
                 AnchorRange(
                     anchor: Anchor(id: BeaconID.random(), label: "", position: corner),
@@ -525,6 +606,79 @@ final class PositioningEngineTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(ranges[corners[0]]), PathLossModel.touchDistanceMeters, accuracy: 1e-9)
         XCTAssertEqual(try XCTUnwrap(ranges[corners[1]]), 2.5 / 2.0.squareRoot(), accuracy: 1e-9)
         XCTAssertTrue(rig.engine.calibration.usesTouchRSSI)
+    }
+
+    /// The bench, end to end: a 2.5 m square with the default calibration (-70 dBm in the middle,
+    /// -30 dBm touching). Hearing -30 from the beacon at (0, 0) puts the phone at (0, 0), whether
+    /// the others read what the model says for that corner or, as indoors, closer to the middle's.
+    func test_refresh_onTheBench_touchingTheBeaconAtTheOrigin_isTheOrigin() throws {
+        let corners = [Point2D(x: 0, y: 0), Point2D(x: 2.5, y: 0), Point2D(x: 2.5, y: 2.5), Point2D(x: 0, y: 2.5)]
+        let calibration = PathLossModel.defaultCalibration
+        let byTheModel = [2.5, 2.5 * 2.0.squareRoot(), 2.5].map { Int(calibration.rssi(atDistance: $0).rounded()) }
+        for others in [byTheModel, [-70, -70, -70], [-72, -76, -72]] {
+            let rig = makeRig(anchorsAt: corners)
+            defer { rig.engine.stop() }
+            for (index, rssi) in zip(0..., [-30] + others) {
+                for _ in 0..<5 { hear(rig, index, rssi: rssi) }
+            }
+
+            rig.engine.refresh()
+
+            let fix = try XCTUnwrap(rig.engine.fix)
+            XCTAssertEqual(fix.position.x, 0, accuracy: 1e-9, "others \(others)")
+            XCTAssertEqual(fix.position.y, 0, accuracy: 1e-9, "others \(others)")
+        }
+    }
+
+    /// The bench, end to end: the same RSSI from all four corners is the middle, (1.25, 1.25),
+    /// at any level, touching included.
+    func test_refresh_onTheBench_theSameRSSIFromEveryBeacon_isTheMiddle() throws {
+        let corners = [Point2D(x: 0, y: 0), Point2D(x: 2.5, y: 0), Point2D(x: 2.5, y: 2.5), Point2D(x: 0, y: 2.5)]
+        for rssi in [-30, -45, -60, -70, -80, -90] {
+            let rig = makeRig(anchorsAt: corners)
+            defer { rig.engine.stop() }
+            for index in corners.indices {
+                for _ in 0..<5 { hear(rig, index, rssi: rssi) }
+            }
+
+            rig.engine.refresh()
+
+            let fix = try XCTUnwrap(rig.engine.fix)
+            XCTAssertEqual(fix.position.x, 1.25, accuracy: 1e-6, "\(rssi) dBm")
+            XCTAssertEqual(fix.position.y, 1.25, accuracy: 1e-6, "\(rssi) dBm")
+        }
+    }
+
+    /// From the middle to touching the beacon at (0, 0), 1.77 m away, 3.1 s later: at 1 km/h the
+    /// phone shows 0.86 m along the way, towards (0, 0); without a limit, on it.
+    func test_refresh_theSpeedLimitMovesThePhoneTowardsTheNewFix() throws {
+        let corners = [Point2D(x: 0, y: 0), Point2D(x: 2.5, y: 0), Point2D(x: 2.5, y: 2.5), Point2D(x: 0, y: 2.5)]
+        let middle = Point2D(x: 1.25, y: 1.25)
+        for limit in [1.0, nil] {
+            let rig = makeRig(anchorsAt: corners)
+            defer { rig.engine.stop() }
+            rig.engine.maxSpeedKmh = limit
+            let start = MonotonicClock.nowMs()
+            for index in corners.indices {
+                for _ in 0..<5 { hear(rig, index, rssi: -70, ageMs: MonotonicClock.nowMs() - start) }
+            }
+            rig.engine.refresh(nowMs: start)
+            XCTAssertLessThan(try XCTUnwrap(rig.engine.fix).position.distance(to: middle), 1e-6)
+
+            // The first readings leave the 3 s window by then.
+            for (index, rssi) in zip(0..., [-30, -70, -70, -70]) {
+                for _ in 0..<5 { hear(rig, index, rssi: rssi, ageMs: MonotonicClock.nowMs() - (start + 3_050)) }
+            }
+            rig.engine.refresh(nowMs: start + 3_100)
+
+            let position = try XCTUnwrap(rig.engine.fix).position
+            if let limit {
+                XCTAssertEqual(position.distance(to: middle), limit / 3.6 * 3.1, accuracy: 1e-6)
+                XCTAssertEqual(position.x, position.y, accuracy: 1e-9, "along the diagonal, towards (0, 0)")
+            } else {
+                XCTAssertEqual(position.distance(to: corners[0]), 0, accuracy: 1e-9)
+            }
+        }
     }
 
     /// Touching one beacon and taking what the phone hears now: the strongest anchor's median.

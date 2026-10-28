@@ -87,3 +87,26 @@ enum DecimalInput {
         return text == "-0" ? "0" : text
     }
 }
+
+/// How far the phone can have walked since the last fix. RSSI jumps by metres between refreshes
+/// while a person walks a fraction of that, so the position shown moves towards each new fix by at
+/// most the speed times the time since the last one.
+enum MotionLimit {
+    /// A slow walk, 0.56 m/s. The Observer screen lets it be changed, or turned off.
+    static let defaultMaxSpeedKmh = 2.0
+    static let speedRangeKmh: ClosedRange<Double> = 0.5...20
+    static let speedStepKmh = 0.5
+
+    /// `target` when it is within reach of `previous` (or there is no previous fix, or no limit);
+    /// otherwise the point that far from `previous` on the way to `target`.
+    static func limited(from previous: Point2D?, to target: Point2D, maxSpeedKmh: Double?, elapsedSeconds: Double) -> Point2D {
+        guard let previous, let maxSpeedKmh else { return target }
+        let reach = maxSpeedKmh / 3.6 * max(0, elapsedSeconds)
+        let distance = previous.distance(to: target)
+        guard distance > reach else { return target }
+        return Point2D(
+            x: previous.x + (target.x - previous.x) * reach / distance,
+            y: previous.y + (target.y - previous.y) * reach / distance
+        )
+    }
+}

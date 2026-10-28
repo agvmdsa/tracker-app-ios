@@ -13,6 +13,10 @@ struct ObserverView: View {
     @State private var newLocationLabel = ""
     @AppStorage("trackerapp.positioning.centerRSSI") private var centerRSSI = PathLossModel.defaultCenterRSSI
     @AppStorage("trackerapp.positioning.touchRSSI") private var touchRSSI = PathLossModel.defaultTouchRSSI
+    @AppStorage("trackerapp.positioning.isSpeedLimited") private var isSpeedLimited = true
+    @AppStorage("trackerapp.positioning.maxSpeedKmh") private var maxSpeedKmh = MotionLimit.defaultMaxSpeedKmh
+
+    private var speedLimit: Double? { isSpeedLimited ? maxSpeedKmh : nil }
 
     var body: some View {
         List {
@@ -158,6 +162,18 @@ struct ObserverView: View {
                 }
                 .disabled(engine?.currentTouchRSSI == nil)
 
+                Toggle("Limitar pela velocidade", isOn: $isSpeedLimited)
+                Stepper(value: $maxSpeedKmh, in: MotionLimit.speedRangeKmh, step: MotionLimit.speedStepKmh) {
+                    HStack {
+                        Text("Velocidade máxima")
+                        Spacer()
+                        Text(String(format: "%.1f km/h", maxSpeedKmh).replacingOccurrences(of: ".", with: ","))
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .disabled(!isSpeedLimited)
+
                 if let calibration = engine?.calibration {
                     Text(calibrationSummary(calibration))
                         .font(.caption)
@@ -166,7 +182,7 @@ struct ObserverView: View {
             } header: {
                 Text("Calibração")
             } footer: {
-                Text("RSSI no centro: o que o iPhone lê no meio das âncoras, tratado como a distância média delas até o meio (1,77 m num quadrado de 2,5 m). RSSI encostado: o que ele lê encostado num beacon, tratado como 10 cm. Com os dois o app calcula o RSSI a 1 m e o expoente de perda. Fique no meio (ou encoste num beacon) e toque em \"Usar a leitura de agora\".")
+                Text("RSSI no centro: o que o iPhone lê no meio das âncoras, tratado como a distância média delas até o meio (1,77 m num quadrado de 2,5 m). RSSI encostado: o que ele lê encostado num beacon, tratado como 10 cm. Com os dois o app calcula o RSSI a 1 m e o expoente de perda. Fique no meio (ou encoste num beacon) e toque em \"Usar a leitura de agora\". Com o limite de velocidade, a posição anda na direção da nova leitura, no máximo o que daria para andar nessa velocidade desde a anterior.")
             }
         }
         .navigationTitle("Observador")
@@ -203,6 +219,7 @@ struct ObserverView: View {
             engine = newEngine
             newEngine.centerRSSI = centerRSSI
             newEngine.touchRSSI = touchRSSI
+            newEngine.maxSpeedKmh = speedLimit
             newEngine.start()
         }
         .onChange(of: centerRSSI) { _, newValue in
@@ -212,6 +229,9 @@ struct ObserverView: View {
         .onChange(of: touchRSSI) { _, newValue in
             engine?.touchRSSI = newValue
             engine?.refresh()
+        }
+        .onChange(of: speedLimit) { _, newValue in
+            engine?.maxSpeedKmh = newValue
         }
         .onDisappear {
             engine?.stop()

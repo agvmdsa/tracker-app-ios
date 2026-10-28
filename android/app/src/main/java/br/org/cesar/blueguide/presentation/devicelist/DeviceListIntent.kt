@@ -24,6 +24,9 @@ sealed interface DeviceListIntent {
     data class CenterRssiChanged(val rssi: Double) : DeviceListIntent
     /** The "RSSI encostado" setting, loaded from disk or changed on screen. */
     data class TouchRssiChanged(val rssi: Double) : DeviceListIntent
+    /** The speed limit, loaded from disk or changed on screen; null turns it off (keeping the
+     *  speed for when it is turned on again). */
+    data class MaxSpeedChanged(val kmh: Double?) : DeviceListIntent
     /** Fired whenever `SavedLocationStore`'s list changes. */
     data class SavedLocationsChanged(val locations: List<SavedLocation>) : DeviceListIntent
 }

@@ -123,6 +123,82 @@ class DeviceListReducerTest {
         assertTrue(state.calibration.usesTouchRssi)
     }
 
+    /** The bench, end to end: a 2.5 m square with the default calibration (-70 dBm in the middle,
+     *  -30 dBm touching). Hearing -30 from the beacon at (0, 0) puts the phone at (0, 0), whether
+     *  the others read what the model says for that corner or, as indoors, closer to the middle's. */
+    @Test
+    fun `on the bench touching the beacon at the origin is the origin`() {
+        val calibration = PathLossModel.DEFAULT_CALIBRATION
+        val byTheModel = listOf(2.5, 2.5 * sqrt(2.0), 2.5).map { calibration.rssi(atDistance = it).roundToInt() }
+        for (others in listOf(byTheModel, listOf(-70, -70, -70), listOf(-72, -76, -72))) {
+            var state = observing(square)
+            (listOf(-30) + others).forEachIndexed { index, rssi -> repeat(5) { state = state.hear(index, rssi, NOW) } }
+
+            state = state.refresh(NOW)
+
+            val fix = requireNotNull(state.observerFix)
+            assertEquals("others $others", 0.0, fix.position.x, 1e-9)
+            assertEquals("others $others", 0.0, fix.position.y, 1e-9)
+        }
+    }
+
+    /** The bench, end to end: the same RSSI from all four corners is the middle, (1.25, 1.25),
+     *  at any level, touching included. */
+    @Test
+    fun `on the bench the same RSSI from every beacon is the middle`() {
+        for (rssi in listOf(-30, -45, -60, -70, -80, -90)) {
+            var state = observing(square)
+            square.indices.forEach { index -> repeat(5) { state = state.hear(index, rssi, NOW) } }
+
+            state = state.refresh(NOW)
+
+            val fix = requireNotNull(state.observerFix)
+            assertEquals("$rssi dBm", 1.25, fix.position.x, 1e-6)
+            assertEquals("$rssi dBm", 1.25, fix.position.y, 1e-6)
+        }
+    }
+
+    /** From the middle to touching the beacon at (0, 0), 1.77 m away, 3.1 s later: at 1 km/h the
+     *  phone shows 0.86 m along the way, towards (0, 0); without a limit, on it. */
+    @Test
+    fun `the speed limit moves the phone towards the new fix`() {
+        val middle = Point2D(1.25, 1.25)
+        for (limit in listOf(1.0, null)) {
+            var state = DeviceListReducer.reduce(observing(square), DeviceListIntent.MaxSpeedChanged(limit))
+            square.indices.forEach { index -> repeat(5) { state = state.hear(index, -70, NOW) } }
+            state = state.refresh(NOW)
+            assertTrue(requireNotNull(state.observerFix).position.distanceTo(middle) < 1e-6)
+
+            // The first readings leave the 3 s window by then.
+            listOf(-30, -70, -70, -70).forEachIndexed { index, rssi -> repeat(5) { state = state.hear(index, rssi, NOW + 3_050) } }
+            state = state.refresh(NOW + 3_100)
+
+            val position = requireNotNull(state.observerFix).position
+            if (limit != null) {
+                assertEquals(limit / 3.6 * 3.1, position.distanceTo(middle), 1e-6)
+                assertEquals("along the diagonal, towards (0, 0)", position.x, position.y, 1e-9)
+            } else {
+                assertEquals(0.0, position.distanceTo(square[0]), 1e-9)
+            }
+        }
+    }
+
+    /** A new calibration ranges again at the same moment: it starts from where the phone was
+     *  shown before that refresh, not from the refresh's own result, so it can still move. */
+    @Test
+    fun `ranging again after a calibration change is limited from before the refresh`() {
+        var state = DeviceListReducer.reduce(observing(square), DeviceListIntent.MaxSpeedChanged(1.0))
+        square.indices.forEach { index -> repeat(5) { state = state.hear(index, -70, NOW) } }
+        state = state.refresh(NOW)
+        listOf(-30, -70, -70, -70).forEachIndexed { index, rssi -> repeat(5) { state = state.hear(index, rssi, NOW + 3_050) } }
+        state = state.refresh(NOW + 3_100)
+        val before = requireNotNull(state.observerFix).position
+
+        state = DeviceListReducer.reduce(state, DeviceListIntent.CenterRssiChanged(-71.0))
+
+        assertEquals(before.distanceTo(Point2D(1.25, 1.25)), requireNotNull(state.observerFix).position.distanceTo(Point2D(1.25, 1.25)), 1e-6)
+    }
+
     /** Touching one beacon and taking what the phone hears now: the strongest anchor's median. */
     @Test
     fun `current touch RSSI is the strongest ranged anchor's median`() {

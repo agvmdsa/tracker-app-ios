@@ -54,7 +54,7 @@ class CalibratedPositioningTest {
     @Test
     fun `the weight falls with the square of the distance and stops growing near the anchor`() {
         assertEquals(16.0, Multilateration.weight(2.0) / Multilateration.weight(8.0), 0.01)
-        assertEquals(Multilateration.weight(0.1), Multilateration.weight(0.5), TOLERANCE)
+        assertEquals(Multilateration.weight(0.05), Multilateration.weight(0.2), TOLERANCE)
         assertTrue(Multilateration.weight(0.0).isFinite())
     }
 
@@ -62,13 +62,94 @@ class CalibratedPositioningTest {
      *  whatever that distance is. */
     @Test
     fun `equal RSSI from the corners of a square is the center`() {
-        for (rssi in listOf(-50.0, -60.0, -64.0, -70.0, -80.0)) {
+        for (rssi in listOf(-30.0, -40.0, -50.0, -60.0, -64.0, -70.0, -80.0)) {
             val readings = squareCorners.map { AnchorRange(anchorAt(it), PathLossModel.distanceMeters(rssi)) }
 
             val fix = requireNotNull(Multilateration.solve(readings))
 
             assertTrue("$rssi dBm", fix.position.distanceTo(squareCenter) < 1e-6)
         }
+    }
+
+    /** Touching a beacon is the surest reading there is: indoors the far beacons read stronger
+     *  than the model expects (here all three as the center), and with a 0.5 m floor on the error
+     *  they pulled the fix 0.6 m towards the middle. */
+    @Test
+    fun `a beacon a few centimetres away decides the fix even when the far ones read short`() {
+        val truth = Point2D(0.2, 0.2)
+        val readings = squareCorners.mapIndexed { index, corner ->
+            AnchorRange(anchorAt(corner), if (index == 0) corner.distanceTo(truth) else 2.5 / sqrt(2.0))
+        }
+
+        val fix = requireNotNull(Multilateration.solve(readings))
+
+        assertTrue("fix at ${fix.position}", fix.position.distanceTo(truth) < 0.1)
+    }
+
+    private fun squareReadings(distances: List<Double>): List<AnchorRange> =
+        squareCorners.zip(distances).map { (corner, distance) -> AnchorRange(anchorAt(corner), distance) }
+
+    /** Reading as touching a beacon ("RSSI encostado", the touching distance) puts the phone on it,
+     *  however wrong the others are: here they claim 0.6 m, which no point near A allows. */
+    @Test
+    fun `a beacon read as touching puts the phone on it whatever the others say`() {
+        for (others in listOf(listOf(0.6, 0.6, 0.6), listOf(4.0, 6.0, 6.0), listOf(1.77, 1.77, 1.77), listOf(2.5, 0.6, 6.0))) {
+            for (touching in listOf(PathLossModel.TOUCH_DISTANCE_METERS, 0.05)) {
+                val fix = requireNotNull(Multilateration.solve(squareReadings(listOf(touching) + others)))
+
+                assertEquals("others $others: fix at ${fix.position}", 0.0, fix.position.distanceTo(squareCorners[0]), 1e-9)
+            }
+        }
+    }
+
+    /** A little weaker than touching, the phone stays within the extra distance of the beacon,
+     *  counted from touching it: 0.3 m by the model is at most 0.2 m from A. */
+    @Test
+    fun `a beacon read near touching keeps the phone within the extra distance`() {
+        for (others in listOf(listOf(1.0, 1.0, 1.0), listOf(1.77, 1.77, 1.77))) {
+            val fix = requireNotNull(Multilateration.solve(squareReadings(listOf(0.3) + others)))
+
+            assertTrue("others $others", fix.position.distanceTo(squareCorners[0]) <= 0.3 - PathLossModel.TOUCH_DISTANCE_METERS + 1e-9)
+        }
+    }
+
+    /** A first step that made things worse used to end the search where it started: here 1.6 m
+     *  from A, which reads 0.8 m. Halving the step instead goes on to the minimum. */
+    @Test
+    fun `a bad start does not strand the fix`() {
+        val fix = requireNotNull(Multilateration.solve(squareReadings(listOf(0.8, 1.77, 2.5, 6.0))))
+
+        assertEquals("fix at ${fix.position}", 0.8, fix.position.distanceTo(squareCorners[0]), 0.15)
+    }
+
+    // Speed limit
+
+    @Test
+    fun `the speed limit moves towards the new fix by at most the speed times the time`() {
+        // 3.6 km/h is 1 m/s: 2 s allow 2 m of the 5 m to (3, 4).
+        val limited = MotionLimit.limited(Point2D(0.0, 0.0), Point2D(3.0, 4.0), maxSpeedKmh = 3.6, elapsedSeconds = 2.0)
+
+        assertEquals(1.2, limited.x, 1e-9)
+        assertEquals(1.6, limited.y, 1e-9)
+    }
+
+    @Test
+    fun `within reach the speed limit is the new fix`() {
+        assertEquals(Point2D(0.3, 0.4), MotionLimit.limited(Point2D(0.0, 0.0), Point2D(0.3, 0.4), 3.6, 1.0))
+    }
+
+    @Test
+    fun `without a previous fix or a limit it is the new fix`() {
+        val target = Point2D(3.0, 4.0)
+        assertEquals(target, MotionLimit.limited(null, target, 2.0, 1.0))
+        assertEquals(target, MotionLimit.limited(Point2D(0.0, 0.0), target, null, 1.0))
+    }
+
+    @Test
+    fun `with no time elapsed it stays put`() {
+        val previous = Point2D(1.0, 1.0)
+        assertEquals(previous, MotionLimit.limited(previous, Point2D(3.0, 4.0), 2.0, 0.0))
+        assertEquals(previous, MotionLimit.limited(previous, Point2D(3.0, 4.0), 2.0, -1.0))
     }
 
     // Path loss model and calibration

@@ -48,24 +48,35 @@ object Multilateration {
     val RELATIVE_DISTANCE_ERROR = ln(10.0) / (10.0 * PathLossModel.PATH_LOSS_EXPONENT) * RSSI_NOISE_DB
 
     /** Closer than this the error stops shrinking, which also keeps the weight of a tiny
-     *  distance finite. */
-    const val MINIMUM_SIGMA_METERS = 0.5
+     *  distance finite. Small, so a beacon a few centimetres away decides the fix: indoors the far
+     *  beacons read stronger than the model expects, and with 0.5 m they pulled a phone touching
+     *  a corner 0.6 m towards the middle. Below 1.45 m only, so the middle is not affected. */
+    const val MINIMUM_SIGMA_METERS = 0.1
 
-    private const val MAXIMUM_ITERATIONS = 20
+    /** A beacon this close by its RSSI (about "RSSI encostado" up to a few dB weaker) holds the
+     *  phone near it, whatever the others say. */
+    const val PROXIMITY_RADIUS_METERS = 0.5
+
+    private const val MAXIMUM_ITERATIONS = 50
     private const val CONVERGED_STEP_METERS = 1e-6
+    private const val SMALLEST_STEP_FRACTION = 1e-3
 
     /** How much a reading counts: 1 / error², with the error proportional to the distance, so
      *  an anchor at 2 m counts 16 times more than one at 8 m. */
     fun weight(distanceMeters: Double): Double {
-        val sigma = max(MINIMUM_SIGMA_METERS, RELATIVE_DISTANCE_ERROR * distanceMeters)
+        val sigma = sigma(distanceMeters)
         return 1 / (sigma * sigma)
     }
+
+    private fun sigma(distanceMeters: Double) = max(MINIMUM_SIGMA_METERS, RELATIVE_DISTANCE_ERROR * distanceMeters)
 
     fun solve(readings: List<AnchorRange>): ObserverFix? {
         if (readings.size < 3) return null
         val start = linearSolution(readings) ?: return null
 
-        val position = refined(start, readings)
+        // Not a search from several starts: with equal readings the linear start is the middle,
+        // and other starts would pick one of the symmetric minima around it at random.
+        val position = heldByTheNearest(refined(start, readings), readings)
 
         val residual = sqrt(
             readings.sumOf { sq(it.anchor.position.distanceTo(position) - it.distanceMeters) } / readings.size
@@ -110,8 +121,25 @@ object Multilateration {
         )
     }
 
-    /** Gauss-Newton on the weighted range residuals. Keeps the starting point if a step ever
-     *  makes the weighted error worse or the equations degenerate. */
+    /** Within [PROXIMITY_RADIUS_METERS] of an anchor by its RSSI, and clearly nearer it than any
+     *  other (the next at more than twice the range), the fix is kept within the range counted
+     *  from touching the anchor: reading "RSSI encostado" ([PathLossModel.TOUCH_DISTANCE_METERS])
+     *  or stronger puts the phone on the anchor, and 0.3 m by the model at most 0.2 m from it.
+     *  Several anchors all reading that near contradict each other, and hold nothing. */
+    private fun heldByTheNearest(position: Point2D, readings: List<AnchorRange>): Point2D {
+        val sorted = readings.sortedBy { it.distanceMeters }
+        val nearest = sorted[0]
+        if (nearest.distanceMeters > PROXIMITY_RADIUS_METERS || sorted[1].distanceMeters <= 2 * nearest.distanceMeters) return position
+        val anchor = nearest.anchor.position
+        val radius = max(0.0, nearest.distanceMeters - PathLossModel.TOUCH_DISTANCE_METERS)
+        val away = position.distanceTo(anchor)
+        if (away <= radius) return position
+        if (radius == 0.0) return anchor
+        return Point2D(anchor.x + (position.x - anchor.x) * radius / away, anchor.y + (position.y - anchor.y) * radius / away)
+    }
+
+    /** Gauss-Newton on the weighted range residuals. A step that makes the weighted error worse is
+     *  halved until it does not; it stops when even a tiny step does, or the equations degenerate. */
     private fun refined(start: Point2D, readings: List<AnchorRange>): Point2D {
         var position = start
         var cost = weightedCost(position, readings)
@@ -145,13 +173,20 @@ object Multilateration {
                 y = (n11 * g2 - g1 * n12) / determinant
             )
 
-            val candidate = Point2D(position.x + step.x, position.y + step.y)
-            val candidateCost = weightedCost(candidate, readings)
-            if (candidateCost > cost) return position
-            position = candidate
-            cost = candidateCost
+            var fraction = 1.0
+            while (true) {
+                val candidate = Point2D(position.x + fraction * step.x, position.y + fraction * step.y)
+                val candidateCost = weightedCost(candidate, readings)
+                if (candidateCost <= cost) {
+                    position = candidate
+                    cost = candidateCost
+                    break
+                }
+                fraction /= 2
+                if (fraction < SMALLEST_STEP_FRACTION) return position
+            }
 
-            if (step.magnitude < CONVERGED_STEP_METERS) return position
+            if (fraction * step.magnitude < CONVERGED_STEP_METERS) return position
         }
         return position
     }

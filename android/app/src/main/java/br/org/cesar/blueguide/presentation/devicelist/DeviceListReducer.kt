@@ -2,6 +2,7 @@ package br.org.cesar.blueguide.presentation.devicelist
 
 import br.org.cesar.blueguide.domain.entity.DeviceId
 import br.org.cesar.blueguide.domain.position.AnchorRange
+import br.org.cesar.blueguide.domain.position.MotionLimit
 import br.org.cesar.blueguide.domain.position.Multilateration
 import br.org.cesar.blueguide.domain.position.RssiWindow
 import kotlin.math.sqrt
@@ -66,6 +67,8 @@ object DeviceListReducer {
                         observerFix = null,
                         sampleStats = emptyMap(),
                         lastRefreshMs = null,
+                        lastShown = null,
+                        limitedFrom = null,
                         broadcastStatus = null
                     )
                 }
@@ -93,6 +96,9 @@ object DeviceListReducer {
             is DeviceListIntent.CenterRssiChanged -> rangedAgain(state.copy(centerRssi = intent.rssi))
 
             is DeviceListIntent.TouchRssiChanged -> rangedAgain(state.copy(touchRssi = intent.rssi))
+
+            is DeviceListIntent.MaxSpeedChanged ->
+                state.copy(isSpeedLimited = intent.kmh != null, maxSpeedKmh = intent.kmh ?: state.maxSpeedKmh)
         }
 
     /** A new calibration ranges again at once, from the last refresh's windows. */
@@ -111,12 +117,25 @@ object DeviceListReducer {
             stats[anchor.id] = SampleStats(samples.size, standardDeviation(samples))
             AnchorRange(anchor, calibration.distanceMeters(median), median)
         }
+        // Ranging again at the same moment starts from where the last refresh started.
+        val from = if (nowMs == state.lastRefreshMs) state.limitedFrom else state.lastShown
+        val fix = Multilateration.solve(ranges)?.let { computed ->
+            val position = MotionLimit.limited(
+                from?.position,
+                computed.position,
+                state.speedLimitKmh,
+                from?.let { (nowMs - it.atMs) / 1_000.0 } ?: 0.0
+            )
+            computed.copy(position = position)
+        }
         return state.copy(
             devicesByKey = state.devicesByKey.filterValues { it.lastSeenAtMillis >= nowMs - STALE_AFTER_MS },
             anchorRanges = ranges,
-            observerFix = Multilateration.solve(ranges),
+            observerFix = fix,
             sampleStats = stats,
-            lastRefreshMs = nowMs
+            lastRefreshMs = nowMs,
+            lastShown = fix?.let { TimedPosition(it.position, nowMs) } ?: from,
+            limitedFrom = from
         )
     }
 

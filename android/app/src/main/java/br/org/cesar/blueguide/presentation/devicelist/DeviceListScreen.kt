@@ -23,6 +23,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -32,6 +33,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import br.org.cesar.blueguide.domain.position.MotionLimit
 import br.org.cesar.blueguide.domain.position.ObserverFix
 import br.org.cesar.blueguide.domain.position.SavedLocation
 import java.util.Locale
@@ -66,13 +68,14 @@ fun DeviceListScreen(
     onDeviceClick: (DeviceId) -> Unit = {},
     onCenterRssiChange: (Double) -> Unit = {},
     onTouchRssiChange: (Double) -> Unit = {},
+    onSpeedLimitChange: (isLimited: Boolean, kmh: Double) -> Unit = { _, _ -> },
     onSaveLocation: (String) -> Unit = {},
     onRemoveLocation: (String) -> Unit = {}
 ) {
     when (state.mode) {
         AppMode.OBSERVER ->
             if (state.scanGranted) {
-                ObserverContent(state, modifier, onDeviceClick, onCenterRssiChange, onTouchRssiChange, onSaveLocation, onRemoveLocation)
+                ObserverContent(state, modifier, onDeviceClick, onCenterRssiChange, onTouchRssiChange, onSpeedLimitChange, onSaveLocation, onRemoveLocation)
             } else {
                 CenteredMessage(stringResource(R.string.scan_permission_required), modifier)
             }
@@ -98,6 +101,7 @@ private fun ObserverContent(
     onDeviceClick: (DeviceId) -> Unit,
     onCenterRssiChange: (Double) -> Unit,
     onTouchRssiChange: (Double) -> Unit,
+    onSpeedLimitChange: (Boolean, Double) -> Unit,
     onSaveLocation: (String) -> Unit,
     onRemoveLocation: (String) -> Unit
 ) {
@@ -202,7 +206,7 @@ private fun ObserverContent(
         }
 
         item { SectionHeader("Calibração") }
-        item { CalibrationSection(state, onCenterRssiChange, onTouchRssiChange) }
+        item { CalibrationSection(state, onCenterRssiChange, onTouchRssiChange, onSpeedLimitChange) }
         item { Spacer(Modifier.height(24.dp)) }
     }
 
@@ -223,11 +227,35 @@ private fun ObserverContent(
 private fun CalibrationSection(
     state: DeviceListState,
     onCenterRssiChange: (Double) -> Unit,
-    onTouchRssiChange: (Double) -> Unit
+    onTouchRssiChange: (Double) -> Unit,
+    onSpeedLimitChange: (Boolean, Double) -> Unit
 ) {
     Column(Modifier.padding(horizontal = 16.dp)) {
         RssiStepper("RSSI no centro", state.centerRssi, -100.0..-30.0, state.currentCenterRssi, onCenterRssiChange)
         RssiStepper("RSSI encostado", state.touchRssi, -60.0..-10.0, state.currentTouchRssi, onTouchRssiChange)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Limitar pela velocidade", Modifier.weight(1f))
+            Switch(checked = state.isSpeedLimited, onCheckedChange = { onSpeedLimitChange(it, state.maxSpeedKmh) })
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Velocidade máxima", Modifier.weight(1f))
+            val range = MotionLimit.SPEED_RANGE_KMH
+            val step = MotionLimit.SPEED_STEP_KMH
+            OutlinedButton(
+                onClick = { onSpeedLimitChange(true, (state.maxSpeedKmh - step).coerceIn(range)) },
+                enabled = state.isSpeedLimited && state.maxSpeedKmh > range.start
+            ) { Text("−") }
+            Text(
+                String.format(Locale.ROOT, "%.1f km/h", state.maxSpeedKmh).replace('.', ','),
+                modifier = Modifier.width(76.dp),
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            OutlinedButton(
+                onClick = { onSpeedLimitChange(true, (state.maxSpeedKmh + step).coerceIn(range)) },
+                enabled = state.isSpeedLimited && state.maxSpeedKmh < range.endInclusive
+            ) { Text("+") }
+        }
         val calibration = state.calibration
         val model = String.format(Locale.ROOT, "%.0f dBm a 1 m, expoente %.1f", calibration.referenceRssi, calibration.exponent)
             .replace('.', ',')
@@ -241,7 +269,8 @@ private fun CalibrationSection(
             "RSSI no centro: o que o celular lê no meio das âncoras, tratado como a distância média delas até o meio " +
                 "(1,77 m num quadrado de 2,5 m). RSSI encostado: o que ele lê encostado num beacon, tratado como 10 cm. " +
                 "Com os dois o app calcula o RSSI a 1 m e o expoente de perda. Fique no meio (ou encoste num beacon) e " +
-                "toque em \"Usar a leitura de agora\".",
+                "toque em \"Usar a leitura de agora\". Com o limite de velocidade, a posição anda na direção da nova " +
+                "leitura, no máximo o que daria para andar nessa velocidade desde a anterior.",
             Modifier.padding(top = 8.dp)
         )
     }

@@ -88,6 +88,11 @@ class DeviceListViewModel(
             }
             center?.let { dispatch(DeviceListIntent.CenterRssiChanged(it)) }
             touch?.let { dispatch(DeviceListIntent.TouchRssiChanged(it)) }
+            val (limited, kmh) = withContext(Dispatchers.IO) {
+                calibrationRepository.loadIsSpeedLimited() to calibrationRepository.loadMaxSpeedKmh()
+            }
+            kmh?.let { dispatch(DeviceListIntent.MaxSpeedChanged(it)) }
+            if (limited == false) dispatch(DeviceListIntent.MaxSpeedChanged(null))
         }
 
         viewModelScope.launch {
@@ -233,6 +238,13 @@ class DeviceListViewModel(
             withContext(Dispatchers.IO) { savedLocationStore.remove(id) }
             dispatch(DeviceListIntent.SavedLocationsChanged(savedLocationStore.locations))
         }
+    }
+
+    /** "Limitar pela velocidade" and its speed, kept for the next launch. */
+    fun setSpeedLimit(isLimited: Boolean, kmh: Double) {
+        dispatch(DeviceListIntent.MaxSpeedChanged(kmh))
+        if (!isLimited) dispatch(DeviceListIntent.MaxSpeedChanged(null))
+        viewModelScope.launch(Dispatchers.IO) { calibrationRepository.saveSpeedLimit(isLimited, kmh) }
     }
 
     fun removeAnchor(id: DeviceId) {

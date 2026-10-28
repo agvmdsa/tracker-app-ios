@@ -21,6 +21,8 @@ final class PositioningEngine {
     /// The RSSI heard with the phone touching a beacon, read as `PathLossModel.touchDistanceMeters`.
     /// With the center's it fixes the path loss exponent too.
     var touchRSSI: Double = PathLossModel.defaultTouchRSSI
+    /// How fast the phone can move between fixes; nil shows every fix as computed.
+    var maxSpeedKmh: Double? = MotionLimit.defaultMaxSpeedKmh
 
     /// The model the ranges come from, for the anchors configured now. Fewer than two anchors have
     /// no middle, so the bench square's is used.
@@ -52,6 +54,8 @@ final class PositioningEngine {
     private let reporter: (any PositioningReporting)?
 
     private var rssiWindows: [BeaconID: RSSIWindow] = [:]
+    /// The last position shown and when, where the next one is limited from.
+    private var lastShown: (position: Point2D, atMs: Int64)?
     private var refreshTimer: Timer?
 
     init(
@@ -68,6 +72,7 @@ final class PositioningEngine {
 
     func start() {
         rssiWindows = [:]
+        lastShown = nil
         // Every advertisement, not just the latest per beacon: the range comes from their median.
         scanner.onSighting = { [weak self] sighting in
             self?.record(sighting)
@@ -86,8 +91,8 @@ final class PositioningEngine {
         refreshTimer = nil
     }
 
-    func refresh() {
-        let now = MonotonicClock.nowMs()
+    /// `nowMs` is on `MonotonicClock`, the sightings' clock; tests pass their own.
+    func refresh(nowMs now: Int64 = MonotonicClock.nowMs()) {
         let calibration = calibration
         var readings: [AnchorRange] = []
         var medianRSSI: [BeaconID: Double] = [:]
@@ -103,7 +108,16 @@ final class PositioningEngine {
             readings.append(AnchorRange(anchor: anchor, distanceMeters: distance, rssi: median))
         }
         anchorRanges = readings
-        fix = Multilateration.solve(readings: readings)
+        fix = Multilateration.solve(readings: readings).map { computed in
+            let position = MotionLimit.limited(
+                from: lastShown?.position,
+                to: computed.position,
+                maxSpeedKmh: maxSpeedKmh,
+                elapsedSeconds: lastShown.map { Double(now - $0.atMs) / 1_000 } ?? 0
+            )
+            lastShown = (position, now)
+            return ObserverFix(readings: computed.readings, position: position, uncertaintyMeters: computed.uncertaintyMeters)
+        }
 
         guard let reporter, !readings.isEmpty else { return }
         let observerID = observerID

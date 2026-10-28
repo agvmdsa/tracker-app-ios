@@ -25,17 +25,29 @@ enum Multilateration {
     /// i.e. 0.7 m at 2 m and 2.8 m at 8 m.
     static let relativeDistanceError = log(10.0) / (10.0 * PathLossModel.pathLossExponent) * rssiNoiseDb
     /// Closer than this the error stops shrinking (the model, the antenna and the phone's own
-    /// position are never that exact), which also keeps the weight of a tiny distance finite.
-    static let minimumSigmaMeters = 0.5
+    /// position are never that exact), which also keeps the weight of a tiny distance finite. Small,
+    /// so a beacon a few centimetres away decides the fix: indoors the far beacons read stronger than
+    /// the model expects, and with 0.5 m they pulled a phone touching a corner 0.6 m towards the
+    /// middle. It only applies below 1.45 m, so the middle is not affected.
+    static let minimumSigmaMeters = 0.1
 
-    private static let maximumIterations = 20
+    /// A beacon this close by its RSSI (about "RSSI encostado" up to a few dB weaker) holds the
+    /// phone near it, whatever the others say.
+    static let proximityRadiusMeters = 0.5
+
+    private static let maximumIterations = 50
     private static let convergedStepMeters = 1e-6
+    private static let smallestStepFraction = 1e-3
 
     /// How much a reading counts: 1 / error², with the error proportional to the distance, so an
     /// anchor at 2 m counts 16 times more than one at 8 m.
     static func weight(forDistance distance: Double) -> Double {
-        let sigma = max(minimumSigmaMeters, relativeDistanceError * distance)
+        let sigma = sigma(forDistance: distance)
         return 1 / (sigma * sigma)
+    }
+
+    private static func sigma(forDistance distance: Double) -> Double {
+        max(minimumSigmaMeters, relativeDistanceError * distance)
     }
 
     /// Weighted least squares over every reading: it starts from the unweighted linear solution
@@ -44,7 +56,9 @@ enum Multilateration {
     static func solve(readings: [AnchorRange]) -> ObserverFix? {
         guard readings.count >= 3, let start = linearSolution(readings: readings) else { return nil }
 
-        let position = refined(start, readings: readings)
+        // Not a search from several starts: with equal readings the linear start is the middle, and
+        // other starts would pick one of the symmetric minima around it at random.
+        let position = heldByTheNearest(refined(start, readings: readings), readings: readings)
 
         let residual = sqrt(
             readings.reduce(0.0) { partial, reading in
@@ -88,8 +102,30 @@ enum Multilateration {
         )
     }
 
-    /// Gauss-Newton on the weighted range residuals. Keeps the starting point if a step ever makes
-    /// the weighted error worse or the equations degenerate.
+    /// Within `proximityRadiusMeters` of an anchor by its RSSI, and clearly nearer it than any other
+    /// (the next at more than twice the range), the fix is kept within the range counted from
+    /// touching the anchor: reading "RSSI encostado" (`PathLossModel.touchDistanceMeters`) or
+    /// stronger puts the phone on the anchor, and 0.3 m by the model at most 0.2 m from it. Several
+    /// anchors all reading that near contradict each other, and hold nothing.
+    private static func heldByTheNearest(_ position: Point2D, readings: [AnchorRange]) -> Point2D {
+        let sorted = readings.sorted { $0.distanceMeters < $1.distanceMeters }
+        let nearest = sorted[0]
+        guard nearest.distanceMeters <= proximityRadiusMeters, sorted[1].distanceMeters > 2 * nearest.distanceMeters else {
+            return position
+        }
+        let anchor = nearest.anchor.position
+        let radius = max(0, nearest.distanceMeters - PathLossModel.touchDistanceMeters)
+        let away = position.distance(to: anchor)
+        guard away > radius else { return position }
+        guard radius > 0 else { return anchor }
+        return Point2D(
+            x: anchor.x + (position.x - anchor.x) * radius / away,
+            y: anchor.y + (position.y - anchor.y) * radius / away
+        )
+    }
+
+    /// Gauss-Newton on the weighted range residuals. A step that makes the weighted error worse is
+    /// halved until it does not; it stops when even a tiny step does, or the equations degenerate.
     private static func refined(_ start: Point2D, readings: [AnchorRange]) -> Point2D {
         var position = start
         var cost = weightedCost(at: position, readings: readings)
@@ -120,13 +156,20 @@ enum Multilateration {
                 y: (n11 * g2 - g1 * n12) / determinant
             )
 
-            let candidate = Point2D(x: position.x + step.x, y: position.y + step.y)
-            let candidateCost = weightedCost(at: candidate, readings: readings)
-            guard candidateCost <= cost else { break }
-            position = candidate
-            cost = candidateCost
+            var fraction = 1.0
+            while true {
+                let candidate = Point2D(x: position.x + fraction * step.x, y: position.y + fraction * step.y)
+                let candidateCost = weightedCost(at: candidate, readings: readings)
+                if candidateCost <= cost {
+                    position = candidate
+                    cost = candidateCost
+                    break
+                }
+                fraction /= 2
+                if fraction < smallestStepFraction { return position }
+            }
 
-            if step.magnitude < convergedStepMeters { break }
+            if fraction * step.magnitude < convergedStepMeters { break }
         }
         return position
     }

@@ -219,6 +219,7 @@ class MainActivity : ComponentActivity() {
                                 onDeviceClick = { id -> editingAnchorId = id },
                                 onCenterRssiChange = vm::setCenterRssi,
                                 onTouchRssiChange = vm::setTouchRssi,
+                                onSpeedLimitChange = vm::setSpeedLimit,
                                 onSaveLocation = vm::saveCurrentLocation,
                                 onRemoveLocation = vm::removeSavedLocation
                             )
