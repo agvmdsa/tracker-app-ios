@@ -2,7 +2,9 @@ package br.org.cesar.blueguide
 
 import android.Manifest
 import android.content.Context
+import android.os.Build
 import android.os.Bundle
+import android.os.SystemClock
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -40,6 +42,8 @@ import br.org.cesar.blueguide.data.ble.AndroidBleScanner
 import br.org.cesar.blueguide.data.ble.SharedPrefsLocalDeviceIdProvider
 import br.org.cesar.blueguide.data.network.PositioningApiClient
 import br.org.cesar.blueguide.data.positioning.SharedPrefsAnchorRepository
+import br.org.cesar.blueguide.data.positioning.SharedPrefsCalibrationRepository
+import br.org.cesar.blueguide.data.positioning.SharedPrefsSavedLocationRepository
 import br.org.cesar.blueguide.domain.ble.BroadcastStatus
 import br.org.cesar.blueguide.domain.entity.BleDevice
 import br.org.cesar.blueguide.domain.entity.DeviceId
@@ -47,6 +51,7 @@ import br.org.cesar.blueguide.domain.entity.DeviceSighting
 import br.org.cesar.blueguide.domain.position.Anchor
 import br.org.cesar.blueguide.domain.position.AnchorStore
 import br.org.cesar.blueguide.domain.position.Point2D
+import br.org.cesar.blueguide.domain.position.SavedLocationStore
 import br.org.cesar.blueguide.presentation.bluetoothpermission.rememberPermissionGranted
 import br.org.cesar.blueguide.presentation.devicelist.AnchorEditorDialog
 import br.org.cesar.blueguide.presentation.devicelist.AppMode
@@ -112,6 +117,10 @@ class MainActivity : ComponentActivity() {
                                 advertiser = AndroidBleAdvertiser(appContext, localDeviceId),
                                 localDeviceId = localDeviceId,
                                 anchorStore = AnchorStore(SharedPrefsAnchorRepository(appContext)),
+                                calibrationRepository = SharedPrefsCalibrationRepository(appContext),
+                                savedLocationStore = SavedLocationStore(SharedPrefsSavedLocationRepository(appContext)),
+                                deviceModel = Build.MODEL,
+                                nowMs = SystemClock::elapsedRealtime,
                                 reporter = PositioningApiClient()
                             )
                         }
@@ -207,7 +216,12 @@ class MainActivity : ComponentActivity() {
                         composable(Routes.POSITIONING) {
                             DeviceListScreen(
                                 state = state,
-                                onDeviceClick = { id -> editingAnchorId = id }
+                                onDeviceClick = { id -> editingAnchorId = id },
+                                onCenterRssiChange = vm::setCenterRssi,
+                                onTouchRssiChange = vm::setTouchRssi,
+                                onSpeedLimitChange = vm::setSpeedLimit,
+                                onSaveLocation = vm::saveCurrentLocation,
+                                onRemoveLocation = vm::removeSavedLocation
                             )
                         }
 
@@ -342,7 +356,6 @@ private fun ObserverModePreview() {
                 } + ("B1:66:77:88:99:AA" to DeviceSighting(
                     BleDevice("B1:66:77:88:99:AA", null), -83, 0L
                 )),
-                smoothedRssiByKey = ids.associate { (id, rssi) -> id to rssi.toDouble() },
                 anchors = anchors
             )
         )

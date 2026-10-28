@@ -17,7 +17,7 @@ struct FingerprintCollectorView: View {
     @State private var minutes = 1
 
     private var label: FingerprintLabel? {
-        guard let x = Double(xText), let y = Double(yText) else { return nil }
+        guard let x = DecimalInput.parse(xText), let y = DecimalInput.parse(yText) else { return nil }
         return FingerprintLabel(session: session, point: point, x: x, y: y)
     }
 

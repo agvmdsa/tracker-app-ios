@@ -58,7 +58,10 @@ class PositioningApiClientTest {
                     anchorID = "11223344",
                     rssi = -65,
                     distanceMeters = 1.5,
-                    seenAt = Instant.parse("2026-01-01T00:00:00Z")
+                    seenAt = Instant.parse("2026-01-01T00:00:00Z"),
+                    sampleCount = 5,
+                    rssiStdDev = 1.2,
+                    deviceModel = "Pixel 6"
                 )
             )
         )
@@ -83,7 +86,8 @@ class PositioningApiClientTest {
                 x = 1.0,
                 y = 2.0,
                 uncertaintyMeters = 0.3,
-                recordedAt = Instant.parse("2026-01-01T00:00:00Z")
+                recordedAt = Instant.parse("2026-01-01T00:00:00Z"),
+                anchorCount = 3
             )
         )
 

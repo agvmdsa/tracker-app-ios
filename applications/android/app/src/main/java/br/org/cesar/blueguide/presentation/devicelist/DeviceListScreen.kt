@@ -11,7 +11,32 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import br.org.cesar.blueguide.domain.position.MotionLimit
+import br.org.cesar.blueguide.domain.position.ObserverFix
+import br.org.cesar.blueguide.domain.position.SavedLocation
+import java.util.Locale
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.HorizontalDivider
@@ -40,12 +65,17 @@ fun DeviceListScreen(
     state: DeviceListState,
     modifier: Modifier = Modifier,
     /** Tapping a device with a known id opens the anchor editor for it (`AnchorEditorDialog`). */
-    onDeviceClick: (DeviceId) -> Unit = {}
+    onDeviceClick: (DeviceId) -> Unit = {},
+    onCenterRssiChange: (Double) -> Unit = {},
+    onTouchRssiChange: (Double) -> Unit = {},
+    onSpeedLimitChange: (isLimited: Boolean, kmh: Double) -> Unit = { _, _ -> },
+    onSaveLocation: (String) -> Unit = {},
+    onRemoveLocation: (String) -> Unit = {}
 ) {
     when (state.mode) {
         AppMode.OBSERVER ->
             if (state.scanGranted) {
-                ObserverContent(state, modifier, onDeviceClick)
+                ObserverContent(state, modifier, onDeviceClick, onCenterRssiChange, onTouchRssiChange, onSpeedLimitChange, onSaveLocation, onRemoveLocation)
             } else {
                 CenteredMessage(stringResource(R.string.scan_permission_required), modifier)
             }
@@ -59,37 +89,303 @@ fun DeviceListScreen(
     }
 }
 
+/**
+ * The Observer screen, section by section the same as the iOS app's `ObserverView`: the map,
+ * the estimated position, the saved locations, the configured anchors, the nearby signals not
+ * configured yet and the "RSSI no centro" calibration.
+ */
 @Composable
 private fun ObserverContent(
     state: DeviceListState,
-    modifier: Modifier = Modifier,
-    onDeviceClick: (DeviceId) -> Unit = {}
+    modifier: Modifier,
+    onDeviceClick: (DeviceId) -> Unit,
+    onCenterRssiChange: (Double) -> Unit,
+    onTouchRssiChange: (Double) -> Unit,
+    onSpeedLimitChange: (Boolean, Double) -> Unit,
+    onSaveLocation: (String) -> Unit,
+    onRemoveLocation: (String) -> Unit
 ) {
-    if (state.visibleDevices.isEmpty()) {
-        CenteredMessage(stringResource(R.string.observer_searching), modifier)
+    var navigatingTo by remember { mutableStateOf<SavedLocation?>(null) }
+    var isSavingLocation by remember { mutableStateOf(false) }
+
+    navigatingTo?.let { target ->
+        // The list may have dropped it meanwhile; the screen still shows the one picked.
+        BackHandler { navigatingTo = null }
+        NavigateToLocationScreen(target, state.observerFix, onBack = { navigatingTo = null }, modifier = modifier)
         return
     }
 
-    val anchorIds = state.anchors.map { it.id }.toSet()
+    LazyColumn(modifier = modifier.fillMaxSize()) {
+        item { SectionHeader("Mapa") }
+        item {
+            PositionMap(
+                anchors = state.anchors,
+                ranges = state.anchorRanges,
+                fix = state.observerFix,
+                modifier = Modifier.fillMaxWidth().height(300.dp).padding(horizontal = 16.dp)
+            )
+        }
+        item { MapLegend(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) }
+        item {
+            Caption(
+                "O círculo azul é a incerteza do cálculo (o resíduo das distâncias), não um intervalo de confiança.",
+                Modifier.padding(horizontal = 16.dp)
+            )
+        }
 
-    Column(modifier = modifier) {
-        PositionMap(
-            fix = state.observerFix,
-            anchorsHeard = state.anchorsHeard,
-            anchorsConfigured = state.anchors.size,
-            modifier = Modifier.fillMaxWidth().weight(1f)
+        item { SectionHeader("Posição estimada") }
+        item {
+            val fix = state.observerFix
+            Column(Modifier.padding(horizontal = 16.dp)) {
+                if (fix != null) {
+                    Text(
+                        String.format(Locale.ROOT, "x: %.2f m   y: %.2f m", fix.position.x, fix.position.y),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        String.format(Locale.ROOT, "incerteza: %.2f m", fix.uncertaintyMeters),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    Secondary("Aguardando pelo menos 3 âncoras configuradas e visíveis…")
+                }
+            }
+        }
+
+        item { SectionHeader("Locais salvos") }
+        if (state.savedLocations.isEmpty()) {
+            item { Secondary("Nenhum ainda — ache sua posição e salve, por exemplo, onde estacionou.", Modifier.padding(horizontal = 16.dp)) }
+        }
+        items(state.savedLocations, key = { "location-" + it.id }) { location ->
+            ListItem(
+                modifier = Modifier.clickable { navigatingTo = location },
+                headlineContent = { Text(location.label, fontWeight = FontWeight.Bold) },
+                supportingContent = { Text(String.format(Locale.ROOT, "(%.1f, %.1f) m", location.position.x, location.position.y)) },
+                trailingContent = { TextButton(onClick = { onRemoveLocation(location.id) }) { Text("Apagar") } }
+            )
+        }
+        item {
+            TextButton(
+                onClick = { isSavingLocation = true },
+                enabled = state.observerFix != null,
+                modifier = Modifier.padding(horizontal = 4.dp)
+            ) { Text("Salvar posição atual") }
+        }
+
+        item { SectionHeader("Âncoras configuradas") }
+        if (state.anchors.isEmpty()) {
+            item { Secondary("Nenhuma ainda — toque em um sinal abaixo para configurar.", Modifier.padding(horizontal = 16.dp)) }
+        }
+        items(state.anchors, key = { "anchor-" + it.id.value }) { anchor ->
+            ListItem(
+                modifier = Modifier.clickable { onDeviceClick(anchor.id) },
+                headlineContent = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(anchor.label, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.width(8.dp))
+                        Text(anchor.id.value, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                },
+                trailingContent = { Text(anchor.positionDescription, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            )
+        }
+
+        item { SectionHeader("Sinais próximos") }
+        val nearby = state.unconfiguredSightings
+        if (nearby.isEmpty()) {
+            item { Secondary("Nenhum sinal novo por perto.", Modifier.padding(horizontal = 16.dp)) }
+        }
+        items(nearby, key = { "nearby-" + it.device.key }) { sighting ->
+            val id = sighting.device.id ?: return@items
+            ListItem(
+                modifier = Modifier.clickable { onDeviceClick(id) },
+                headlineContent = { Text(id.value, fontFamily = FontFamily.Monospace) },
+                trailingContent = { Text("${sighting.rssi} dBm", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            )
+        }
+
+        item { SectionHeader("Calibração") }
+        item { CalibrationSection(state, onCenterRssiChange, onTouchRssiChange, onSpeedLimitChange) }
+        item { Spacer(Modifier.height(24.dp)) }
+    }
+
+    if (isSavingLocation) {
+        SaveLocationDialog(
+            onSave = { label ->
+                onSaveLocation(label)
+                isSavingLocation = false
+            },
+            onDismiss = { isSavingLocation = false }
         )
-        HorizontalDivider()
-        LazyColumn(modifier = Modifier.weight(1f)) {
-            items(state.visibleDevices, key = { it.device.key }) { sighting ->
-                DeviceRow(
-                    sighting = sighting,
-                    isAnchor = sighting.device.id in anchorIds,
-                    onClick = sighting.device.id?.let { id -> { onDeviceClick(id) } }
+    }
+}
+
+/** "RSSI no centro" and "RSSI encostado": a stepper of 1 dBm each, and taking what the phone
+ *  hears now; under them the model the two give, as in the iOS app. */
+@Composable
+private fun CalibrationSection(
+    state: DeviceListState,
+    onCenterRssiChange: (Double) -> Unit,
+    onTouchRssiChange: (Double) -> Unit,
+    onSpeedLimitChange: (Boolean, Double) -> Unit
+) {
+    Column(Modifier.padding(horizontal = 16.dp)) {
+        RssiStepper("RSSI no centro", state.centerRssi, -100.0..-30.0, state.currentCenterRssi, onCenterRssiChange)
+        RssiStepper("RSSI encostado", state.touchRssi, -60.0..-10.0, state.currentTouchRssi, onTouchRssiChange)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Limitar pela velocidade", Modifier.weight(1f))
+            Switch(checked = state.isSpeedLimited, onCheckedChange = { onSpeedLimitChange(it, state.maxSpeedKmh) })
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Velocidade máxima", Modifier.weight(1f))
+            val range = MotionLimit.SPEED_RANGE_KMH
+            val step = MotionLimit.SPEED_STEP_KMH
+            OutlinedButton(
+                onClick = { onSpeedLimitChange(true, (state.maxSpeedKmh - step).coerceIn(range)) },
+                enabled = state.isSpeedLimited && state.maxSpeedKmh > range.start
+            ) { Text("−") }
+            Text(
+                String.format(Locale.ROOT, "%.1f km/h", state.maxSpeedKmh).replace('.', ','),
+                modifier = Modifier.width(76.dp),
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            OutlinedButton(
+                onClick = { onSpeedLimitChange(true, (state.maxSpeedKmh + step).coerceIn(range)) },
+                enabled = state.isSpeedLimited && state.maxSpeedKmh < range.endInclusive
+            ) { Text("+") }
+        }
+        val calibration = state.calibration
+        val model = String.format(Locale.ROOT, "%.0f dBm a 1 m, expoente %.1f", calibration.referenceRssi, calibration.exponent)
+            .replace('.', ',')
+        Text(
+            if (calibration.usesTouchRssi) "Modelo: $model."
+            else "O RSSI encostado precisa ser mais forte que o do centro (e coerente com ele); usando só o centro. Modelo: $model.",
+            style = MaterialTheme.typography.bodySmall,
+            color = if (calibration.usesTouchRssi) MaterialTheme.colorScheme.onSurfaceVariant else MapPalette.beacon()
+        )
+        Caption(
+            "RSSI no centro: o que o celular lê no meio das âncoras, tratado como a distância média delas até o meio " +
+                "(1,77 m num quadrado de 2,5 m). RSSI encostado: o que ele lê encostado num beacon, tratado como 10 cm. " +
+                "Com os dois o app calcula o RSSI a 1 m e o expoente de perda. Fique no meio (ou encoste num beacon) e " +
+                "toque em \"Usar a leitura de agora\". Com o limite de velocidade, a posição anda na direção da nova " +
+                "leitura, no máximo o que daria para andar nessa velocidade desde a anterior.",
+            Modifier.padding(top = 8.dp)
+        )
+    }
+}
+
+@Composable
+private fun RssiStepper(
+    title: String,
+    value: Double,
+    range: ClosedFloatingPointRange<Double>,
+    current: Double?,
+    onChange: (Double) -> Unit
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(title, Modifier.weight(1f))
+        OutlinedButton(onClick = { onChange((value - 1).coerceIn(range)) }, enabled = value > range.start) { Text("−") }
+        Text(
+            String.format(Locale.ROOT, "%.0f dBm", value),
+            modifier = Modifier.width(76.dp),
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        OutlinedButton(onClick = { onChange((value + 1).coerceIn(range)) }, enabled = value < range.endInclusive) { Text("+") }
+    }
+    TextButton(onClick = { current?.let { onChange(Math.round(it).toDouble()) } }, enabled = current != null) {
+        Text(
+            current?.let { String.format(Locale.ROOT, "Usar a leitura de agora (%.0f dBm)", it) }
+                ?: "Usar a leitura de agora"
+        )
+    }
+}
+
+@Composable
+private fun SaveLocationDialog(onSave: (String) -> Unit, onDismiss: () -> Unit) {
+    var label by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Salvar posição atual") },
+        text = {
+            OutlinedTextField(value = label, onValueChange = { label = it }, label = { Text("Nome (ex: Meu carro)") }, singleLine = true)
+        },
+        confirmButton = { Button(onClick = { onSave(label) }) { Text("Salvar") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
+    )
+}
+
+/**
+ * Walking back to a saved location — the counterpart of the iOS app's `NavigateToLocationView`:
+ * an arrow towards it on the map's axes and how far it is.
+ */
+@Composable
+fun NavigateToLocationScreen(target: SavedLocation, fix: ObserverFix?, onBack: () -> Unit, modifier: Modifier = Modifier) {
+    Column(modifier.fillMaxSize().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = onBack) { Text("Voltar") }
+            Text(target.label, Modifier.weight(1f), textAlign = TextAlign.Center, style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.width(72.dp))
+        }
+        Column(
+            Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(28.dp, Alignment.CenterVertically),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            val current = fix?.position
+            if (current != null) {
+                val bearing = SavedLocation.bearingRadians(current, target.position)
+                val degrees by animateFloatAsState(Math.toDegrees(bearing).toFloat(), label = "bearing")
+                val arrowColor = MapPalette.phone()
+                Canvas(Modifier.size(72.dp).rotate(degrees)) {
+                    val path = Path().apply {
+                        moveTo(size.width / 2, 0f)
+                        lineTo(size.width * 0.9f, size.height)
+                        lineTo(size.width / 2, size.height * 0.72f)
+                        lineTo(size.width * 0.1f, size.height)
+                        close()
+                    }
+                    drawPath(path, arrowColor)
+                }
+                Text(
+                    String.format(Locale.ROOT, "%.1f m", current.distanceTo(target.position)),
+                    fontSize = 40.sp,
+                    fontWeight = FontWeight.Bold
                 )
+                Caption(
+                    "A seta aponta na direção do mapa (relativa às âncoras), não necessariamente pra onde seu celular está " +
+                        "virado — o app não tem uma bússola calibrada nesse referencial.",
+                    Modifier.padding(horizontal = 16.dp),
+                    TextAlign.Center
+                )
+            } else {
+                CircularProgressIndicator()
+                Text("Aguardando pelo menos 3 âncoras visíveis…")
             }
         }
     }
+}
+
+@Composable
+private fun SectionHeader(text: String) {
+    Text(
+        text = text,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 8.dp),
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary
+    )
+}
+
+@Composable
+private fun Secondary(text: String, modifier: Modifier = Modifier) {
+    Text(text, modifier, color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
+@Composable
+private fun Caption(text: String, modifier: Modifier = Modifier, align: TextAlign? = null) {
+    Text(text, modifier, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = align)
 }
 
 /**

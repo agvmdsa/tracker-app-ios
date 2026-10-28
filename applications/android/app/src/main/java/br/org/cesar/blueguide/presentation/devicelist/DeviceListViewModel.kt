@@ -12,9 +12,11 @@ import br.org.cesar.blueguide.domain.network.ObserverFixReport
 import br.org.cesar.blueguide.domain.network.PositioningReport
 import br.org.cesar.blueguide.domain.network.PositioningReporting
 import br.org.cesar.blueguide.domain.position.AnchorStore
-import br.org.cesar.blueguide.domain.position.PathLossModel
+import br.org.cesar.blueguide.domain.position.CalibrationRepository
+import br.org.cesar.blueguide.domain.position.SavedLocationStore
 import br.org.cesar.blueguide.domain.position.Point2D
 import java.time.Instant
+import kotlin.math.roundToInt
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -34,6 +36,12 @@ class DeviceListViewModel(
     private val advertiser: BleAdvertiser,
     private val localDeviceId: LocalDeviceIdProvider,
     private val anchorStore: AnchorStore,
+    private val calibrationRepository: CalibrationRepository,
+    private val savedLocationStore: SavedLocationStore,
+    /** The phone model sent with every report, as the iOS app's `deviceModel`. */
+    private val deviceModel: String,
+    /** The sightings' clock (`SystemClock.elapsedRealtime`), injected so tests can drive it. */
+    private val nowMs: () -> Long,
     /** Uploads sightings/fixes to the positioning API while observing. Optional, same as the
      *  iOS app's `PositioningEngine` reporter — null just means "don't upload". */
     private val reporter: PositioningReporting? = null
@@ -70,6 +78,24 @@ class DeviceListViewModel(
         }
 
         viewModelScope.launch {
+            withContext(Dispatchers.IO) { savedLocationStore.load() }
+            dispatch(DeviceListIntent.SavedLocationsChanged(savedLocationStore.locations))
+        }
+
+        viewModelScope.launch {
+            val (center, touch) = withContext(Dispatchers.IO) {
+                calibrationRepository.loadCenterRssi() to calibrationRepository.loadTouchRssi()
+            }
+            center?.let { dispatch(DeviceListIntent.CenterRssiChanged(it)) }
+            touch?.let { dispatch(DeviceListIntent.TouchRssiChanged(it)) }
+            val (limited, kmh) = withContext(Dispatchers.IO) {
+                calibrationRepository.loadIsSpeedLimited() to calibrationRepository.loadMaxSpeedKmh()
+            }
+            kmh?.let { dispatch(DeviceListIntent.MaxSpeedChanged(it)) }
+            if (limited == false) dispatch(DeviceListIntent.MaxSpeedChanged(null))
+        }
+
+        viewModelScope.launch {
             // The radio does one job at a time, and which job is itself part of the
             // state. collectLatest cancels the running mode before starting the next,
             // so a mode switch tears the old flow down (which stops the scan or the
@@ -91,55 +117,58 @@ class DeviceListViewModel(
 
         viewModelScope.launch {
             // Separate from observe()'s collectLatest above so a flood of individual BLE
-            // scan callbacks doesn't turn into a flood of HTTP requests: this samples
-            // whatever the state looks like once a second instead, same cadence as the
-            // iOS app's PositioningEngine.
+            // scan callbacks doesn't turn into a flood of fixes and HTTP requests: once a
+            // second the ranges and the fix are worked out again from the windows' medians,
+            // and reported — same cadence as the iOS app's PositioningEngine.
             state
                 .map { it.mode to it.isModePermitted }
                 .distinctUntilChanged()
                 .collectLatest { (mode, permitted) ->
-                    if (!permitted || mode != AppMode.OBSERVER || reporter == null) return@collectLatest
-                    reportPeriodically(reporter)
+                    if (!permitted || mode != AppMode.OBSERVER) return@collectLatest
+                    refreshPeriodically()
                 }
         }
     }
 
-    private suspend fun reportPeriodically(reporter: PositioningReporting) {
+    private suspend fun refreshPeriodically() {
         while (true) {
-            delay(REPORT_INTERVAL_MS)
-            val snapshot = state.value
-            val observerID = snapshot.localDeviceId?.value ?: continue
+            delay(DeviceListReducer.REFRESH_INTERVAL_MS)
+            dispatch(DeviceListIntent.Refreshed(nowMs()))
+            reporter?.let { report(it, state.value) }
+        }
+    }
 
-            val reports = snapshot.anchors.mapNotNull { anchor ->
-                val sighting = snapshot.devicesByKey.values.firstOrNull { it.device.id == anchor.id } ?: return@mapNotNull null
-                // Raw rssi in the report (what was actually measured just now), but the
-                // smoothed value for distanceMeters — same split as the iOS app's
-                // PositioningEngine.refresh().
-                val smoothed = snapshot.smoothedRssiByKey[sighting.device.key] ?: sighting.rssi.toDouble()
-                PositioningReport(
-                    observerID = observerID,
-                    anchorID = anchor.id.value,
-                    rssi = sighting.rssi,
-                    distanceMeters = PathLossModel.distanceMeters(smoothed),
-                    seenAt = Instant.now()
-                )
-            }
-            if (reports.isNotEmpty()) {
-                runCatching { reporter.send(reports) }
-                    .onFailure { Log.w(TAG, "failed to report sightings", it) }
-            }
+    private suspend fun report(reporter: PositioningReporting, snapshot: DeviceListState) {
+        val observerID = snapshot.localDeviceId?.value ?: return
+        if (snapshot.anchorRanges.isEmpty()) return
 
-            snapshot.observerFix?.let { fix ->
-                val fixReport = ObserverFixReport(
-                    observerID = observerID,
-                    x = fix.position.x,
-                    y = fix.position.y,
-                    uncertaintyMeters = fix.uncertaintyMeters,
-                    recordedAt = Instant.now()
-                )
-                runCatching { reporter.send(fixReport) }
-                    .onFailure { Log.w(TAG, "failed to report fix", it) }
-            }
+        val reports = snapshot.anchorRanges.map { range ->
+            val stats = snapshot.sampleStats[range.anchor.id]
+            PositioningReport(
+                observerID = observerID,
+                anchorID = range.anchor.id.value,
+                rssi = (range.rssi ?: 0.0).roundToInt(),
+                distanceMeters = range.distanceMeters,
+                seenAt = Instant.now(),
+                sampleCount = stats?.count ?: 0,
+                rssiStdDev = stats?.stdDev ?: 0.0,
+                deviceModel = deviceModel
+            )
+        }
+        runCatching { reporter.send(reports) }
+            .onFailure { Log.w(TAG, "failed to report sightings", it) }
+
+        snapshot.observerFix?.let { fix ->
+            val fixReport = ObserverFixReport(
+                observerID = observerID,
+                x = fix.position.x,
+                y = fix.position.y,
+                uncertaintyMeters = fix.uncertaintyMeters,
+                recordedAt = Instant.now(),
+                anchorCount = snapshot.anchorRanges.size
+            )
+            runCatching { reporter.send(fixReport) }
+                .onFailure { Log.w(TAG, "failed to report fix", it) }
         }
     }
 
@@ -183,6 +212,41 @@ class DeviceListViewModel(
         }
     }
 
+    /** The "RSSI no centro" setting: ranges again at once, and is kept for the next launch. */
+    fun setCenterRssi(rssi: Double) {
+        dispatch(DeviceListIntent.CenterRssiChanged(rssi))
+        viewModelScope.launch(Dispatchers.IO) { calibrationRepository.saveCenterRssi(rssi) }
+    }
+
+    /** The "RSSI encostado" setting: ranges again at once, and is kept for the next launch. */
+    fun setTouchRssi(rssi: Double) {
+        dispatch(DeviceListIntent.TouchRssiChanged(rssi))
+        viewModelScope.launch(Dispatchers.IO) { calibrationRepository.saveTouchRssi(rssi) }
+    }
+
+    /** Saves where the fix puts the phone now under [label] ("Salvar posição atual"). */
+    fun saveCurrentLocation(label: String) {
+        val position = state.value.observerFix?.position ?: return
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { savedLocationStore.save(label.trim().ifEmpty { "Local salvo" }, position) }
+            dispatch(DeviceListIntent.SavedLocationsChanged(savedLocationStore.locations))
+        }
+    }
+
+    fun removeSavedLocation(id: String) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { savedLocationStore.remove(id) }
+            dispatch(DeviceListIntent.SavedLocationsChanged(savedLocationStore.locations))
+        }
+    }
+
+    /** "Limitar pela velocidade" and its speed, kept for the next launch. */
+    fun setSpeedLimit(isLimited: Boolean, kmh: Double) {
+        dispatch(DeviceListIntent.MaxSpeedChanged(kmh))
+        if (!isLimited) dispatch(DeviceListIntent.MaxSpeedChanged(null))
+        viewModelScope.launch(Dispatchers.IO) { calibrationRepository.saveSpeedLimit(isLimited, kmh) }
+    }
+
     fun removeAnchor(id: DeviceId) {
         viewModelScope.launch {
             withContext(Dispatchers.IO) { anchorStore.removeAnchor(id) }
@@ -192,6 +256,5 @@ class DeviceListViewModel(
 
     private companion object {
         const val TAG = "DeviceListViewModel"
-        const val REPORT_INTERVAL_MS = 1000L
     }
 }

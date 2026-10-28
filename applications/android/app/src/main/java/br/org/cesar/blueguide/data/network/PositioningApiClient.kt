@@ -71,7 +71,10 @@ private data class SightingDto(
     val anchorID: String,
     val rssi: Int,
     val distanceMeters: Double,
-    val seenAt: String
+    val seenAt: String,
+    val sampleCount: Int,
+    val rssiStdDev: Double,
+    val deviceModel: String
 ) {
     companion object {
         fun of(report: PositioningReport) = SightingDto(
@@ -79,7 +82,10 @@ private data class SightingDto(
             anchorID = report.anchorID,
             rssi = report.rssi,
             distanceMeters = report.distanceMeters,
-            seenAt = report.seenAt.toString()
+            seenAt = report.seenAt.toString(),
+            sampleCount = report.sampleCount,
+            rssiStdDev = report.rssiStdDev,
+            deviceModel = report.deviceModel
         )
     }
 }
@@ -90,7 +96,8 @@ private data class FixDto(
     val x: Double,
     val y: Double,
     val uncertaintyMeters: Double,
-    val recordedAt: String
+    val recordedAt: String,
+    val anchorCount: Int
 ) {
     companion object {
         fun of(fix: ObserverFixReport) = FixDto(
@@ -98,7 +105,8 @@ private data class FixDto(
             x = fix.x,
             y = fix.y,
             uncertaintyMeters = fix.uncertaintyMeters,
-            recordedAt = fix.recordedAt.toString()
+            recordedAt = fix.recordedAt.toString(),
+            anchorCount = fix.anchorCount
         )
     }
 }

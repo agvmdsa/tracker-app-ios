@@ -122,6 +122,24 @@ O que resta é só o que já estava listado como gap conhecido em cada item acim
 real pra validar UWB/ARCore, e persistir fingerprint recorder durante configuração — e
 qualquer melhoria de UI/paridade adicional que não estava no escopo original.
 
+- [x] ~~Reconciliar o trabalho paralelo que ficou na `master`~~ — a `master` tinha 14 commits
+  feitos direto na estrutura antiga (pré-monorepo: `android/`, `ios/`, `embedded/` soltos na
+  raiz), com um port de Android quase idêntico a este (mesmo pacote/arquitetura) mas mais
+  completo em alguns pontos: calibração de path-loss (`CalibrationRepository`), locais salvos
+  (`SavedLocation`), e no iOS melhorias em `Multilateration`/`PathLossModel`/`PositioningEngine`
+  + uma tela nova (`ObserverView`). Em vez de um merge direto (que duplicaria as pastas, já que
+  os caminhos não coincidem mais), o conteúdo foi portado manualmente pra dentro de
+  `applications/android`, `applications/ios` e `esp32-esp8266`, e o merge da `master` em si foi
+  feito com `git merge -s ours` (registra a `master` como mesclada, pro PR não dar conflito,
+  sem recriar as pastas antigas — o conteúdo que valia a pena já estava portado). Android:
+  110 testes passando, `lintDebug` limpo. **Não portado** (porque não dava pra validar sem poder
+  compilar o Xcode 15+ necessário neste ambiente): o diff grande de `PositioningTests.swift`
+  (+693 linhas) e `FingerprintRecorderTests.swift` (+2) da `master` — os testes do iOS cobrindo
+  calibração/`ObserverView` continuam só na versão antiga da `master`, que não existe mais na
+  árvore depois do merge. Fica como pendência: alguém com Xcode 15+ revisar
+  `git show master:ios/Tests/TrackerAppTests/PositioningTests.swift` e portar os testes que
+  ainda fizerem sentido pra `applications/ios/Tests/TrackerAppTests/PositioningTests.swift`.
+
 ## ESP32 / Embarcados (`esp32-esp8266`)
 
 - [ ] **Usar pelo menos 1-2 sensores/atuadores do kit físico** (LED RGB, sensor ultrassônico,
@@ -143,34 +161,19 @@ qualquer melhoria de UI/paridade adicional que não estava no escopo original.
 
 ## Infraestrutura / Deploy
 
-- [ ] **Reconectar os serviços do Render** pro repositório `tracker-app-ios` (hoje apontam pro
-  `api_tracker_app` antigo). Passo a passo (serviço por serviço, no painel do Render):
-  1. **Postgres** — não precisa tocar. É um banco gerenciado pelo Render, não está conectado a
-     nenhum repositório do GitHub — continua funcionando igual, independente da migração pro
-     monorepo. Só guarde os dados de conexão da página dele (host, porta, usuário, senha,
-     `Internal Database URL`), vai precisar deles no passo 2.
-  2. **API** (serviço web existente) — abrir o serviço → **Settings** → procurar
-     "Repository"/"Build & Deploy": trocar o repositório conectado de `api_tracker_app` pro
-     novo `tracker-app-ios`, e setar **Root Directory** = `applications/api` (é isso que diz
-     pro Render onde está o `Dockerfile` agora que ele não está mais na raiz do repo). Se o
-     painel não deixar trocar o repositório de um serviço existente, apagar e criar de novo
-     (New → Web Service → conectar `tracker-app-ios`, Root Directory `applications/api`).
-     Variáveis de ambiente a recriar: `DATABASE_URL` (a Internal Database URL do passo 1,
-     trocando `postgresql://` por `postgresql+psycopg://`), `API_KEY` (valor novo, só precisa
-     ser igual ao que for colocado no iOS/ESP32 — ver item abaixo).
-  3. **Grafana** (serviço web existente) — mesma troca de repositório, mas Root Directory =
-     `applications/api/grafana`. Variáveis: `POSTGRES_HOST`/`POSTGRES_PORT`/`POSTGRES_DB`/
-     `POSTGRES_USER`/`POSTGRES_PASSWORD` (do Postgres do passo 1), `POSTGRES_SSLMODE=require`,
-     `GF_SECURITY_ADMIN_USER`/`GF_SECURITY_ADMIN_PASSWORD` (não deixar `admin`/`admin` — esse
-     Grafana fica acessível por qualquer pessoa que achar a URL).
-  4. Depois do deploy dos dois, confirmar: `GET https://<api>.onrender.com/health` responde, e
-     o Grafana abre com o datasource do Postgres já provisionado (painel de hora de
-     pico/densidade/ocupação/permanência aparecendo, mesmo vazio).
-  Detalhes completos (incluindo o histórico de troca Railway→Render) em
-  `applications/api/README.md`, seção "Deploying to Render".
+- [x] ~~Reconectar os serviços do Render pro repositório `tracker-app-ios`~~ — feito: banco
+  Postgres e os dois serviços web recriados do zero (o serviço antigo tinha ficado configurado
+  como buildpack nativo Python em vez de usar o `Dockerfile` do projeto, e não dava pra trocar
+  isso depois de criado). API em `https://tracker-app-ios.onrender.com` (`/health` → `200
+  {"status":"ok"}`), Grafana em `https://tracker-app-ios-1.onrender.com` (`/api/health` → `200`,
+  datasource do Postgres OK). Detalhes em `applications/api/README.md`, seção "Deploying to
+  Render".
 - [ ] Decidir se o `applications/web` também vai pro Render, ou só roda localmente por enquanto.
-- [ ] Gerar/colar a `API_KEY` real nos 3 lugares (Render, `PositioningAPIClient.swift`,
-  `esp32-esp8266/include/config.h`) — anotado antes, ainda pendente.
+- [x] ~~Trocar a convenção de API key inline por um arquivo de secrets gitignorado~~ — feito nos
+  3 lugares: `Secrets.swift`/`Secrets.kt` (novos, gitignorados, com `.example` commitado como
+  modelo) e `esp32-esp8266/include/config.h` (já era gitignorado). Falta só colar o valor real
+  da `API_KEY` do Render nesses 3 arquivos locais — isso é responsabilidade de cada pessoa que
+  for rodar o projeto, não vai pro Git.
 
 ## Documentação / Entrega (critérios de nota do PDF de Embarcados)
 

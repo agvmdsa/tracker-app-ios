@@ -15,11 +15,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import br.org.cesar.blueguide.R
 import br.org.cesar.blueguide.domain.entity.DeviceId
 import br.org.cesar.blueguide.domain.position.Anchor
+import br.org.cesar.blueguide.domain.position.DecimalInput
 import br.org.cesar.blueguide.domain.position.Point2D
 
 /**
@@ -37,13 +40,16 @@ fun AnchorEditorDialog(
     onRemove: () -> Unit
 ) {
     var label by remember { mutableStateOf(existing?.label.orEmpty()) }
-    var xText by remember { mutableStateOf(existing?.position?.x?.toString().orEmpty()) }
-    var yText by remember { mutableStateOf(existing?.position?.y?.toString().orEmpty()) }
-    var heightText by remember { mutableStateOf(existing?.height?.toString().orEmpty()) }
+    // Shown as plain decimals, never with an exponent, which DecimalInput would refuse to read back.
+    var xText by remember { mutableStateOf(existing?.position?.x?.let(DecimalInput::text).orEmpty()) }
+    var yText by remember { mutableStateOf(existing?.position?.y?.let(DecimalInput::text).orEmpty()) }
+    var heightText by remember { mutableStateOf(existing?.height?.let(DecimalInput::text).orEmpty()) }
 
-    val x = xText.toDoubleOrNull()
-    val y = yText.toDoubleOrNull()
-    val heightValid = heightText.isEmpty() || heightText.toDoubleOrNull() != null
+    // A comma or a dot: a Portuguese keyboard types "2,5".
+    val x = DecimalInput.parse(xText)
+    val y = DecimalInput.parse(yText)
+    /** Empty means "not entered"; anything else has to be a number. */
+    val heightValid = heightText.isBlank() || DecimalInput.parse(heightText) != null
     val canSave = x != null && y != null && heightValid
 
     AlertDialog(
@@ -63,6 +69,7 @@ fun AnchorEditorDialog(
                     onValueChange = { xText = it },
                     label = { Text(stringResource(R.string.anchor_editor_x)) },
                     isError = x == null && xText.isNotEmpty(),
+                    keyboardOptions = decimalKeyboard,
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
                 )
                 OutlinedTextField(
@@ -70,6 +77,7 @@ fun AnchorEditorDialog(
                     onValueChange = { yText = it },
                     label = { Text(stringResource(R.string.anchor_editor_y)) },
                     isError = y == null && yText.isNotEmpty(),
+                    keyboardOptions = decimalKeyboard,
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
                 )
                 OutlinedTextField(
@@ -77,6 +85,7 @@ fun AnchorEditorDialog(
                     onValueChange = { heightText = it },
                     label = { Text(stringResource(R.string.anchor_editor_height)) },
                     isError = !heightValid,
+                    keyboardOptions = decimalKeyboard,
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
                 )
                 Text(
@@ -87,7 +96,7 @@ fun AnchorEditorDialog(
         },
         confirmButton = {
             Button(
-                onClick = { if (x != null && y != null && heightValid) onSave(label.ifEmpty { null }, Point2D(x, y), heightText.toDoubleOrNull()) },
+                onClick = { if (x != null && y != null && heightValid) onSave(label.ifEmpty { null }, Point2D(x, y), DecimalInput.parse(heightText)) },
                 enabled = canSave
             ) { Text(stringResource(R.string.anchor_editor_save)) }
         },
@@ -101,3 +110,6 @@ fun AnchorEditorDialog(
         }
     )
 }
+
+/** Digits, a sign and a separator. Either separator is accepted, so the keyboard's own one works. */
+private val decimalKeyboard = KeyboardOptions(keyboardType = KeyboardType.Decimal)

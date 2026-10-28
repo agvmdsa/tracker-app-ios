@@ -89,7 +89,7 @@ class PositioningTest {
 
         // A single outlier moves the average by only SMOOTHING of the gap.
         val second = PathLossModel.smooth(previous = first, reading = -90)
-        assertEquals(-70.0 + PathLossModel.SMOOTHING * -20.0, second, TOLERANCE)
+        assertEquals(-70.0 + 0.15 * -20.0, second, TOLERANCE)
         assertTrue("outlier must not be adopted wholesale", second > -75.0)
     }
 

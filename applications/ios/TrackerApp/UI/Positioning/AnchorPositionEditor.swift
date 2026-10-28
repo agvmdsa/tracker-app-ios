@@ -13,10 +13,12 @@ struct AnchorPositionEditor: View {
     private var isExisting: Bool { anchorStore.anchor(id: beaconID) != nil }
 
     /// Empty means "not entered"; anything else has to be a number.
-    private var heightIsValid: Bool { heightText.isEmpty || Double(heightText) != nil }
+    private var heightIsValid: Bool {
+        heightText.trimmingCharacters(in: .whitespaces).isEmpty || DecimalInput.parse(heightText) != nil
+    }
 
     private var canSave: Bool {
-        Double(xText) != nil && Double(yText) != nil && heightIsValid
+        DecimalInput.parse(xText) != nil && DecimalInput.parse(yText) != nil && heightIsValid
     }
 
     var body: some View {
@@ -48,8 +50,8 @@ struct AnchorPositionEditor: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Salvar") {
-                        guard let x = Double(xText), let y = Double(yText), heightIsValid else { return }
-                        anchorStore.addAnchor(id: beaconID, label: label, position: Point2D(x: x, y: y), height: Double(heightText))
+                        guard let x = DecimalInput.parse(xText), let y = DecimalInput.parse(yText), heightIsValid else { return }
+                        anchorStore.addAnchor(id: beaconID, label: label, position: Point2D(x: x, y: y), height: DecimalInput.parse(heightText))
                         dismiss()
                     }
                     .disabled(!canSave)
@@ -58,9 +60,9 @@ struct AnchorPositionEditor: View {
             .onAppear {
                 guard let anchor = anchorStore.anchor(id: beaconID) else { return }
                 label = anchor.label
-                xText = String(anchor.position.x)
-                yText = String(anchor.position.y)
-                heightText = anchor.height.map { String($0) } ?? ""
+                xText = DecimalInput.text(for: anchor.position.x)
+                yText = DecimalInput.text(for: anchor.position.y)
+                heightText = anchor.height.map { DecimalInput.text(for: $0) } ?? ""
             }
         }
     }

@@ -8,7 +8,15 @@ data class PositioningReport(
     val anchorID: String,
     val rssi: Int,
     val distanceMeters: Double,
-    val seenAt: Instant
+    val seenAt: Instant,
+    /** How many advertisements arrived for this anchor since the last report: more samples
+     *  means a steadier reading. */
+    val sampleCount: Int,
+    /** Their standard deviation in dB — a reading jumping around a lot likely has a wall or
+     *  interference in the way. */
+    val rssiStdDev: Double,
+    /** The observer's phone model: different antennas read RSSI differently at the same distance. */
+    val deviceModel: String
 )
 
 /**
@@ -22,7 +30,9 @@ data class ObserverFixReport(
     val x: Double,
     val y: Double,
     val uncertaintyMeters: Double,
-    val recordedAt: Instant
+    val recordedAt: Instant,
+    /** Anchors that contributed to this fix: more than the 3-anchor minimum is more trustworthy. */
+    val anchorCount: Int
 )
 
 /** Sends readings to the positioning API. See `PositioningApiClient` for the real implementation. */
