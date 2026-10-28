@@ -1,16 +1,20 @@
-# Atalhos da raiz do repositorio. Cada projeto tem o proprio Makefile (android/, embedded/);
+# Atalhos da raiz do repositorio. Cada projeto tem o proprio Makefile (android/, ios/, embedded/);
 # estes alvos so chamam o deles. `make` sozinho lista os alvos.
 
 DEVICE ?=
-ANDROID_MAKE = "$(MAKE)" --no-print-directory -C android $(if $(DEVICE),DEVICE=$(DEVICE),)
+TEAM ?=
+BUNDLE_ID ?=
+ANDROID_MAKE = "$(MAKE)" --no-print-directory -C android $(if $(DEVICE),DEVICE="$(DEVICE)",)
+IOS_MAKE = "$(MAKE)" --no-print-directory -C ios $(if $(DEVICE),DEVICE="$(DEVICE)",) $(if $(TEAM),TEAM=$(TEAM),) $(if $(BUNDLE_ID),BUNDLE_ID=$(BUNDLE_ID),)
 
 .DEFAULT_GOAL := help
-.PHONY: help android android-setup android-build android-test android-devices android-logs
+.PHONY: help android android-setup android-build android-test android-devices android-logs ios ios-build ios-test ios-devices ios-sim ios-open
 
 help: ## Lista os alvos
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*## / {printf "  make %-16s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 	@echo
-	@echo "  Com mais de um celular ligado: make android DEVICE=<numero de serie de make android-devices>"
+	@echo "  Com mais de um celular ligado: make android DEVICE=<serial>  ou  make ios DEVICE=<nome do iPhone>"
+	@echo "  Assinatura do iOS: make ios TEAM=<seu time>  (e BUNDLE_ID=<bundle> se o do projeto for de outro time)"
 	@echo "  Firmware das ESP32: veja make -C embedded"
 
 android: ## Compila, instala e abre o app Android no celular ligado por USB
@@ -30,3 +34,21 @@ android-devices: ## Lista os celulares ligados e se autorizaram o PC
 
 android-logs: ## Log do app aberto no celular (Ctrl+C sai)
 	@$(ANDROID_MAKE) logs
+
+ios: ## Compila, instala e abre o app iOS no iPhone ligado ao Mac
+	@$(IOS_MAKE) run
+
+ios-build: ## So compila o app iOS para iPhone, assinado
+	@$(IOS_MAKE) build
+
+ios-test: ## Testes do app iOS no simulador
+	@$(IOS_MAKE) test
+
+ios-devices: ## Lista os iPhones pareados com este Mac e se estao acessiveis
+	@$(IOS_MAKE) devices
+
+ios-sim: ## Compila, instala e abre o app iOS no simulador
+	@$(IOS_MAKE) sim
+
+ios-open: ## Abre o projeto iOS no Xcode
+	@$(IOS_MAKE) open

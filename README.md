@@ -21,7 +21,7 @@ data `0xFFFF`).
 ## Commands
 
 Every Makefile lists its targets when run with no target (`make`, `make -C android`,
-`make -C embedded`).
+`make -C ios`, `make -C embedded`).
 
 ### From the repository root
 
@@ -33,9 +33,17 @@ Every Makefile lists its targets when run with no target (`make`, `make -C andro
 | `make android-test` | Android unit tests on the JVM, no phone needed |
 | `make android-devices` | Lists connected phones and whether they authorised this computer |
 | `make android-logs` | Shows the log of the app running on the phone (Ctrl+C quits) |
+| `make ios` | Builds the iOS app, installs it on the iPhone connected to the Mac and opens it |
+| `make ios-build` | Builds the signed iOS app only |
+| `make ios-test` | iOS unit tests on the simulator |
+| `make ios-devices` | Lists the iPhones paired with this Mac and whether they are reachable |
+| `make ios-sim` | Builds, installs and opens the iOS app on the simulator |
+| `make ios-open` | Opens the iOS project in Xcode |
 
-With more than one phone connected, pick one with `DEVICE=<serial>` (the serial comes from
-`make android-devices`), e.g. `make android DEVICE=R58N12ABCDE`.
+With more than one phone connected, pick one with `DEVICE=`: the serial from
+`make android-devices` (`make android DEVICE=R58N12ABCDE`) or the iPhone's name or identifier
+from `make ios-devices` (`make ios DEVICE="iPhone de Ana"`). For iOS, `TEAM=` and `BUNDLE_ID=`
+are passed on too (see below).
 
 ### Android app (`cd android`)
 
@@ -83,23 +91,44 @@ the example (ignored by Git). Full guide, including where to place the boards: `
 `PORT=<serial port>` picks the board when several are connected, e.g.
 `make flash ID=9F3C1A02 PORT=/dev/cu.usbserial-0001`.
 
-### iOS app (`ios/`)
+### iOS app (`cd ios`)
 
-No Makefile: open `ios/TrackerApp.xcodeproj` in Xcode, pick your Personal Team (see below) and run
-on the iPhone. Tests from the command line:
+Needs Xcode 15 or newer, opened once, with your Apple ID added in Xcode → Settings → Accounts:
+`xcodebuild` then creates the signing profile itself (`-allowProvisioningUpdates`). On the iPhone,
+turn on Developer Mode (Settings → Privacy & Security), connect the cable and tap "Trust".
 
-```bash
-cd ios
-xcodebuild test -project TrackerApp.xcodeproj -scheme TrackerApp \
-  -destination 'platform=iOS Simulator,name=iPhone 17'
-```
+| Command | What it does |
+|---|---|
+| `make devices` | Lists the iPhones paired with this Mac (`xcrun devicectl list devices`) |
+| `make test` | Unit tests on the simulator (`SIM=iPhone 17` by default) |
+| `make test-scripts` | Tests of `scripts/pick_device.py`, which picks the iPhone to install on |
+| `make build` | Builds the signed app for iPhone into `.build/DerivedData` |
+| `make install` | Builds and installs on the connected iPhone |
+| `make run` | Installs and opens the app |
+| `make sim` | Builds, installs and opens the app on the simulator |
+| `make open` | Opens `TrackerApp.xcodeproj` in Xcode |
+| `make clean` | Deletes the build output |
+
+Variables:
+
+- `TEAM=<team ID>` — the signing team. Empty uses the project's, which is someone else's team; with
+  a free account use your Personal Team, whose ID shows in Xcode → Settings → Accounts, e.g.
+  `make run TEAM=ABCDE12345`.
+- `BUNDLE_ID=<bundle>` — if `com.airtagclone.TrackerApp` is already registered by another team,
+  e.g. `BUNDLE_ID=com.yourname.TrackerApp`.
+- `DEVICE=<name, identifier or UDID>` — which iPhone, when more than one is reachable.
+- `SIM=<simulator>` — which simulator for `test` and `sim`.
+
+`install` and `run` stop with a plain message when no iPhone is reachable, or several are and none
+was picked. The install from a free account expires after 7 days: run `make run` again.
 
 ### Bench test in short
 
 1. Flash each ESP32 with its own ID: `cd embedded && make setup && make flash ID=9F3C1A01`, then
    the next board with `ID=9F3C1A02`, and so on.
 2. Place the boards at the corners of a square (2.5 m on a side was the bench test) and power them.
-3. Install the app: Xcode on the iPhone, or `make android` on the Android phone.
+3. Install the app: `make ios TEAM=<your team>` on the iPhone, or `make android` on the Android
+   phone.
 4. In the Observer screen, tap each beacon under "Sinais próximos" and type its x/y in metres.
 5. Under "Calibração", stand in the middle and tap "Usar a leitura de agora" next to "RSSI no
    centro"; then touch the phone to a beacon and tap the one next to "RSSI encostado". The position
@@ -226,6 +255,13 @@ constants):
   error in dB is a distance error that grows with the distance), started from the linear solution
   and refined by Gauss-Newton, so the result does not depend on the order of the anchors. Returns
   `nil` for fewer than 3 anchors or anchors in a line.
+- **Near a beacon** (`Multilateration`): a beacon clearly nearer than the rest (within 0.5 m by
+  its RSSI, the next one more than twice as far) holds the phone, counting from touching it: at
+  "RSSI encostado" or stronger the phone is shown on the beacon, a little weaker within the extra
+  distance (0.3 m by the model is at most 0.2 m away). The solver also halves a step that makes the
+  error worse instead of stopping there, so one far beacon reading badly cannot strand the fix.
+- `MotionLimit` — "Limitar pela velocidade" (on by default, 2 km/h, 0.5–20 km/h): the position shown
+  moves towards each new fix by at most the speed times the time since the last one.
 - `AnchorStore` — anchor positions are entered per deployment (not a fixed layout) and persisted
   in `UserDefaults`.
 - `PositioningEngine` — ties a `BeaconScanning` instance and an `AnchorStore` together, recomputes
@@ -419,7 +455,8 @@ Run via `Product > Test` in Xcode, or `xcodebuild test` from an environment with
   exchange itself needs two real phones.
 - `UWBManagerTests` — ranging state updates, signal loss handling, azimuth/elevation math.
 - `PositioningTests` — `Multilateration` (exact/inconsistent/degenerate ranges, N > 3 anchors,
-  weighting, order independence, equal RSSI from a square's corners giving its center),
+  weighting, order independence, equal RSSI from a square's corners giving its center, a beacon
+  read as touching holding the phone on it, the bench square end to end, the speed limit),
   `PathLossModel` and the center-RSSI calibration, `RSSIWindow`, `PositioningEngine` (medians,
   stale readings, beacons heard at different rates), `MapProjection`, `DecimalInput` (comma or
   dot) and rendering the map. The Android app's `CalibratedPositioningTest` and
