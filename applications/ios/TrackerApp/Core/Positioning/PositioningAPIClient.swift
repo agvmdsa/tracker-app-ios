@@ -5,22 +5,21 @@ final class PositioningAPIClient: PositioningReporting, Sendable {
     private let apiKey: String
     private let session: URLSession
 
-    /// Deployed on Render (see the `api_tracker_app` repo's README) — reachable from any
-    /// network, so this no longer depends on the phone and the Mac running `docker compose`
-    /// being on the same Wi-Fi. Fall back to a LAN IP (`http://<mac-ip>:8000`) only if testing
-    /// against a local `docker compose up` instead.
+    /// Deployed on Render (see `applications/api/README.md`) — reachable from any network, so
+    /// this no longer depends on the phone and the Mac running `docker compose` being on the
+    /// same Wi-Fi. Fall back to a LAN IP (`http://<mac-ip>:8000`) only if testing against a
+    /// local `docker compose up` instead.
     ///
     /// `apiKey` must match the server's `API_KEY` environment variable exactly — it's a single
     /// shared secret (not per-device auth), just enough to keep random internet traffic from
-    /// writing to the database. See the `api_tracker_app` repo's README "Authentication" section.
+    /// writing to the database. See `applications/api/README.md`'s "Authentication" section.
     ///
-    /// The default below is a placeholder, not a real secret — this file is committed to a
-    /// public repo, so the actual key can't live here. Replace it locally with whatever value
-    /// is set as `API_KEY` on the Render API service (ideally in an uncommitted change, so the
-    /// real key never ends up in git history).
+    /// The default pulls from `Secrets.swift`, which is gitignored and never committed — see
+    /// `Secrets.swift.example` for setup. This file itself stays safe to commit no matter what
+    /// `Secrets.apiKey` is set to locally.
     init(
-        baseURL: URL = URL(string: "https://api-tracker-app.onrender.com")!,
-        apiKey: String = "REPLACE_WITH_THE_RENDER_API_KEY_VALUE",
+        baseURL: URL = URL(string: "https://tracker-app-ios.onrender.com")!,
+        apiKey: String = Secrets.apiKey,
         session: URLSession = .shared
     ) {
         self.baseURL = baseURL

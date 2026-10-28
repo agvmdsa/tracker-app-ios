@@ -25,14 +25,13 @@ import kotlinx.serialization.json.Json
  * `POST /fingerprints`, all behind the shared `X-API-Key` secret. Deployed on Render; see
  * `applications/api/README.md`'s "Authentication" section.
  *
- * The default key below is a placeholder, not a real secret — this file is committed to a
- * public repo, so the actual key can't live here. Replace it locally with whatever value is
- * set as `API_KEY` on the Render API service (ideally in an uncommitted change, so the real
- * key never ends up in git history) — same convention as the iOS and ESP32 clients.
+ * The default key pulls from [Secrets], which is gitignored and never committed — see
+ * `Secrets.kt.example` for setup. This file itself stays safe to commit no matter what
+ * `Secrets.API_KEY` is set to locally.
  */
 class PositioningApiClient(
-    private val baseUrl: String = "https://api-tracker-app.onrender.com",
-    private val apiKey: String = "REPLACE_WITH_THE_RENDER_API_KEY_VALUE",
+    private val baseUrl: String = "https://tracker-app-ios.onrender.com",
+    private val apiKey: String = Secrets.API_KEY,
     private val client: HttpClient = defaultClient()
 ) : PositioningReporting, FingerprintUploading {
 

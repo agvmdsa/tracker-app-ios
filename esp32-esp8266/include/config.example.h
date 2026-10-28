@@ -47,7 +47,7 @@
 // Positioning API (placeholders). Uploads labelled recordings to POST /fingerprints for
 // training; needs ENABLE_WIFI 1 too. Leave API_HOST empty to disable uploading (e.g. while
 // collecting over serial only, to protect the scan rate, same as ENABLE_WIFI 0 above).
-#define API_HOST "api-tracker-app.onrender.com"
+#define API_HOST "tracker-app-ios.onrender.com"
 #define API_KEY "replace-with-the-render-api-key-value"
 
 // Node identifier: 6 hexadecimal characters. Leave empty to derive it from the board's unique ID.

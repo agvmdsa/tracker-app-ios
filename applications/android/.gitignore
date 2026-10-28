@@ -13,3 +13,6 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Android app secrets (the real API key) — see data/network/Secrets.kt.example for setup
+app/src/main/java/br/org/cesar/blueguide/data/network/Secrets.kt
