@@ -16,6 +16,8 @@ private final class FakeScanner: BeaconScanning {
         sightings[beacon] = sighting
         onSighting?(sighting)
     }
+
+    func drainRecentRSSI(for beaconID: BeaconID) -> [Int] { [] }
 }
 
 @MainActor

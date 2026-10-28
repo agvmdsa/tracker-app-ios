@@ -30,9 +30,14 @@ Package `br.org.cesar.blueguide`, app name "BlueGuide".
   in particular are far from universal (see "Known gaps" below).
 
 ```bash
-./gradlew testDebugUnitTest lintDebug   # JVM unit tests + lint, no device needed
-./gradlew assembleDebug                 # needs a configured SDK, not a device
+make setup    # checks the SDK, adb and Java, writes local.properties
+make test     # JVM unit tests, no device needed
+make run      # builds, installs and opens the app on the phone connected over USB
+make          # lists every target (lint, build, install, logs, uninstall, clean, devices)
 ```
+
+From the repository root the same is `make android` (and `make android-setup`, `-build`, `-test`,
+`-devices`, `-logs`); see the root README's "Commands".
 
 ## Structure
 
@@ -70,12 +75,14 @@ app/src/main/java/br/org/cesar/blueguide/
 
 | Feature | iOS | Android | Notes |
 |---|---|---|---|
-| BLE anchors/observer, 2D fix | `Multilateration`, `AnchorStore` | `Multilateration`, `AnchorStore` | Same math, same persisted-anchor model (not a fixed shape) |
+| BLE anchors/observer, 2D fix | `Multilateration`, `AnchorStore` | `Multilateration`, `AnchorStore` | Same weighted solver, 3 s RSSI median and constants; reads the ESP32 beacons' ID from the local name |
+| "RSSI no centro" calibration, live map | `ObserverView`, `PositionMapView` | `DeviceListScreen`, `PositionMap` | Same sections, texts and colours (beacons orange, phone blue) |
+| Saved locations | `SavedLocationStore`, `NavigateToLocationView` | `SavedLocationStore`, `NavigateToLocationScreen` | Arrow on the map's axes and distance |
 | Backend upload (sightings/fixes) | `PositioningAPIClient` | `PositioningApiClient` | Same API, same `X-API-Key` |
 | Fingerprint recording for ML | `FingerprintRecorder` | `FingerprintRecorder` | Same CSV/metadata schema, `platform` field distinguishes them |
 | UWB "find this phone" | NearbyInteraction | `androidx.core.uwb` | **Android-to-Android only** — the two platforms' UWB stacks don't interoperate, so this can't range an iPhone and vice versa |
 | Camera-based position tracking | ARKit (`ARPositionTracker`) | ARCore (`AndroidArPositionTracker`) | Same camera-space convention, so the same `x, -z` mapping applies unchanged |
-| Saved-location navigation (`NavigateToLocationView`, AR anchor capture) | ✅ | ❌ | Not ported — out of scope for the camera-tracking work so far |
+| AR anchor capture (`ARAnchorCaptureView`) | ✅ | ❌ | Not ported yet: anchors are typed in by hand |
 
 ## Known gaps
 
@@ -86,12 +93,14 @@ app/src/main/java/br/org/cesar/blueguide/
 - **The Fingerprint tab's `AnchorStore` doesn't see anchors added on the Positioning tab** until
   the app is relaunched or the tab is revisited (each tab keeps its own `AnchorStore` instance,
   refreshed from disk on entry — see `FingerprintViewModel.refreshAnchors`).
-- **No saved-location navigation / AR anchor capture** — the iOS app's separate feature for
-  walking back to a named point using ARKit isn't replicated; only the position tracker itself
-  (`ArPositionTracking`) is.
+- **No AR anchor capture** — the iOS app's "Medir com AR" (walking to each anchor and marking it
+  with ARKit) isn't replicated; only the position tracker itself (`ArPositionTracking`) is.
+- **Only the Observer screen is in Portuguese**, like the iOS app; the tab names and the other
+  tabs are still in English.
 - Sensor conventions that don't match the iOS app byte-for-byte (device orientation axes,
   motion-activity confidence scale) are documented in each fingerprint recording's metadata
   JSON rather than converted — see `AndroidOrientationReader`/`MotionActivityReading`'s doc
   comments for exactly what differs and why.
 
-See the repository root's `list.md` for the fuller, living TODO list this summarizes.
+The iOS app is the reference for behaviour. See the repository root's `list.md` for the fuller,
+living TODO list this summarizes.

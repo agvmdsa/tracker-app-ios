@@ -20,6 +20,9 @@ TEAM ?=
 BUNDLE_ID ?=
 SIGNING := -allowProvisioningUpdates $(if $(TEAM),DEVELOPMENT_TEAM=$(TEAM),) $(if $(BUNDLE_ID),PRODUCT_BUNDLE_IDENTIFIER=$(BUNDLE_ID),)
 
+# A chave da API fica fora do Git; sem ela o projeto nao compila, entao parte do exemplo.
+SECRETS := TrackerApp/Core/Positioning/Secrets.swift
+
 # O iPhone a usar quando ha mais de um acessivel: nome, identificador ou UDID de `make devices`.
 DEVICE ?=
 # O simulador de `make test` e `make sim`.
@@ -34,16 +37,20 @@ help: ## Lista os alvos
 	@echo "  Variaveis: DEVICE=<iPhone>  TEAM=<time de assinatura>  BUNDLE_ID=<bundle>  SIM=<simulador>"
 	@echo "  Primeira vez: entre com a conta Apple no Xcode, ligue o iPhone no cabo e rode make run TEAM=<seu time>"
 
+$(SECRETS):
+	cp $(SECRETS).example $(SECRETS)
+	@echo "Criado $(SECRETS) a partir do exemplo (ignorado pelo Git). Para enviar dados a API, troque a chave nele pela do Render."
+
 devices: ## Lista os iPhones pareados com este Mac e se estao acessiveis
 	xcrun devicectl list devices
 
-test: ## Testes no simulador (SIM=iPhone 17)
+test: $(SECRETS) ## Testes no simulador (SIM=iPhone 17)
 	$(XCODEBUILD) -destination 'platform=iOS Simulator,name=$(SIM)' test
 
 test-scripts: ## Testes do script que escolhe o iPhone
 	python3 -m unittest discover -s scripts -p "test_*.py"
 
-build: ## Compila o app para iPhone, assinado
+build: $(SECRETS) ## Compila o app para iPhone, assinado
 	$(XCODEBUILD) -destination 'generic/platform=iOS' $(SIGNING) build
 	@echo "App: $(APP)"
 
@@ -56,7 +63,7 @@ run: install ## Instala e abre o app no iPhone
 	bundle=$$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$(APP)/Info.plist"); \
 	xcrun devicectl device process launch --device $$id $$bundle
 
-sim: ## Compila, instala e abre no simulador (SIM=iPhone 17)
+sim: $(SECRETS) ## Compila, instala e abre no simulador (SIM=iPhone 17)
 	$(XCODEBUILD) -destination 'platform=iOS Simulator,name=$(SIM)' build
 	xcrun simctl boot "$(SIM)" 2>/dev/null || true
 	open -a Simulator

@@ -15,6 +15,9 @@ PACKAGE := br.org.cesar.blueguide
 ACTIVITY := $(PACKAGE)/.MainActivity
 APK := app/build/outputs/apk/debug/app-debug.apk
 
+# A chave da API fica fora do Git; sem ela o app nao compila, entao parte do exemplo.
+SECRETS := app/src/main/java/br/org/cesar/blueguide/data/network/Secrets.kt
+
 # Celular a usar quando ha mais de um ligado (o numero de serie de `make devices`).
 # O adb e o Gradle leem ANDROID_SERIAL. Exemplo: make run DEVICE=R58N12ABCDE
 DEVICE ?=
@@ -38,6 +41,10 @@ check-sdk:
 
 check-adb: check-sdk
 	@test -x "$(ADB)" || { echo "Falta o adb em $(ADB). No Android Studio: SDK Manager > SDK Tools > Android SDK Platform-Tools."; exit 1; }
+
+$(SECRETS):
+	cp $(SECRETS).example $(SECRETS)
+	@echo "Criado $(SECRETS) a partir do exemplo (ignorado pelo Git). Para enviar dados a API, troque a chave nele pela do Render."
 
 local.properties: | check-sdk
 	@echo "sdk.dir=$(ANDROID_HOME)" > local.properties
@@ -71,17 +78,17 @@ check-device: check-adb
 devices: check-adb ## Lista os celulares ligados (e se autorizaram o PC)
 	@"$(ADB)" devices -l
 
-test: local.properties ## Testes na JVM (sem celular)
+test: local.properties $(SECRETS) ## Testes na JVM (sem celular)
 	$(GRADLE) testDebugUnitTest
 
-lint: local.properties ## Lint do Android
+lint: local.properties $(SECRETS) ## Lint do Android
 	$(GRADLE) lintDebug
 
-build: local.properties ## Compila o APK de debug
+build: local.properties $(SECRETS) ## Compila o APK de debug
 	$(GRADLE) assembleDebug
 	@echo "APK: $(APK)"
 
-install: local.properties check-device ## Compila e instala no celular ligado
+install: local.properties $(SECRETS) check-device ## Compila e instala no celular ligado
 	$(GRADLE) installDebug
 
 run: install ## Instala e abre o app no celular

@@ -58,4 +58,22 @@ object BlueGuideProtocol {
     fun idFromBytes(bytes: ByteArray?): DeviceId? =
         if (bytes == null || bytes.size < ID_SIZE_BYTES) null
         else DeviceId.ofBytes(bytes.copyOf(ID_SIZE_BYTES))
+
+    /**
+     * The id an advertisement of this protocol carries, by the same rules as the iOS app's
+     * `BeaconProtocol`. The ESP32 beacons and iOS anchors put it in the local name; Android
+     * puts it in the manufacturer data and its device name in the local name. So the
+     * manufacturer data wins when present, and the local name is only trusted when it is an
+     * id itself.
+     */
+    fun idFrom(manufacturerData: ByteArray?, localName: String?): DeviceId? =
+        idFromBytes(manufacturerData) ?: localName?.let(::idFromHex)
+
+    /** [ID_SIZE_BYTES] bytes of hex, in either case, read in upper case. Null for anything else. */
+    fun idFromHex(text: String): DeviceId? =
+        if (text.length == ID_SIZE_BYTES * 2 && text.all { it.isDigit() || it.uppercaseChar() in 'A'..'F' }) {
+            DeviceId(text.uppercase())
+        } else {
+            null
+        }
 }

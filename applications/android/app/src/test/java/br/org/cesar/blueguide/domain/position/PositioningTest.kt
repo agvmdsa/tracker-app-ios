@@ -82,17 +82,6 @@ class PositioningTest {
         assertTrue("$far should exceed $near", far > near)
     }
 
-    @Test
-    fun `smoothing starts at the first reading and then lags`() {
-        val first = PathLossModel.smooth(previous = null, reading = -70)
-        assertEquals(-70.0, first, TOLERANCE)
-
-        // A single outlier moves the average by only SMOOTHING of the gap.
-        val second = PathLossModel.smooth(previous = first, reading = -90)
-        assertEquals(-70.0 + 0.15 * -20.0, second, TOLERANCE)
-        assertTrue("outlier must not be adopted wholesale", second > -75.0)
-    }
-
     private companion object {
         const val TOLERANCE = 1e-6
         const val SIDE = 3.0

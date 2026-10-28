@@ -26,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import br.org.cesar.blueguide.domain.position.DecimalInput
 import br.org.cesar.blueguide.R
 import br.org.cesar.blueguide.domain.position.FingerprintLabel
 import br.org.cesar.blueguide.domain.position.FingerprintRecorderState
@@ -50,7 +51,7 @@ fun FingerprintCollectorScreen(
     var yText by remember { mutableStateOf("") }
     var minutes by remember { mutableStateOf(1) }
 
-    val label = FingerprintLabel.of(session, point, xText.toDoubleOrNull() ?: Double.NaN, yText.toDoubleOrNull() ?: Double.NaN)
+    val label = FingerprintLabel.of(session, point, DecimalInput.parse(xText) ?: Double.NaN, DecimalInput.parse(yText) ?: Double.NaN)
 
     LazyColumn(modifier = modifier.fillMaxWidth()) {
         item {

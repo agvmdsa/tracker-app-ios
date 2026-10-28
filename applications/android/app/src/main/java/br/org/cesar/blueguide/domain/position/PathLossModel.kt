@@ -86,17 +86,6 @@ object PathLossModel {
         val distance = anchors.sumOf { it.distanceTo(middle) } / anchors.size
         return distance.takeIf { it > 1e-6 }
     }
-
-    private const val SMOOTHING = 0.15
-
-    /** Exponential moving average used by [DeviceListState]/[DeviceListReducer] today — simpler
-     *  than [RssiWindow]'s median-of-a-window, kept so that port still compiles. TODO: replace
-     *  with RssiWindow + sample stats, as the iOS app (PositioningEngine.rssiWindows) and this
-     *  file's own RssiWindow class already do, to get real sampleCount/rssiStdDev for reporting
-     *  instead of the placeholders in DeviceListViewModel.reportPeriodically(). */
-    fun smooth(previous: Double?, reading: Int): Double =
-        if (previous == null) reading.toDouble()
-        else previous + SMOOTHING * (reading - previous)
 }
 
 /**

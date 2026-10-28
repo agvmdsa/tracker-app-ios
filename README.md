@@ -29,6 +29,133 @@ inside `applications/api/`/`applications/web/`, not as if they were the reposito
 [`btloc`](https://github.com/filipe-ms/btloc)); it's folded in here the same way, without its own
 git history.
 
+## Commands
+
+Every Makefile lists its targets when run with no target (`make`, `make -C applications/android`,
+`make -C applications/ios`, `make -C esp32-esp8266`).
+
+The API key stays out of Git: the apps read it from `Secrets.swift` (iOS) and `Secrets.kt`
+(Android), which the Makefiles create from their `.example` the first time. The apps build and run
+with the example's placeholder; to upload to the API, put the real key (the `API_KEY` of the Render
+service) in those files.
+
+### From the repository root
+
+| Command | What it does |
+|---|---|
+| `make android` | Builds the Android app, installs it on the phone connected over USB and opens it |
+| `make android-setup` | Checks the Android SDK and Java (once per computer) |
+| `make android-build` | Builds the debug APK only, no phone needed |
+| `make android-test` | Android unit tests on the JVM, no phone needed |
+| `make android-devices` | Lists connected phones and whether they authorised this computer |
+| `make android-logs` | Shows the log of the app running on the phone (Ctrl+C quits) |
+| `make ios` | Builds the iOS app, installs it on the iPhone connected to the Mac and opens it |
+| `make ios-build` | Builds the signed iOS app only |
+| `make ios-test` | iOS unit tests on the simulator |
+| `make ios-devices` | Lists the iPhones paired with this Mac and whether they are reachable |
+| `make ios-sim` | Builds, installs and opens the iOS app on the simulator |
+| `make ios-open` | Opens the iOS project in Xcode |
+
+With more than one phone connected, pick one with `DEVICE=`: the serial from
+`make android-devices` (`make android DEVICE=R58N12ABCDE`) or the iPhone's name or identifier
+from `make ios-devices` (`make ios DEVICE="iPhone de Ana"`). For iOS, `TEAM=` and `BUNDLE_ID=`
+are passed on too (see below).
+
+### Android app (`cd applications/android`)
+
+Needs Java 17 or newer on the `PATH` (Gradle then downloads the JDK 21 the project asks for) and
+the Android SDK (Android Studio's works; it is found through `ANDROID_HOME`, `ANDROID_SDK_ROOT`,
+`~/Library/Android/sdk` or `~/Android/Sdk`, and `local.properties` is written for you). On the
+phone, turn on Developer options → USB debugging and accept the "Allow USB debugging" prompt.
+
+| Command | What it does |
+|---|---|
+| `make setup` | Checks the SDK, `adb` and Java, writes `local.properties` |
+| `make devices` | Lists connected phones (`adb devices -l`) |
+| `make test` | JVM unit tests (`testDebugUnitTest`) |
+| `make lint` | Android lint (`lintDebug`) |
+| `make build` | Builds `app/build/outputs/apk/debug/app-debug.apk` |
+| `make install` | Builds and installs on the connected phone |
+| `make run` | Installs and opens the app |
+| `make logs` | `logcat` of the running app (Ctrl+C quits) |
+| `make uninstall` | Removes the app from the phone, with the anchors, calibration and saved locations stored on it |
+| `make clean` | Deletes the build output |
+
+`DEVICE=<serial>` works here too. `install`, `run`, `logs` and `uninstall` stop with a plain
+message when no phone is connected, it has not authorised the computer, or several are connected.
+
+### ESP32 firmware (`cd esp32-esp8266`)
+
+`make setup` creates a Python venv with PlatformIO inside `esp32-esp8266/` and `include/config.h` from
+the example (ignored by Git). Full guide, including where to place the boards: `esp32-esp8266/USAGE.md`.
+
+| Command | What it does |
+|---|---|
+| `make setup` | Creates `.venv` with PlatformIO and `include/config.h` (once) |
+| `make test` | Host unit tests (`native` environment, no board) |
+| `make test-one T=<folder>` | One test folder, e.g. `make test-one T=test_label` |
+| `make test-scripts` | Python tests of the scripts (beacon ID, and `../scripts` if it has any) |
+| `make build` | Compiles the firmware (`esp32dev`) |
+| `make flash` | Compiles and flashes the board; `make flash ID=9F3C1A01` also sets its beacon ID |
+| `make id ID=<8 hex>` | Sets the beacon ID over serial on a board already flashed, and checks it |
+| `make monitor` | Serial monitor at 115200 baud (Ctrl+C quits) |
+| `make monitor-log` | Serial monitor that also writes `logs/device-monitor-<date>.log` |
+| `make flash-monitor` | Flashes, then opens the monitor |
+| `make ports` | Lists the serial ports |
+| `make clean` | Deletes the build output (keeps the venv and PlatformIO's cache) |
+
+`PORT=<serial port>` picks the board when several are connected, e.g.
+`make flash ID=9F3C1A02 PORT=/dev/cu.usbserial-0001`.
+
+### iOS app (`cd applications/ios`)
+
+Needs Xcode 15 or newer, opened once, with your Apple ID added in Xcode → Settings → Accounts:
+`xcodebuild` then creates the signing profile itself (`-allowProvisioningUpdates`). On the iPhone,
+turn on Developer Mode (Settings → Privacy & Security), connect the cable and tap "Trust".
+
+| Command | What it does |
+|---|---|
+| `make devices` | Lists the iPhones paired with this Mac (`xcrun devicectl list devices`) |
+| `make test` | Unit tests on the simulator (`SIM=iPhone 17` by default) |
+| `make test-scripts` | Tests of `scripts/pick_device.py`, which picks the iPhone to install on |
+| `make build` | Builds the signed app for iPhone into `.build/DerivedData` |
+| `make install` | Builds and installs on the connected iPhone |
+| `make run` | Installs and opens the app |
+| `make sim` | Builds, installs and opens the app on the simulator |
+| `make open` | Opens `TrackerApp.xcodeproj` in Xcode |
+| `make clean` | Deletes the build output |
+
+Variables:
+
+- `TEAM=<team ID>` — the signing team. Empty uses the project's, which is someone else's team; with
+  a free account use your Personal Team, whose ID shows in Xcode → Settings → Accounts, e.g.
+  `make run TEAM=ABCDE12345`.
+- `BUNDLE_ID=<bundle>` — if `com.airtagclone.TrackerApp` is already registered by another team,
+  e.g. `BUNDLE_ID=com.yourname.TrackerApp`.
+- `DEVICE=<name, identifier or UDID>` — which iPhone, when more than one is reachable.
+- `SIM=<simulator>` — which simulator for `test` and `sim`.
+
+`install` and `run` stop with a plain message when no iPhone is reachable, or several are and none
+was picked. The install from a free account expires after 7 days: run `make run` again.
+
+### Bench test in short
+
+1. Flash each ESP32 with its own ID: `cd esp32-esp8266 && make setup && make flash ID=9F3C1A01`, then
+   the next board with `ID=9F3C1A02`, and so on.
+2. Place the boards at the corners of a square (2.5 m on a side was the bench test) and power them.
+3. Install the app: `make ios TEAM=<your team>` on the iPhone, or `make android` on the Android
+   phone.
+4. In the Observer screen, tap each beacon under "Sinais próximos" and type its x/y in metres.
+5. Under "Calibração", stand in the middle and tap "Usar a leitura de agora" next to "RSSI no
+   centro"; then touch the phone to a beacon and tap the one next to "RSSI encostado". The position
+   should then stay inside the square.
+
+# iOS app (`applications/ios/`)
+
+The iOS app has two features: 1:1 tracking between two nearby iPhones (UWB), and indoor
+positioning with fixed beacons (ESP32 boards, or phones as anchors) and an observer phone. It
+interoperates with the Android app in `applications/android/`.
+
 ## Build requirements
 
 - **Xcode 15.0+** and an **iOS 17.0+** deployment target — the project uses the `Observation`
@@ -111,14 +238,8 @@ stays open while placing multiple anchors, so they all share the same origin/fra
 fresh session per anchor would reset the origin each time and make the anchors' positions
 inconsistent with each other.
 
-> ⚠️ **No Android equivalent yet, and it's more than a small fix.** ARKit's Android counterpart is
-> **ARCore** — conceptually the same technique (camera + motion sensors give a relative position
-> as the phone moves) — but `btloc` doesn't have anywhere to put that data: its `AnchorLayout.kt`
-> is a hard-coded equilateral triangle, computed, not entered. Matching this app's flexible
-> N-anchor model on Android needs two new things there, not one: a manual/AR anchor-position entry
-> screen (this app's `AnchorPositionEditor`/`ARAnchorCaptureView` have no counterpart at all today)
-> and the ARCore integration itself. Unlike the BLE identity fix below, this isn't a small patch to
-> an existing file.
+> The Android app (`applications/android/`) has no AR capture yet: its anchors are typed in by hand. Its
+> ARCore position tracker exists (the AR tab) but is not wired to anchor placement.
 
 **Wire protocol** (`BeaconProtocol`) — a fixed service UUID marks a BLE advertisement as this
 app's, and a 4-byte `BeaconID` (8 hex characters) identifies the specific install, surviving BLE
@@ -128,43 +249,52 @@ iOS's `CBPeripheralManager` cannot set manufacturer data when advertising (Apple
 `startAdvertising(_:)`), so local name is the only field both iOS and Android can use when
 *broadcasting* — both can already read manufacturer data fine when *scanning*.
 
-> ⚠️ **Cross-platform interop is not finished — one small change needed on the `btloc` side.**
-> An iPhone can already be an *observer* of an Android anchor today: Android's advertiser keeps
-> using manufacturer data (its only good option — Android's `AdvertiseData` API has no way to set
-> a custom local name without renaming the whole device's Bluetooth adapter), and
-> `BeaconProtocol.beaconID(in:)` reads the ID from manufacturer data (company ID `0xFFFF`, then the
-> 4 ID bytes) before falling back to the local name. The manufacturer data has to win: Android puts
-> its device name in the scan response, which iOS reports in the same local-name field. What's
-> missing is the reverse: an iPhone *anchor*
-> can only put its ID in local name (the one field `CBPeripheralManager` allows), so
-> `AndroidBleScanner.kt` needs a fallback — when manufacturer data for `MANUFACTURER_ID` isn't
-> present on a matched advertisement, try parsing `scanRecord.deviceName` as an 8-hex-character
-> `DeviceId` instead. Android's advertiser itself needs no change. This is a change to make in the
-> `btloc` repo, not here.
+Android observers read the ID the same way (manufacturer data first, then a local name that is
+an ID itself), so they see the ESP32 beacons and iPhone anchors; Android anchors keep advertising
+manufacturer data, which iOS reads first.
 
-**Distance/position math** (`Core/Positioning`, ported and generalized from `btloc`'s Kotlin):
+**Distance/position math** (`Core/Positioning`; the Android app uses the same model, solver and
+constants):
 
-- `PathLossModel` — converts RSSI to distance via the log-distance path loss model, with
-  exponential smoothing in dB. `referenceRSSI`/`pathLossExponent` are nominal defaults and need
-  calibrating against real hardware/environment.
-- `Multilateration` — unlike `btloc`'s fixed 3-anchor closed-form trilateration, this solves for
-  **any N ≥ 3 anchors** via least squares (the two are mathematically identical when N = 3).
-  Returns `nil` for fewer than 3 anchors or for anchors placed collinearly.
-- `AnchorStore` — anchor positions are entered manually per deployment (not a fixed layout) and
-  persisted in `UserDefaults`.
-- `PositioningEngine` — ties a `BeaconScanning` instance and an `AnchorStore` together, smooths
-  RSSI, recomputes the fix every second, and reports each round of readings.
+- `PathLossModel` — converts RSSI to distance with the log-distance path loss model, calibrated
+  from two readings in the Observer screen: **"RSSI no centro"**, heard standing in the middle of
+  the anchors and read as their mean distance to the middle (1.77 m in a 2.5 m square), and
+  **"RSSI encostado"**, heard touching a beacon and read as 0.1 m. Two readings fix both the RSSI
+  at 1 m and the path loss exponent. The defaults are -70 dBm (what the iPhone read on the bench)
+  and -30 dBm (touching read -34 to -42), which give about -62 dBm at 1 m and an exponent of 3.2.
+  A touching reading no stronger than the center's, or one giving an exponent outside 1–6, is
+  ignored and the center alone calibrates with exponent 2. "Usar a leitura de agora" takes the
+  mean of the anchors' medians (center) or the strongest one (touching).
+- `RSSIWindow` — the median of each beacon's advertisements in the last 3 s. A stray reading does
+  not move it, and a beacon heard 30 times does not count more than one heard 3 times.
+- `Multilateration` — any N ≥ 3 anchors. Weighted least squares (weight 1/d², since a fixed RSSI
+  error in dB is a distance error that grows with the distance), started from the linear solution
+  and refined by Gauss-Newton, so the result does not depend on the order of the anchors. Returns
+  `nil` for fewer than 3 anchors or anchors in a line.
+- **Near a beacon** (`Multilateration`): a beacon clearly nearer than the rest (within 0.5 m by
+  its RSSI, the next one more than twice as far) holds the phone, counting from touching it: at
+  "RSSI encostado" or stronger the phone is shown on the beacon, a little weaker within the extra
+  distance (0.3 m by the model is at most 0.2 m away). The solver also halves a step that makes the
+  error worse instead of stopping there, so one far beacon reading badly cannot strand the fix.
+- `MotionLimit` — "Limitar pela velocidade" (on by default, 2 km/h, 0.5–20 km/h): the position shown
+  moves towards each new fix by at most the speed times the time since the last one.
+- `AnchorStore` — anchor positions are entered per deployment (not a fixed layout) and persisted
+  in `UserDefaults`.
+- `PositioningEngine` — ties a `BeaconScanning` instance and an `AnchorStore` together, recomputes
+  the ranges and the fix every second from the windows' medians, and reports each round (with the
+  sample count, RSSI spread and device model) to the API.
 
-**Heatmap API** (`PositioningReporting` / `PositioningAPIClient`) — reports every sighting
-(observer, anchor, RSSI, distance, timestamp) to a backend for cross-device aggregation (peak
-hours, a floor-plan heatmap, etc.).
+The Observer screen draws the beacons (orange), a ring per beacon at its RSSI distance with the
+distance and dBm next to it, and the phone (blue) with its uncertainty, live. Positions can be
+saved and walked back to ("Locais salvos").
 
-> ⚠️ **Placeholder.** No real API spec exists yet. `PositioningAPIClient`'s base URL, endpoint
-> path, and payload shape are all provisional guesses — it's the only file that should need to
-> change once the real spec is available. Planned backend shape: Postgres for storage, an
-> ingestion endpoint this client posts to, Grafana reading Postgres directly for time-based
-> metrics (peak hours), and a small custom web frontend for the floor-plan heatmap itself (which
-> Grafana's panels don't natively render).
+**Positioning API** (`PositioningReporting` / `PositioningAPIClient`) — every second the observer
+posts its readings to `POST /sightings` (observer, anchor, RSSI, distance, sample count, RSSI
+spread, device model) and its fix to `POST /fixes` (with the anchor count), for cross-device
+aggregation (peak hours, a floor-plan heatmap). The API runs on Render
+(`https://api-tracker-app.onrender.com`) behind an `X-API-Key` header. The key in the code is a
+placeholder: put the real one in locally, without committing it. The Android app and the ESP32
+collector post to the same API.
 
 ### 3. Fingerprinting data collection
 
@@ -198,13 +328,15 @@ received (`FingerprintRecord`):
 | `system_version` | e.g. `"iOS 26.0.1"` |
 | `beacon` | the 8-hex beacon ID, from the advertisement's manufacturer data or local name |
 | `rssi` | dBm, as CoreBluetooth reported it |
-| `accel_x`, `accel_y`, `accel_z` | latest accelerometer reading, in g (empty when there is none) |
+| `roll`, `pitch`, `yaw` | the phone's attitude in radians from CoreMotion's sensor fusion: `roll`/`pitch` are tilt against gravity; `yaw` is not tied to north, so only its changes mean something (empty when there is none) |
+| `relative_altitude_m`, `pressure_kpa` | barometer: metres relative to where altitude updates started, and the pressure (empty without a barometer) |
+| `motion_state`, `motion_confidence` | `stationary`, `walking`, `running`, `automotive`, `cycling` or `unknown`, and 0–2 (empty before the permission is granted) |
 | `session`, `point`, `x`, `y` | the label |
 
 When a recording runs to the end, a **`.json` with the same name** is written next to it
 (`FingerprintRecordingMetadata`): the recording's start and end on both clocks
 (`started_t_ms`/`ended_t_ms`, `started_timestamp_ms`/`ended_timestamp_ms`), the planned duration,
-the rows per beacon, the label, the device, how the scan was done, the acceleration's units, and
+the rows per beacon, the label, the device, how the scan was done, the sensors' units, and
 **`beacons`: where each beacon was** (`id`, `label`, `x`, `y`, `height_m`, the last one `null` when
 not entered).
 
@@ -246,16 +378,19 @@ each board at boot in its `E,…,advertising,…` line).
 
 **Static, then moving.** Recordings are taken standing at one labelled point. Collecting while
 walking needs more than this format has today — timestamped waypoints to interpolate the position
-between, and the full accelerometer stream rather than one sample per row — and is a planned
+between, and the full motion stream rather than one sample per row — and is a planned
 extension, not something to fake by recording while moving.
 
 - **Mergeable with the ESP32 data.** Column names match the ESP32's `R` records wherever they
   overlap, and `FingerprintLabel` applies the same rules as the ESP32's `label` command (session
   and point are 1–16 characters of `[A-Za-z0-9_-]`), so the two datasets can be concatenated.
-- **Accelerometer.** `AccelerometerReader` (`CMMotionManager`, no permission prompt needed)
-  samples at 50 Hz and each row gets the most recent sample. The raw reading includes gravity, so
-  it tells how the phone was being held, which affects RSSI through antenna orientation and body
-  shadowing.
+- **Motion sensors.** Each row gets the latest attitude (`DeviceMotionReader`, 50 Hz), barometer
+  reading (`AltitudeReader`) and motion activity (`MotionActivityReader`, which asks for the
+  Motion & Fitness permission). Attitude tells how the phone was being held, which affects RSSI
+  through antenna orientation and body shadowing; the barometer separates floors; the activity
+  marks rows where the phone was not actually still.
+- **Uploaded to the API.** When a recording ends, its rows are also sent to `POST /fingerprints`
+  (the file is written either way).
 - **Model and system version are on every row**, so files from different phones can be
   concatenated and still tell apart radios that read RSSI differently.
 - **Getting the files off the phone:** share one from the list (AirDrop), use "Exportar todas",
@@ -267,9 +402,9 @@ extension, not something to fake by recording while moving.
 
 #### Collecting the same data on Android
 
-The Android app is to be regenerated after this one, and a model trained on data from both only
-holds if both collect the same way. The iOS collector is the reference; an Android collector has
-to produce the same CSV and JSON, with these platform differences handled:
+A model trained on data from both apps only holds if both collect the same way. The iOS collector
+is the reference; the Android collector (`applications/android/`, Fingerprint tab) writes the same CSV and JSON,
+with these platform differences handled:
 
 | What | iOS (reference) | Android equivalent |
 |---|---|---|
@@ -280,7 +415,8 @@ to produce the same CSV and JSON, with these platform differences handled:
 | `timestamp_ms` | Unix ms (`Date()`) | `System.currentTimeMillis()` |
 | `model` / `system_version` | `"iPhone15,2"` / `"iOS 26.0.1"` | `"<Build.MANUFACTURER> <Build.MODEL>"` / `"Android <Build.VERSION.RELEASE>"` |
 | Unavailable RSSI | 127, dropped | not expected; drop 127 anyway |
-| `accel_x/y/z` | CoreMotion, **g**, gravity included; lying still face up reads `z = -1` | `TYPE_ACCELEROMETER` is in **m/s² with the opposite sign** (face up reads `z = +9.81`): write `-value / 9.80665`. Same device axes, 50 Hz, latest sample per row |
+| `roll/pitch/yaw` | CoreMotion attitude, radians | rotation-vector sensor; axis conventions differ and are described in each recording's JSON (`AndroidOrientationReader`) |
+| `motion_state/confidence` | `CMMotionActivityManager`, confidence 0–2 | `ActivityRecognitionClient`; its confidence scale differs and is described in the JSON |
 | JSON `platform` / `scan_api` | `"iOS"` / CoreBluetooth | `"Android"` / a description of the scan settings above |
 | JSON `beacons` | copy of `AnchorStore.anchors` at the start of the recording, sorted by ID | the same structure, from the Android app's own anchor list |
 
@@ -306,8 +442,9 @@ TrackerApp/
       BeaconID.swift / BeaconProtocol.swift / BeaconSighting.swift
       BeaconAdvertiser.swift / BeaconAdvertising.swift       CBPeripheralManager (anchor role)
       BeaconScanner.swift / BeaconScanning.swift             CBCentralManager (observer role)
-      Point2D.swift / Anchor.swift / PathLossModel.swift
-      Multilateration.swift                                 N-anchor least-squares solver
+      Point2D.swift                                          Point2D, MapProjection, DecimalInput
+      Anchor.swift / PathLossModel.swift                     Path loss model, RSSIWindow, calibration
+      Multilateration.swift                                 N-anchor weighted least-squares solver
       AnchorStore.swift                                      User-configured anchor positions
       PositioningEngine.swift                                Sightings + anchors -> fix
       PositioningReporting.swift / PositioningAPIClient.swift  Positioning API client (Render)
@@ -322,7 +459,8 @@ TrackerApp/
     MainView.swift / TrackingView.swift
     Positioning/
       PositioningModeView.swift / AnchorBroadcastView.swift
-      ObserverView.swift / AnchorPositionEditor.swift
+      ObserverView.swift / AnchorPositionEditor.swift        Observer screen, live map, calibration
+      NavigateToLocationView.swift                           Walking back to a saved location
       ARAnchorCaptureView.swift / FingerprintCollectorView.swift
   Tests/TrackerAppTests/   XCTest — see below
 ```
@@ -337,14 +475,17 @@ Run via `Product > Test` in Xcode, or `xcodebuild test` from an environment with
 - `BLEHandshakeTests` — which side initiates the connection, oversized tokens. The CoreBluetooth
   exchange itself needs two real phones.
 - `UWBManagerTests` — ranging state updates, signal loss handling, azimuth/elevation math.
-- `PositioningTests` — `Multilateration` (exact/inconsistent/degenerate ranges, N > 3 anchors)
-  and `PathLossModel`, mirroring `btloc`'s `PositioningTest.kt` plus cases specific to this app's
-  N-anchor (not fixed-triangle) design.
+- `PositioningTests` — `Multilateration` (exact/inconsistent/degenerate ranges, N > 3 anchors,
+  weighting, order independence, equal RSSI from a square's corners giving its center, a beacon
+  read as touching holding the phone on it, the bench square end to end, the speed limit),
+  `PathLossModel` and the center-RSSI calibration, `RSSIWindow`, `PositioningEngine` (medians,
+  stale readings, beacons heard at different rates), `MapProjection`, `DecimalInput` (comma or
+  dot) and rendering the map. The Android app's `CalibratedPositioningTest` and
+  `DeviceListReducerTest` run the same cases.
 - `BeaconIDTests` — identity encoding/validation, and reading the ID from an advertisement (local
   name, Android's manufacturer data, which one wins).
 - `FingerprintRecorderTests` — label validation, the CSV row format (quoting, empty
-  acceleration), and the recorder against fake `BeaconScanning` and `AccelerometerReading`
-  implementations: only advertisements received while recording are written, a recording stops on
+  sensor fields), and the recorder against fake `BeaconScanning` and sensor implementations: only advertisements received while recording are written, a recording stops on
   its own when its time is up, cancelling discards the file, per-beacon counts and rates, the
   metadata JSON (window on both clocks, counts, the beacon positions copied when the recording
   started), the beacon-layout warnings, anchors saved before `height` existed still loading, how a
@@ -359,10 +500,10 @@ CLI if needed.
 
 The project builds with `SWIFT_STRICT_CONCURRENCY = complete`. Every `@Observable` manager
 (`ProximityTracker`, `BLEHandshake`, `UWBManager`, `BeaconAdvertiser`, `BeaconScanner`,
-`AnchorStore`, `PositioningEngine`, `ARPositionTracker`, `AccelerometerReader`,
+`AnchorStore`, `PositioningEngine`, `ARPositionTracker`, the motion sensor readers,
 `FingerprintRecorder`, `BluetoothPermissionMonitor`, and the `PositioningPreviewFakes`) and their
 matching protocols (`ProximityTracking`, `HandshakeChannel`, `UWBManaging`, `BeaconAdvertising`,
-`BeaconScanning`, `ARPositionTracking`, `AccelerometerReading`) are `@MainActor` — this is true in
+`BeaconScanning`, `ARPositionTracking` and the sensor reading protocols) are `@MainActor` — this is true in
 practice already (every delegate is registered with `queue: nil`, i.e. the main queue, and every
 `Timer` is scheduled from a main-actor context), so this just makes the compiler aware of it.
 Designated initializers referenced from an `EnvironmentKey`'s `defaultValue` (a non-isolated
@@ -397,15 +538,13 @@ against the iPhoneSimulator SDK comes back clean for every file that doesn't nee
   were carried over from a standalone prototype that did range between two iPhones; the glue
   around them (`ProximityTracker`, background/foreground handling) is new.
 - The fingerprinting collector is covered by unit tests only. The real scan rate, the
-  accelerometer and getting the files off the phone have not been tried on a device yet.
-- Android-side BLE protocol change (local name fallback in `AndroidBleScanner.kt`) needed for
-  iPhone anchors to be visible to Android observers.
-- Android-side ARCore work (anchor-position entry screen + capture, neither of which exists in
-  `btloc` today) needed for feature parity with this app's AR-assisted anchor placement.
-- `PathLossModel` constants need calibrating with real devices in the target environment.
-- Backend (Postgres + ingestion API + Grafana + heatmap web frontend) does not exist yet —
-  `PositioningAPIClient` has nothing real to talk to.
-- `ObserverView` shows the computed fix as plain x/y text; no visual (canvas/map) rendering yet.
+  motion sensors and getting the files off the phone have not been tried on a device yet.
+- The Android app has no AR anchor capture yet (anchors are typed in by hand there).
+- The path loss model is calibrated with one number for all beacons ("RSSI no centro"); boards
+  that read a few dB apart still pull the fix towards the weaker one. Per-beacon calibration is a
+  possible next step.
+- The API key in `PositioningAPIClient` is a placeholder; uploads fail until the real one is put in
+  locally.
 - `ARPositionTracker`'s ARKit calls were verified by typechecking against a real iOS SDK
   (`iphonesimulator`, target iOS 16), unlike the rest of this app which only got as far as
   `swiftc -parse` — still not run on-device.

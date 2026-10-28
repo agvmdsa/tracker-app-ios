@@ -10,6 +10,9 @@ esp32-esp8266/.pio/
 esp32-esp8266/.venv/
 esp32-esp8266/logs/
 
+# Python bytecode (from running the scripts' tests)
+__pycache__/
+
 # Xcode / Swift
 .build/
 DerivedData/

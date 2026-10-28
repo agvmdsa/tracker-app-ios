@@ -80,9 +80,10 @@ private fun ScanResult.toDeviceSighting(): DeviceSighting = DeviceSighting(
         address = this.device.address,
         name = scanRecord?.deviceName,
         // The address above is a rotating private address, so it is the id that decides
-        // which row this sighting belongs to.
-        id = BlueGuideProtocol.idFromBytes(
-            scanRecord?.getManufacturerSpecificData(BlueGuideProtocol.MANUFACTURER_ID)
+        // which row this sighting belongs to. The ESP32 beacons carry it in the local name.
+        id = BlueGuideProtocol.idFrom(
+            manufacturerData = scanRecord?.getManufacturerSpecificData(BlueGuideProtocol.MANUFACTURER_ID),
+            localName = scanRecord?.deviceName
         )
     ),
     rssi = rssi,
