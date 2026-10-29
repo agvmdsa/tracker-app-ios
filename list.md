@@ -179,12 +179,11 @@ Protegidos por testes de contrato (fase 0).
   metadados do Android saía **sem `schema_version`** (o kotlinx.serialization não grava valores
   padrão); corrigido com `encodeDefaults`. Gravações Android já feitas podem não ter o campo: o
   pipeline de ML deve ler a ausência como versão 1.
-- [ ] **Formatação (Spotless + ktlint)** — configurado (`build.gradle.kts` da raiz do Android,
-  `.editorconfig`), `spotlessCheck` no CI. Estilo `intellij_idea`, 140 colunas, regras de
-  assinatura desligadas (não juntar parâmetros numa linha). As regras ficam no Gradle
-  (`editorConfigOverride`): o ktlint do Spotless ignorou o `.editorconfig`. **Falta:** rodar
-  `./gradlew spotlessApply` (34 arquivos, ~350 linhas) num commit só de formatação, depois dos
-  commits da fase 0 — o CI falha até isso ser feito.
+- [x] ~~**Formatação (Spotless + ktlint)**~~ — feito: configurado (`build.gradle.kts` da raiz do
+  Android, `.editorconfig`), `spotlessCheck` no CI, código formatado num commit só de formatação.
+  Estilo `intellij_idea`, 140 colunas, regras de assinatura desligadas (não juntar parâmetros numa
+  linha). As regras ficam no Gradle (`editorConfigOverride`): o ktlint do Spotless ignorou o
+  `.editorconfig`.
 - [x] ~~**Android Lint** falhando o build~~ — feito: `warningsAsErrors` + `lint-baseline.xml` com os
   14 avisos e 1 dica atuais (recursos sem uso, etc.). Os avisos de "versão mais nova disponível"
   estão desligados: mudam sozinhos a cada lançamento de biblioteca (atualizar dependências é
@@ -212,11 +211,16 @@ backend, fase 6) e o scan duplicado (fase 1).
 
 #### Fase 1 — injeção de dependência e organização por feature
 
-- [ ] **Compatibilidade:** confirmar Hilt + KSP com o Kotlin embutido do AGP 9.4 e Kotlin 2.2.10.
-  Se não der, contêiner manual (`AppContainer` na `Application`) com os mesmos limites.
-- [ ] **Pacotes por feature** (só mover, commit isolado): `app/`, `core/{model,positioning,ble,
-  sensors,network,data}`, `feature/{positioning,fingerprint,find,ar}`. O `Secrets.kt` muda de
-  caminho: atualizar `SECRETS` no Makefile e o `.gitignore` no mesmo commit.
+- [x] ~~**Compatibilidade**~~ — confirmado: Hilt 2.60.1 + KSP 2.3.12 + `androidx.hilt` 1.4.0
+  funcionam com o Kotlin embutido do AGP 9.4 e Kotlin 2.2.10 (o Hilt gerou o componente e as
+  classes `Hilt_*` via KSP). O contêiner manual não é necessário.
+- [x] ~~**Pacotes por feature**~~ — feito, só movimentação: `core/{model,ble,ble/android,sensors,
+  sensors/android,dataset,positioning,network,network/http,data,data/prefs,ui,ui/theme}` e
+  `feature/{positioning,fingerprint,find,ar}/{ui,domain,data}`. `MainActivity` e
+  `BlueGuideApplication` ficam no pacote raiz (renomear a activity de entrada quebra atalhos já
+  fixados na tela inicial). `core` não importa `feature`, nenhuma feature importa outra, e os
+  pacotes puros de `core` não importam Android. O `Secrets.kt` foi para `core/network/http/`
+  (Makefile, `.gitignore` e CI atualizados).
 - [ ] **Base do Hilt:** `@HiltAndroidApp`, `@AndroidEntryPoint`, `hiltViewModel()`, qualificadores
   `@ApplicationScope` e `@IoDispatcher`.
 - [ ] **Módulos de DI** (`app/di/`): BLE, rede (um `HttpClient`), dados, sensores, sistema

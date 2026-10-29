@@ -36,7 +36,7 @@ jobs:
       # Secrets.kt is gitignored but compiled in; the placeholder from the example is enough to
       # build and test (nothing here talks to the real API) — same thing `make setup` does.
       - name: Secrets.kt from its example
-        run: cp app/src/main/java/br/org/cesar/blueguide/data/network/Secrets.kt.example app/src/main/java/br/org/cesar/blueguide/data/network/Secrets.kt
+        run: cp app/src/main/java/br/org/cesar/blueguide/core/network/http/Secrets.kt.example app/src/main/java/br/org/cesar/blueguide/core/network/http/Secrets.kt
 
       - name: Formatting, lint, unit tests and debug build
         run: ./gradlew --console=plain spotlessCheck lintDebug testDebugUnitTest assembleDebug

@@ -1,12 +1,12 @@
 package br.org.cesar.blueguide.contract
 
-import br.org.cesar.blueguide.domain.entity.DeviceId
-import br.org.cesar.blueguide.domain.position.AltitudeSample
-import br.org.cesar.blueguide.domain.position.DeviceMotionSample
-import br.org.cesar.blueguide.domain.position.FingerprintLabel
-import br.org.cesar.blueguide.domain.position.FingerprintRecord
-import br.org.cesar.blueguide.domain.position.MotionActivitySample
-import br.org.cesar.blueguide.domain.position.MotionActivityState
+import br.org.cesar.blueguide.core.dataset.FingerprintLabel
+import br.org.cesar.blueguide.core.dataset.FingerprintRecord
+import br.org.cesar.blueguide.core.model.DeviceId
+import br.org.cesar.blueguide.core.sensors.AltitudeSample
+import br.org.cesar.blueguide.core.sensors.DeviceMotionSample
+import br.org.cesar.blueguide.core.sensors.MotionActivitySample
+import br.org.cesar.blueguide.core.sensors.MotionActivityState
 import java.time.Instant
 
 /** The expected files under `src/test/resources/contracts/`. */

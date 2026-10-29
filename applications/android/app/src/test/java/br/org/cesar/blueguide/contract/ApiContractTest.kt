@@ -2,9 +2,9 @@ package br.org.cesar.blueguide.contract
 
 import br.org.cesar.blueguide.contract.ContractSamples.QUOTED_MODEL
 import br.org.cesar.blueguide.contract.ContractSamples.fingerprintRecord
-import br.org.cesar.blueguide.data.network.PositioningApiClient
-import br.org.cesar.blueguide.domain.network.ObserverFixReport
-import br.org.cesar.blueguide.domain.network.PositioningReport
+import br.org.cesar.blueguide.core.network.ObserverFixReport
+import br.org.cesar.blueguide.core.network.PositioningReport
+import br.org.cesar.blueguide.core.network.http.PositioningApiClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpHeaders

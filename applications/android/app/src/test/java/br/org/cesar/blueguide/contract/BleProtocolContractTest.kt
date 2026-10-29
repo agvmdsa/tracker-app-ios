@@ -1,7 +1,7 @@
 package br.org.cesar.blueguide.contract
 
-import br.org.cesar.blueguide.domain.ble.BlueGuideProtocol
-import br.org.cesar.blueguide.domain.entity.DeviceId
+import br.org.cesar.blueguide.core.ble.BlueGuideProtocol
+import br.org.cesar.blueguide.core.model.DeviceId
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Test

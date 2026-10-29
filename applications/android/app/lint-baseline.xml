@@ -29,7 +29,7 @@
         errorLine1="        dynamicColor &amp;&amp; Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {"
         errorLine2="                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/br/org/cesar/blueguide/ui/theme/Theme.kt"
+            file="src/main/java/br/org/cesar/blueguide/core/ui/theme/Theme.kt"
             line="44"
             column="25"/>
     </issue>
@@ -40,7 +40,7 @@
         errorLine1="    var minutes by remember { mutableStateOf(1) }"
         errorLine2="                              ~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/br/org/cesar/blueguide/presentation/fingerprint/FingerprintCollectorScreen.kt"
+            file="src/main/java/br/org/cesar/blueguide/feature/fingerprint/ui/FingerprintCollectorScreen.kt"
             line="57"
             column="31"/>
     </issue>

@@ -16,7 +16,7 @@ ACTIVITY := $(PACKAGE)/.MainActivity
 APK := app/build/outputs/apk/debug/app-debug.apk
 
 # A chave da API fica fora do Git; sem ela o app nao compila, entao parte do exemplo.
-SECRETS := app/src/main/java/br/org/cesar/blueguide/data/network/Secrets.kt
+SECRETS := app/src/main/java/br/org/cesar/blueguide/core/network/http/Secrets.kt
 
 # Celular a usar quando ha mais de um ligado (o numero de serie de `make devices`).
 # O adb e o Gradle leem ANDROID_SERIAL. Exemplo: make run DEVICE=R58N12ABCDE

@@ -2,9 +2,9 @@ package br.org.cesar.blueguide.contract
 
 import br.org.cesar.blueguide.contract.ContractSamples.QUOTED_MODEL
 import br.org.cesar.blueguide.contract.ContractSamples.fingerprintRecord
-import br.org.cesar.blueguide.domain.position.FingerprintRecordFormat
-import br.org.cesar.blueguide.domain.position.FingerprintRecordingMetadata
-import br.org.cesar.blueguide.domain.position.FingerprintRecordingMetadata.BeaconSnapshot
+import br.org.cesar.blueguide.core.dataset.FingerprintRecordFormat
+import br.org.cesar.blueguide.core.dataset.FingerprintRecordingMetadata
+import br.org.cesar.blueguide.core.dataset.FingerprintRecordingMetadata.BeaconSnapshot
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Test
