@@ -17,18 +17,23 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import br.org.cesar.blueguide.domain.position.DecimalInput
 import br.org.cesar.blueguide.R
 import br.org.cesar.blueguide.domain.position.FingerprintLabel
+import br.org.cesar.blueguide.domain.position.FingerprintRecorder
 import br.org.cesar.blueguide.domain.position.FingerprintRecorderState
 
 /**
@@ -50,6 +55,15 @@ fun FingerprintCollectorScreen(
     var xText by remember { mutableStateOf("") }
     var yText by remember { mutableStateOf("") }
     var minutes by remember { mutableStateOf(1) }
+
+    // iOS stops scanning in the background and Android throttles it with the screen off, so the
+    // screen stays on while recording, as in the iOS app.
+    val view = LocalView.current
+    DisposableEffect(state.isRecording) {
+        view.keepScreenOn = state.isRecording
+        onDispose { view.keepScreenOn = false }
+    }
+    val context = LocalContext.current
 
     val label = FingerprintLabel.of(session, point, DecimalInput.parse(xText) ?: Double.NaN, DecimalInput.parse(yText) ?: Double.NaN)
 
@@ -152,18 +166,34 @@ fun FingerprintCollectorScreen(
         if (state.recordings.isNotEmpty()) {
             item { HorizontalDivider(Modifier.padding(vertical = 16.dp)) }
             item {
-                Text(
-                    stringResource(R.string.fingerprint_recordings),
-                    style = MaterialTheme.typography.titleSmall,
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                )
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(stringResource(R.string.fingerprint_recordings), style = MaterialTheme.typography.titleSmall)
+                    TextButton(
+                        onClick = { FingerprintSharing.share(context, FingerprintRecorder.filesOf(state.recordings)) },
+                        enabled = !state.isRecording
+                    ) { Text(stringResource(R.string.fingerprint_export_all)) }
+                }
             }
             items(state.recordings, key = { it.path }) { recording ->
+                val complete = FingerprintRecorder.isComplete(recording)
                 ListItem(
                     headlineContent = { Text(recording.name) },
+                    // A CSV without its JSON was cut before the time was up: leave it out of the dataset.
+                    supportingContent = if (complete) null else {
+                        { Text(stringResource(R.string.fingerprint_incomplete), color = MaterialTheme.colorScheme.error) }
+                    },
                     trailingContent = {
-                        OutlinedButton(onClick = { onDeleteRecording(recording) }) {
-                            Text(stringResource(R.string.fingerprint_delete))
+                        Row {
+                            TextButton(onClick = { FingerprintSharing.share(context, FingerprintRecorder.filesOf(recording)) }) {
+                                Text(stringResource(R.string.fingerprint_share))
+                            }
+                            TextButton(onClick = { onDeleteRecording(recording) }) {
+                                Text(stringResource(R.string.fingerprint_delete))
+                            }
                         }
                     }
                 )

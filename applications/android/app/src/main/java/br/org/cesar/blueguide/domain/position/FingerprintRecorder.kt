@@ -336,6 +336,16 @@ class FingerprintRecorder(
 
         fun metadataFile(csv: File): File = File(csv.parentFile, csv.nameWithoutExtension + ".json")
 
+        /** The JSON is written only when a recording runs to the end: a CSV without it was cut
+         *  (the app was killed) and is left out of the dataset, as in the iOS app. */
+        fun isComplete(csv: File): Boolean = metadataFile(csv).exists()
+
+        /** What exporting a recording sends: its CSV and, when it finished, its JSON. */
+        fun filesOf(csv: File): List<File> = listOf(csv) + listOfNotNull(metadataFile(csv).takeIf { it.exists() })
+
+        /** What "Exportar todas" sends: every recording's files, oldest first. */
+        fun filesOf(recordings: List<File>): List<File> = recordings.sortedBy { it.name }.flatMap(::filesOf)
+
         /** Starts with the date so the files sort chronologically, e.g. `20261022-143005_S1_P3.csv`. */
         private fun fileName(label: FingerprintLabel, startedAt: Instant): String =
             "${FILE_NAME_FORMAT.format(startedAt)}_${label.session}_${label.point}.csv"

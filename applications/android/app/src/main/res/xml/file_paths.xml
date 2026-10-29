@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Only the fingerprint recordings can be shared (FingerprintSharing). -->
+<paths>
+    <files-path name="fingerprints" path="Fingerprints/" />
+</paths>

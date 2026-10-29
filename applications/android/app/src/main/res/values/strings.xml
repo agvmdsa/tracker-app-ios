@@ -39,4 +39,7 @@
     <string name="fingerprint_last_recording_empty">No beacons heard.</string>
     <string name="fingerprint_recordings">Saved recordings</string>
     <string name="fingerprint_delete">Delete</string>
+    <string name="fingerprint_share">Share</string>
+    <string name="fingerprint_export_all">Export all</string>
+    <string name="fingerprint_incomplete">Incomplete — discard (no JSON: cut before the time was up)</string>
 </resources>

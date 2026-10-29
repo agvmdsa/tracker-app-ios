@@ -82,6 +82,19 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Lets the share sheet hand the fingerprint recordings (CSV + JSON, in the app's
+             private files) to another app — Drive, e-mail, Nearby Share — without making
+             them public. See res/xml/file_paths.xml and FingerprintSharing. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
 
 </manifest>
