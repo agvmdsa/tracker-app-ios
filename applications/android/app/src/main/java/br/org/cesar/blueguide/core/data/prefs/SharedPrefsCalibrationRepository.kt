@@ -1,41 +1,47 @@
 package br.org.cesar.blueguide.core.data.prefs
 
 import android.content.Context
+import android.content.SharedPreferences
 import androidx.core.content.edit
 import br.org.cesar.blueguide.core.data.CalibrationRepository
+import br.org.cesar.blueguide.core.data.CalibrationSettings
+import br.org.cesar.blueguide.di.IoDispatcher
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
-/** The calibration settings in SharedPreferences, next to the anchors. */
-class SharedPrefsCalibrationRepository @Inject constructor(@ApplicationContext context: Context) : CalibrationRepository {
+/** The calibration settings in SharedPreferences, next to the anchors (and, like them, on [io]).
+ *  An unset field has no key, so it reads back as unset rather than as a default. */
+class SharedPrefsCalibrationRepository @Inject constructor(
+    @ApplicationContext context: Context,
+    @IoDispatcher private val io: CoroutineDispatcher
+) : CalibrationRepository {
 
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
-    override fun loadCenterRssi(): Double? = load(KEY_CENTER_RSSI)
+    override suspend fun load(): CalibrationSettings = withContext(io) {
+        CalibrationSettings(
+            centerRssi = prefs.double(KEY_CENTER_RSSI),
+            touchRssi = prefs.double(KEY_TOUCH_RSSI),
+            isSpeedLimited = if (prefs.contains(KEY_SPEED_LIMITED)) prefs.getBoolean(KEY_SPEED_LIMITED, true) else null,
+            maxSpeedKmh = prefs.double(KEY_MAX_SPEED_KMH)
+        )
+    }
 
-    override fun saveCenterRssi(rssi: Double) = save(KEY_CENTER_RSSI, rssi)
-
-    override fun loadTouchRssi(): Double? = load(KEY_TOUCH_RSSI)
-
-    override fun saveTouchRssi(rssi: Double) = save(KEY_TOUCH_RSSI, rssi)
-
-    override fun loadIsSpeedLimited(): Boolean? =
-        if (prefs.contains(KEY_SPEED_LIMITED)) prefs.getBoolean(KEY_SPEED_LIMITED, true) else null
-
-    override fun loadMaxSpeedKmh(): Double? = load(KEY_MAX_SPEED_KMH)
-
-    override fun saveSpeedLimit(isLimited: Boolean, kmh: Double) {
+    override suspend fun save(settings: CalibrationSettings) = withContext(io) {
         prefs.edit {
-            putBoolean(KEY_SPEED_LIMITED, isLimited)
-            putFloat(KEY_MAX_SPEED_KMH, kmh.toFloat())
+            putOrRemove(KEY_CENTER_RSSI, settings.centerRssi)
+            putOrRemove(KEY_TOUCH_RSSI, settings.touchRssi)
+            settings.isSpeedLimited?.let { putBoolean(KEY_SPEED_LIMITED, it) } ?: remove(KEY_SPEED_LIMITED)
+            putOrRemove(KEY_MAX_SPEED_KMH, settings.maxSpeedKmh)
         }
     }
 
-    private fun load(key: String): Double? =
-        if (prefs.contains(key)) prefs.getFloat(key, 0f).toDouble() else null
+    private fun SharedPreferences.double(key: String): Double? = if (contains(key)) getFloat(key, 0f).toDouble() else null
 
-    private fun save(key: String, rssi: Double) {
-        prefs.edit { putFloat(key, rssi.toFloat()) }
+    private fun SharedPreferences.Editor.putOrRemove(key: String, value: Double?) {
+        if (value != null) putFloat(key, value.toFloat()) else remove(key)
     }
 
     private companion object {

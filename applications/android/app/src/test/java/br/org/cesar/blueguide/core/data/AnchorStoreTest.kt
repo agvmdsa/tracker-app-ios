@@ -3,6 +3,7 @@ package br.org.cesar.blueguide.core.data
 import br.org.cesar.blueguide.core.model.Anchor
 import br.org.cesar.blueguide.core.model.DeviceId
 import br.org.cesar.blueguide.core.model.Point2D
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -10,57 +11,53 @@ import org.junit.Test
 
 private class FakeAnchorRepository(seed: List<Anchor> = emptyList()) : AnchorRepository {
     var saved: List<Anchor> = seed
-    override fun load(): List<Anchor> = saved
-    override fun save(anchors: List<Anchor>) {
+    var loads = 0
+    override suspend fun load(): List<Anchor> {
+        loads++
+        return saved
+    }
+    override suspend fun save(anchors: List<Anchor>) {
         saved = anchors
     }
 }
 
 class AnchorStoreTest {
 
+    private val a = Anchor(DeviceId("1A2B3C4D"), "A", Point2D(1.0, 1.0))
+
     @Test
-    fun `load reads whatever the repository has`() {
-        val repo = FakeAnchorRepository(listOf(Anchor(DeviceId("1A2B3C4D"), "A", Point2D(1.0, 1.0))))
+    fun `the list is empty until load reads the disk, which it does once`() = runTest {
+        val repo = FakeAnchorRepository(listOf(a))
         val store = AnchorStore(repo)
 
-        assertTrue("anchors must stay empty until load() runs", store.anchors.isEmpty())
+        assertTrue(store.anchors.value.isEmpty())
         store.load()
-        assertEquals(1, store.anchors.size)
+        store.load()
+
+        assertEquals(listOf(a), store.anchors.value)
+        assertEquals(1, repo.loads)
     }
 
     @Test
-    fun `adding an anchor without a label assigns the next free letter`() {
-        val store = AnchorStore(FakeAnchorRepository()).apply { load() }
+    fun `an update starts from the persisted list even before load, and is persisted`() = runTest {
+        val repo = FakeAnchorRepository(listOf(a))
+        val store = AnchorStore(repo)
+        val b = Anchor(DeviceId("3F8A1C04"), "B", Point2D(0.0, 0.0))
 
-        val first = store.addAnchor(DeviceId("1A2B3C4D"), label = null, position = Point2D(0.0, 0.0))
-        val second = store.addAnchor(DeviceId("3F8A1C04"), label = null, position = Point2D(1.0, 0.0))
+        store.update { it + b }
 
-        assertEquals("A", first.label)
-        assertEquals("B", second.label)
+        assertEquals(listOf(a, b), store.anchors.value)
+        assertEquals(listOf(a, b), repo.saved)
     }
 
     @Test
-    fun `adding the same id again replaces it instead of duplicating`() {
-        val store = AnchorStore(FakeAnchorRepository()).apply { load() }
-        val id = DeviceId("1A2B3C4D")
-
-        store.addAnchor(id, label = "A", position = Point2D(0.0, 0.0))
-        store.addAnchor(id, label = "A", position = Point2D(5.0, 5.0))
-
-        assertEquals(1, store.anchors.size)
-        assertEquals(Point2D(5.0, 5.0), store.anchor(id)?.position)
-    }
-
-    @Test
-    fun `removing an anchor drops it and persists`() {
-        val repo = FakeAnchorRepository()
+    fun `removing an anchor drops it and persists`() = runTest {
+        val repo = FakeAnchorRepository(listOf(a))
         val store = AnchorStore(repo).apply { load() }
-        val id = DeviceId("1A2B3C4D")
-        store.addAnchor(id, label = "A", position = Point2D(0.0, 0.0))
 
-        store.removeAnchor(id)
+        store.remove(a.id)
 
-        assertNull(store.anchor(id))
+        assertNull(store.anchor(a.id))
         assertTrue("the repository must see the removal too", repo.saved.isEmpty())
     }
 

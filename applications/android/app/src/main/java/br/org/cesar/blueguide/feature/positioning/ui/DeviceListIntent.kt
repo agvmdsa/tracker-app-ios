@@ -1,6 +1,7 @@
 package br.org.cesar.blueguide.feature.positioning.ui
 
 import br.org.cesar.blueguide.core.ble.BroadcastStatus
+import br.org.cesar.blueguide.core.data.CalibrationSettings
 import br.org.cesar.blueguide.core.model.Anchor
 import br.org.cesar.blueguide.core.model.DeviceId
 import br.org.cesar.blueguide.core.model.DeviceSighting
@@ -16,22 +17,16 @@ sealed interface DeviceListIntent {
         val advertiseGranted: Boolean
     ) : DeviceListIntent
 
-    /** Fired whenever `AnchorStore`'s list changes — load at startup, or after an edit. */
+    /** Fired whenever `AnchorStore`'s list changes — read at startup, or after an edit. */
     data class AnchorsChanged(val anchors: List<Anchor>) : DeviceListIntent
 
     /** Once a second while observing: range from the windows' medians and solve the fix.
      *  [nowMs] is on the sightings' clock (`SystemClock.elapsedRealtime`). */
     data class Refreshed(val nowMs: Long) : DeviceListIntent
 
-    /** The "RSSI no centro" setting, loaded from disk or changed on screen. */
-    data class CenterRssiChanged(val rssi: Double) : DeviceListIntent
-
-    /** The "RSSI encostado" setting, loaded from disk or changed on screen. */
-    data class TouchRssiChanged(val rssi: Double) : DeviceListIntent
-
-    /** The speed limit, loaded from disk or changed on screen; null turns it off (keeping the
-     *  speed for when it is turned on again). */
-    data class MaxSpeedChanged(val kmh: Double?) : DeviceListIntent
+    /** Fired whenever `CalibrationStore`'s settings change — read at startup, or edited on screen.
+     *  An unset field keeps the default. */
+    data class CalibrationChanged(val settings: CalibrationSettings) : DeviceListIntent
 
     /** Fired whenever `SavedLocationStore`'s list changes. */
     data class SavedLocationsChanged(val locations: List<SavedLocation>) : DeviceListIntent

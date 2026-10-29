@@ -2,18 +2,37 @@ package br.org.cesar.blueguide.core.data
 
 import br.org.cesar.blueguide.core.positioning.MotionLimit
 import br.org.cesar.blueguide.core.positioning.PathLossModel
+import kotlinx.coroutines.flow.StateFlow
 
-/** Keeps the "RSSI no centro", "RSSI encostado" and speed limit settings across launches, like the iOS app's
- *  `@AppStorage`. Null until the user sets one, which means [PathLossModel]'s default. */
+/**
+ * The "RSSI no centro", "RSSI encostado" and speed limit settings, kept across launches like the
+ * iOS app's `@AppStorage`. A null field was never set, which means [PathLossModel]'s or
+ * [MotionLimit]'s default.
+ */
+data class CalibrationSettings(
+    val centerRssi: Double? = null,
+    val touchRssi: Double? = null,
+    /** Unset means on. */
+    val isSpeedLimited: Boolean? = null,
+    /** What the limit is set to, kept while it is off; unset means [MotionLimit.DEFAULT_MAX_SPEED_KMH]. */
+    val maxSpeedKmh: Double? = null
+)
+
+/** Where [CalibrationSettings] are kept. Main-safe: implementations do their own I/O off the main thread. */
 interface CalibrationRepository {
-    fun loadCenterRssi(): Double?
-    fun saveCenterRssi(rssi: Double)
-    fun loadTouchRssi(): Double?
-    fun saveTouchRssi(rssi: Double)
+    suspend fun load(): CalibrationSettings
+    suspend fun save(settings: CalibrationSettings)
+}
 
-    /** The speed limit in km/h, null when turned off; [loadMaxSpeedKmh] alone is what it was set
-     *  to, kept while off. Unset means on, at [MotionLimit.DEFAULT_MAX_SPEED_KMH]. */
-    fun loadIsSpeedLimited(): Boolean?
-    fun loadMaxSpeedKmh(): Double?
-    fun saveSpeedLimit(isLimited: Boolean, kmh: Double)
+/** The calibration for the whole app: the Positioning screen edits it, and the fingerprint
+ *  recordings will carry it (refactoring plan, phase 3). */
+class CalibrationStore(repository: CalibrationRepository) {
+    private val persisted = PersistedValue(CalibrationSettings(), repository::load, repository::save)
+
+    /** All unset until [load] has read the disk. */
+    val settings: StateFlow<CalibrationSettings> = persisted.value
+
+    suspend fun load() = persisted.load()
+
+    suspend fun update(transform: (CalibrationSettings) -> CalibrationSettings) = persisted.update(transform)
 }

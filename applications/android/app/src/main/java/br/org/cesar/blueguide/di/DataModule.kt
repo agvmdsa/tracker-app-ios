@@ -3,9 +3,11 @@ package br.org.cesar.blueguide.di
 import br.org.cesar.blueguide.core.data.AnchorRepository
 import br.org.cesar.blueguide.core.data.AnchorStore
 import br.org.cesar.blueguide.core.data.CalibrationRepository
+import br.org.cesar.blueguide.core.data.CalibrationStore
 import br.org.cesar.blueguide.core.data.prefs.SharedPrefsAnchorRepository
 import br.org.cesar.blueguide.core.data.prefs.SharedPrefsCalibrationRepository
 import br.org.cesar.blueguide.feature.positioning.data.SharedPrefsSavedLocationRepository
+import br.org.cesar.blueguide.feature.positioning.domain.AddAnchorUseCase
 import br.org.cesar.blueguide.feature.positioning.domain.SavedLocationRepository
 import br.org.cesar.blueguide.feature.positioning.domain.SavedLocationStore
 import dagger.Binds
@@ -34,6 +36,13 @@ abstract class DataModule {
         @Provides
         @Singleton
         fun anchorStore(repository: AnchorRepository): AnchorStore = AnchorStore(repository)
+
+        @Provides
+        @Singleton
+        fun calibrationStore(repository: CalibrationRepository): CalibrationStore = CalibrationStore(repository)
+
+        @Provides
+        fun addAnchor(store: AnchorStore): AddAnchorUseCase = AddAnchorUseCase(store)
 
         @Provides
         @Singleton

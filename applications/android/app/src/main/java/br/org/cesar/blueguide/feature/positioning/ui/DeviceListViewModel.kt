@@ -8,7 +8,7 @@ import br.org.cesar.blueguide.core.ble.BleScanner
 import br.org.cesar.blueguide.core.ble.BroadcastStatus
 import br.org.cesar.blueguide.core.ble.LocalDeviceIdProvider
 import br.org.cesar.blueguide.core.data.AnchorStore
-import br.org.cesar.blueguide.core.data.CalibrationRepository
+import br.org.cesar.blueguide.core.data.CalibrationStore
 import br.org.cesar.blueguide.core.model.DeviceId
 import br.org.cesar.blueguide.core.model.Point2D
 import br.org.cesar.blueguide.core.network.ObserverFixReport
@@ -17,6 +17,7 @@ import br.org.cesar.blueguide.core.network.PositioningReporting
 import br.org.cesar.blueguide.core.system.DeviceInfo
 import br.org.cesar.blueguide.core.system.MonotonicClock
 import br.org.cesar.blueguide.di.IoDispatcher
+import br.org.cesar.blueguide.feature.positioning.domain.AddAnchorUseCase
 import br.org.cesar.blueguide.feature.positioning.domain.SavedLocationStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
@@ -42,7 +43,8 @@ class DeviceListViewModel @Inject constructor(
     private val advertiser: BleAdvertiser,
     private val localDeviceId: LocalDeviceIdProvider,
     private val anchorStore: AnchorStore,
-    private val calibrationRepository: CalibrationRepository,
+    private val calibrationStore: CalibrationStore,
+    private val addAnchorUseCase: AddAnchorUseCase,
     private val savedLocationStore: SavedLocationStore,
     /** Its model is sent with every report, as the iOS app's `deviceModel`. */
     private val deviceInfo: DeviceInfo,
@@ -64,27 +66,15 @@ class DeviceListViewModel @Inject constructor(
             dispatch(DeviceListIntent.LocalDeviceIdLoaded(id))
         }
 
+        // The stores are the source of truth: the screen shows whatever they hold, from the
+        // first read of the disk on, and every edit below goes through them.
+        viewModelScope.launch { anchorStore.anchors.collect { dispatch(DeviceListIntent.AnchorsChanged(it)) } }
+        viewModelScope.launch { savedLocationStore.locations.collect { dispatch(DeviceListIntent.SavedLocationsChanged(it)) } }
+        viewModelScope.launch { calibrationStore.settings.collect { dispatch(DeviceListIntent.CalibrationChanged(it)) } }
         viewModelScope.launch {
-            withContext(io) { anchorStore.load() }
-            dispatch(DeviceListIntent.AnchorsChanged(anchorStore.anchors))
-        }
-
-        viewModelScope.launch {
-            withContext(io) { savedLocationStore.load() }
-            dispatch(DeviceListIntent.SavedLocationsChanged(savedLocationStore.locations))
-        }
-
-        viewModelScope.launch {
-            val (center, touch) = withContext(io) {
-                calibrationRepository.loadCenterRssi() to calibrationRepository.loadTouchRssi()
-            }
-            center?.let { dispatch(DeviceListIntent.CenterRssiChanged(it)) }
-            touch?.let { dispatch(DeviceListIntent.TouchRssiChanged(it)) }
-            val (limited, kmh) = withContext(io) {
-                calibrationRepository.loadIsSpeedLimited() to calibrationRepository.loadMaxSpeedKmh()
-            }
-            kmh?.let { dispatch(DeviceListIntent.MaxSpeedChanged(it)) }
-            if (limited == false) dispatch(DeviceListIntent.MaxSpeedChanged(null))
+            anchorStore.load()
+            savedLocationStore.load()
+            calibrationStore.load()
         }
 
         viewModelScope.launch {
@@ -196,54 +186,38 @@ class DeviceListViewModel @Inject constructor(
         _state.update { current -> DeviceListReducer.reduce(current, intent) }
     }
 
-    /** Adds or edits an anchor, then republishes the list — used by the anchor editor dialog. */
+    /** Adds or edits an anchor — used by the anchor editor dialog. */
     fun addAnchor(id: DeviceId, label: String?, position: Point2D, height: Double?) {
-        viewModelScope.launch {
-            withContext(io) { anchorStore.addAnchor(id, label, position, height) }
-            dispatch(DeviceListIntent.AnchorsChanged(anchorStore.anchors))
-        }
+        viewModelScope.launch { addAnchorUseCase(id, label, position, height) }
+    }
+
+    fun removeAnchor(id: DeviceId) {
+        viewModelScope.launch { anchorStore.remove(id) }
     }
 
     /** The "RSSI no centro" setting: ranges again at once, and is kept for the next launch. */
     fun setCenterRssi(rssi: Double) {
-        dispatch(DeviceListIntent.CenterRssiChanged(rssi))
-        viewModelScope.launch(io) { calibrationRepository.saveCenterRssi(rssi) }
+        viewModelScope.launch { calibrationStore.update { it.copy(centerRssi = rssi) } }
     }
 
     /** The "RSSI encostado" setting: ranges again at once, and is kept for the next launch. */
     fun setTouchRssi(rssi: Double) {
-        dispatch(DeviceListIntent.TouchRssiChanged(rssi))
-        viewModelScope.launch(io) { calibrationRepository.saveTouchRssi(rssi) }
+        viewModelScope.launch { calibrationStore.update { it.copy(touchRssi = rssi) } }
+    }
+
+    /** "Limitar pela velocidade" and its speed, kept for the next launch. */
+    fun setSpeedLimit(isLimited: Boolean, kmh: Double) {
+        viewModelScope.launch { calibrationStore.update { it.copy(isSpeedLimited = isLimited, maxSpeedKmh = kmh) } }
     }
 
     /** Saves where the fix puts the phone now under [label] ("Salvar posição atual"). */
     fun saveCurrentLocation(label: String) {
         val position = state.value.observerFix?.position ?: return
-        viewModelScope.launch {
-            withContext(io) { savedLocationStore.save(label.trim().ifEmpty { "Local salvo" }, position) }
-            dispatch(DeviceListIntent.SavedLocationsChanged(savedLocationStore.locations))
-        }
+        viewModelScope.launch { savedLocationStore.save(label.trim().ifEmpty { "Local salvo" }, position) }
     }
 
     fun removeSavedLocation(id: String) {
-        viewModelScope.launch {
-            withContext(io) { savedLocationStore.remove(id) }
-            dispatch(DeviceListIntent.SavedLocationsChanged(savedLocationStore.locations))
-        }
-    }
-
-    /** "Limitar pela velocidade" and its speed, kept for the next launch. */
-    fun setSpeedLimit(isLimited: Boolean, kmh: Double) {
-        dispatch(DeviceListIntent.MaxSpeedChanged(kmh))
-        if (!isLimited) dispatch(DeviceListIntent.MaxSpeedChanged(null))
-        viewModelScope.launch(io) { calibrationRepository.saveSpeedLimit(isLimited, kmh) }
-    }
-
-    fun removeAnchor(id: DeviceId) {
-        viewModelScope.launch {
-            withContext(io) { anchorStore.removeAnchor(id) }
-            dispatch(DeviceListIntent.AnchorsChanged(anchorStore.anchors))
-        }
+        viewModelScope.launch { savedLocationStore.remove(id) }
     }
 
     private companion object {

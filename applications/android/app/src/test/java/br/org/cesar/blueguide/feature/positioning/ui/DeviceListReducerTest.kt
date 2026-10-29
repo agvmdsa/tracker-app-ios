@@ -1,5 +1,6 @@
 package br.org.cesar.blueguide.feature.positioning.ui
 
+import br.org.cesar.blueguide.core.data.CalibrationSettings
 import br.org.cesar.blueguide.core.model.Anchor
 import br.org.cesar.blueguide.core.model.BleDevice
 import br.org.cesar.blueguide.core.model.DeviceId
@@ -92,7 +93,10 @@ class DeviceListReducerTest {
 
     @Test
     fun `the center RSSI is read as the distance to the middle of the anchors`() {
-        var state = DeviceListReducer.reduce(observing(square), DeviceListIntent.CenterRssiChanged(-76.0))
+        var state = DeviceListReducer.reduce(
+            observing(square),
+            DeviceListIntent.CalibrationChanged(CalibrationSettings(centerRssi = -76.0))
+        )
         square.indices.forEach { index -> repeat(5) { state = state.hear(index, -76, NOW) } }
 
         state = state.refresh(NOW)
@@ -109,7 +113,7 @@ class DeviceListReducerTest {
         square.indices.forEach { index -> state = state.hear(index, -76, NOW) }
         state = state.refresh(NOW)
 
-        state = DeviceListReducer.reduce(state, DeviceListIntent.CenterRssiChanged(-76.0))
+        state = DeviceListReducer.reduce(state, DeviceListIntent.CalibrationChanged(CalibrationSettings(centerRssi = -76.0)))
 
         state.anchorRanges.forEach { assertEquals(2.5 / sqrt(2.0), it.distanceMeters, 1e-9) }
     }
@@ -117,8 +121,11 @@ class DeviceListReducerTest {
     /** The touching RSSI is read as the touching distance, with the center RSSI still the center's. */
     @Test
     fun `the touching RSSI is read as the touching distance`() {
-        var state = DeviceListReducer.reduce(observing(square), DeviceListIntent.CenterRssiChanged(-72.0))
-        state = DeviceListReducer.reduce(state, DeviceListIntent.TouchRssiChanged(-38.0))
+        var state = DeviceListReducer.reduce(
+            observing(square),
+            DeviceListIntent.CalibrationChanged(CalibrationSettings(centerRssi = -72.0))
+        )
+        state = DeviceListReducer.reduce(state, DeviceListIntent.CalibrationChanged(CalibrationSettings(touchRssi = -38.0)))
         repeat(5) { state = state.hear(0, -38, NOW) }
         (1..3).forEach { index -> repeat(5) { state = state.hear(index, -72, NOW) } }
 
@@ -171,7 +178,16 @@ class DeviceListReducerTest {
     fun `the speed limit moves the phone towards the new fix`() {
         val middle = Point2D(1.25, 1.25)
         for (limit in listOf(1.0, null)) {
-            var state = DeviceListReducer.reduce(observing(square), DeviceListIntent.MaxSpeedChanged(limit))
+            var state = DeviceListReducer.reduce(
+                observing(square),
+                DeviceListIntent.CalibrationChanged(
+                    CalibrationSettings(
+                        isSpeedLimited =
+                        limit != null,
+                        maxSpeedKmh = limit
+                    )
+                )
+            )
             square.indices.forEach { index -> repeat(5) { state = state.hear(index, -70, NOW) } }
             state = state.refresh(NOW)
             assertTrue(requireNotNull(state.observerFix).position.distanceTo(middle) < 1e-6)
@@ -194,14 +210,17 @@ class DeviceListReducerTest {
      *  shown before that refresh, not from the refresh's own result, so it can still move. */
     @Test
     fun `ranging again after a calibration change is limited from before the refresh`() {
-        var state = DeviceListReducer.reduce(observing(square), DeviceListIntent.MaxSpeedChanged(1.0))
+        var state = DeviceListReducer.reduce(
+            observing(square),
+            DeviceListIntent.CalibrationChanged(CalibrationSettings(isSpeedLimited = true, maxSpeedKmh = 1.0))
+        )
         square.indices.forEach { index -> repeat(5) { state = state.hear(index, -70, NOW) } }
         state = state.refresh(NOW)
         listOf(-30, -70, -70, -70).forEachIndexed { index, rssi -> repeat(5) { state = state.hear(index, rssi, NOW + 3_050) } }
         state = state.refresh(NOW + 3_100)
         val before = requireNotNull(state.observerFix).position
 
-        state = DeviceListReducer.reduce(state, DeviceListIntent.CenterRssiChanged(-71.0))
+        state = DeviceListReducer.reduce(state, DeviceListIntent.CalibrationChanged(CalibrationSettings(centerRssi = -71.0)))
 
         assertEquals(
             before.distanceTo(Point2D(1.25, 1.25)),

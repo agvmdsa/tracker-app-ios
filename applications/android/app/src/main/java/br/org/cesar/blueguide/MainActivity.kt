@@ -252,7 +252,6 @@ private fun FingerprintTab(
     val vm = hiltViewModel<FingerprintViewModel, FingerprintViewModel.Factory>(key = node.value) { factory ->
         factory.create(node.value)
     }
-    LaunchedEffect(Unit) { vm.refreshAnchors() }
     val recorderState by vm.state.collectAsStateWithLifecycle()
 
     FingerprintCollectorScreen(

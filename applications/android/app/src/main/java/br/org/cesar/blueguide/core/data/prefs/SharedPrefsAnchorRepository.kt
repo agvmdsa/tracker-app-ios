@@ -6,7 +6,10 @@ import br.org.cesar.blueguide.core.data.AnchorRepository
 import br.org.cesar.blueguide.core.model.Anchor
 import br.org.cesar.blueguide.core.model.DeviceId
 import br.org.cesar.blueguide.core.model.Point2D
+import br.org.cesar.blueguide.di.IoDispatcher
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
@@ -17,21 +20,25 @@ import javax.inject.Inject
  * choice as the iOS app's `AnchorStore` (`UserDefaults` + `JSONEncoder`).
  *
  * The DTO below is kept separate from the domain [Anchor] so the domain layer never needs
- * a `kotlinx.serialization` annotation, matching how [br.org.cesar.blueguide.domain.ble]
- * never mentions Android Bluetooth types.
+ * a `kotlinx.serialization` annotation, matching how [br.org.cesar.blueguide.core.ble]
+ * never mentions Android Bluetooth types. Reads and writes on [io], so it is safe to call from
+ * the main thread.
  */
-class SharedPrefsAnchorRepository @Inject constructor(@ApplicationContext context: Context) : AnchorRepository {
+class SharedPrefsAnchorRepository @Inject constructor(
+    @ApplicationContext context: Context,
+    @IoDispatcher private val io: CoroutineDispatcher
+) : AnchorRepository {
 
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
-    override fun load(): List<Anchor> {
-        val raw = prefs.getString(KEY_ANCHORS, null) ?: return emptyList()
-        return runCatching { Json.decodeFromString<List<AnchorDto>>(raw) }
+    override suspend fun load(): List<Anchor> = withContext(io) {
+        val raw = prefs.getString(KEY_ANCHORS, null) ?: return@withContext emptyList()
+        runCatching { Json.decodeFromString<List<AnchorDto>>(raw) }
             .getOrDefault(emptyList())
             .map { it.toAnchor() }
     }
 
-    override fun save(anchors: List<Anchor>) {
+    override suspend fun save(anchors: List<Anchor>) = withContext(io) {
         val raw = Json.encodeToString(anchors.map(AnchorDto::of))
         prefs.edit { putString(KEY_ANCHORS, raw) }
     }

@@ -2,8 +2,8 @@ package br.org.cesar.blueguide.core.data
 
 import br.org.cesar.blueguide.core.model.Anchor
 
-/** Where [AnchorStore] persists the anchor list. Same split as [br.org.cesar.blueguide.core.ble.LocalDeviceIdProvider]: a pure domain interface, an Android-backed implementation in `data`. */
+/** Where the anchors are kept. Main-safe: implementations do their own I/O off the main thread. */
 interface AnchorRepository {
-    fun load(): List<Anchor>
-    fun save(anchors: List<Anchor>)
+    suspend fun load(): List<Anchor>
+    suspend fun save(anchors: List<Anchor>)
 }

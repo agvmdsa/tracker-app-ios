@@ -96,12 +96,14 @@ object DeviceListReducer {
 
             is DeviceListIntent.Refreshed -> refreshed(state, intent.nowMs)
 
-            is DeviceListIntent.CenterRssiChanged -> rangedAgain(state.copy(centerRssi = intent.rssi))
-
-            is DeviceListIntent.TouchRssiChanged -> rangedAgain(state.copy(touchRssi = intent.rssi))
-
-            is DeviceListIntent.MaxSpeedChanged ->
-                state.copy(isSpeedLimited = intent.kmh != null, maxSpeedKmh = intent.kmh ?: state.maxSpeedKmh)
+            is DeviceListIntent.CalibrationChanged -> rangedAgain(
+                state.copy(
+                    centerRssi = intent.settings.centerRssi ?: state.centerRssi,
+                    touchRssi = intent.settings.touchRssi ?: state.touchRssi,
+                    isSpeedLimited = intent.settings.isSpeedLimited ?: state.isSpeedLimited,
+                    maxSpeedKmh = intent.settings.maxSpeedKmh ?: state.maxSpeedKmh
+                )
+            )
         }
 
     /** A new calibration ranges again at once, from the last refresh's windows. */

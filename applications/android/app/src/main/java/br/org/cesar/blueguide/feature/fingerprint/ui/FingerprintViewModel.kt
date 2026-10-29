@@ -60,7 +60,7 @@ class FingerprintViewModel @AssistedInject constructor(
         altimeter = altimeter,
         motionActivity = motionActivity,
         uploader = uploader,
-        anchors = { anchorStore.anchors },
+        anchors = { anchorStore.anchors.value },
         directory = directory,
         node = DeviceId(nodeId),
         model = deviceInfo.model,
@@ -76,16 +76,9 @@ class FingerprintViewModel @AssistedInject constructor(
 
     init {
         recorder.start()
-        refreshAnchors()
-    }
-
-    /**
-     * Makes sure the [AnchorStore] has been read from disk. It is the same one the Positioning
-     * tab edits, so anchors added there already show up here; the Positioning tab just
-     * usually gets to read it first.
-     */
-    fun refreshAnchors() {
-        viewModelScope.launch(io) { anchorStore.load() }
+        // Usually already read by the Positioning tab; it is the same store, so anchors edited
+        // there show up here at once.
+        viewModelScope.launch { anchorStore.load() }
     }
 
     fun startRecording(label: FingerprintLabel, durationSeconds: Double) = recorder.startRecording(label, durationSeconds)

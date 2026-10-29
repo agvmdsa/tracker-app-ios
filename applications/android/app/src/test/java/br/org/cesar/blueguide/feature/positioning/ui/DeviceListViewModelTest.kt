@@ -8,6 +8,8 @@ import br.org.cesar.blueguide.core.ble.LocalDeviceIdProvider
 import br.org.cesar.blueguide.core.data.AnchorRepository
 import br.org.cesar.blueguide.core.data.AnchorStore
 import br.org.cesar.blueguide.core.data.CalibrationRepository
+import br.org.cesar.blueguide.core.data.CalibrationSettings
+import br.org.cesar.blueguide.core.data.CalibrationStore
 import br.org.cesar.blueguide.core.model.Anchor
 import br.org.cesar.blueguide.core.model.BleDevice
 import br.org.cesar.blueguide.core.model.DeviceId
@@ -17,6 +19,8 @@ import br.org.cesar.blueguide.core.network.ObserverFixReport
 import br.org.cesar.blueguide.core.network.PositioningReport
 import br.org.cesar.blueguide.core.network.PositioningReporting
 import br.org.cesar.blueguide.core.system.DeviceInfo
+import br.org.cesar.blueguide.core.system.MonotonicClock
+import br.org.cesar.blueguide.feature.positioning.domain.AddAnchorUseCase
 import br.org.cesar.blueguide.feature.positioning.domain.SavedLocation
 import br.org.cesar.blueguide.feature.positioning.domain.SavedLocationRepository
 import br.org.cesar.blueguide.feature.positioning.domain.SavedLocationStore
@@ -35,6 +39,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -51,26 +56,23 @@ private object SilentAdvertiser : BleAdvertiser {
     override fun advertise(): Flow<BroadcastStatus> = emptyFlow()
 }
 
-private class InMemoryAnchors(private var anchors: List<Anchor>) : AnchorRepository {
-    override fun load() = anchors
-    override fun save(anchors: List<Anchor>) {
+private class InMemoryAnchors(var anchors: List<Anchor>) : AnchorRepository {
+    override suspend fun load() = anchors
+    override suspend fun save(anchors: List<Anchor>) {
         this.anchors = anchors
     }
 }
 
-private object NoCalibration : CalibrationRepository {
-    override fun loadCenterRssi(): Double? = null
-    override fun saveCenterRssi(rssi: Double) = Unit
-    override fun loadTouchRssi(): Double? = null
-    override fun saveTouchRssi(rssi: Double) = Unit
-    override fun loadIsSpeedLimited(): Boolean? = null
-    override fun loadMaxSpeedKmh(): Double? = null
-    override fun saveSpeedLimit(isLimited: Boolean, kmh: Double) = Unit
+private class InMemoryCalibration(var settings: CalibrationSettings = CalibrationSettings()) : CalibrationRepository {
+    override suspend fun load() = settings
+    override suspend fun save(settings: CalibrationSettings) {
+        this.settings = settings
+    }
 }
 
 private object NoSavedLocations : SavedLocationRepository {
-    override fun load(): List<SavedLocation> = emptyList()
-    override fun save(locations: List<SavedLocation>) = Unit
+    override suspend fun load(): List<SavedLocation> = emptyList()
+    override suspend fun save(locations: List<SavedLocation>) = Unit
 }
 
 private class RecordingReporter : PositioningReporting {
@@ -106,25 +108,34 @@ class DeviceListViewModelTest {
         Dispatchers.resetMain()
     }
 
+    private fun viewModel(
+        scanner: BleScanner = ChannelScanner(),
+        anchorStore: AnchorStore = AnchorStore(InMemoryAnchors(anchors)),
+        calibration: CalibrationStore = CalibrationStore(InMemoryCalibration()),
+        reporter: PositioningReporting = RecordingReporter(),
+        clock: MonotonicClock = MonotonicClock { 0L }
+    ) = DeviceListViewModel(
+        scanner = scanner,
+        advertiser = SilentAdvertiser,
+        localDeviceId = object : LocalDeviceIdProvider {
+            override fun current() = observer
+        },
+        anchorStore = anchorStore,
+        calibrationStore = calibration,
+        addAnchorUseCase = AddAnchorUseCase(anchorStore),
+        savedLocationStore = SavedLocationStore(NoSavedLocations),
+        deviceInfo = DeviceInfo(model = "Pixel 9", systemVersion = "15"),
+        clock = clock,
+        reporter = reporter,
+        io = dispatcher
+    )
+
     @Test
     fun `observing, each second it reports every anchor heard and the fix, with this phone's id and model`() = runTest(dispatcher) {
         val scanner = ChannelScanner()
         val reporter = RecordingReporter()
         var nowMs = 10_000L
-        val vm = DeviceListViewModel(
-            scanner = scanner,
-            advertiser = SilentAdvertiser,
-            localDeviceId = object : LocalDeviceIdProvider {
-                override fun current() = observer
-            },
-            anchorStore = AnchorStore(InMemoryAnchors(anchors)),
-            calibrationRepository = NoCalibration,
-            savedLocationStore = SavedLocationStore(NoSavedLocations),
-            deviceInfo = DeviceInfo(model = "Pixel 9", systemVersion = "15"),
-            clock = { nowMs },
-            reporter = reporter,
-            io = dispatcher
-        )
+        val vm = viewModel(scanner = scanner, reporter = reporter, clock = { nowMs })
         vm.dispatch(DeviceListIntent.PermissionsChanged(scanGranted = true, advertiseGranted = false))
         runCurrent() // loads the id and the anchors, and starts the scan and the 1 s loop
 
@@ -144,5 +155,28 @@ class DeviceListViewModelTest {
         assertEquals(3, fix.anchorCount)
 
         vm.viewModelScope.cancel() // the scan and the 1 s loop never end on their own
+    }
+
+    @Test
+    fun `the screen shows what the stores hold, the saved calibration and anchors added anywhere`() = runTest(dispatcher) {
+        val anchorStore = AnchorStore(InMemoryAnchors(emptyList()))
+        val calibration = CalibrationStore(InMemoryCalibration(CalibrationSettings(centerRssi = -75.0, isSpeedLimited = false)))
+        val vm = viewModel(anchorStore = anchorStore, calibration = calibration)
+        runCurrent()
+
+        assertEquals(-75.0, vm.state.value.centerRssi, 0.0)
+        assertFalse(vm.state.value.isSpeedLimited)
+
+        vm.addAnchor(anchors[0].id, label = null, position = Point2D(1.0, 2.0), height = null)
+        runCurrent()
+        assertEquals("the shared store, which the Fingerprint tab reads", "A", anchorStore.anchor(anchors[0].id)?.label)
+        assertEquals(listOf(anchors[0].id), vm.state.value.anchors.map { it.id })
+
+        vm.setCenterRssi(-68.0)
+        runCurrent()
+        assertEquals(-68.0, calibration.settings.value.centerRssi)
+        assertEquals(-68.0, vm.state.value.centerRssi, 0.0)
+
+        vm.viewModelScope.cancel()
     }
 }

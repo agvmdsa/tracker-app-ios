@@ -1,6 +1,8 @@
 package br.org.cesar.blueguide.feature.positioning.domain
 
+import br.org.cesar.blueguide.core.data.PersistedValue
 import br.org.cesar.blueguide.core.model.Point2D
+import kotlinx.coroutines.flow.StateFlow
 import java.util.UUID
 import kotlin.math.atan2
 
@@ -19,31 +21,29 @@ data class SavedLocation(
     }
 }
 
+/** Where the saved locations are kept. Main-safe: implementations do their own I/O off the
+ *  main thread. */
 interface SavedLocationRepository {
-    fun load(): List<SavedLocation>
-    fun save(locations: List<SavedLocation>)
+    suspend fun load(): List<SavedLocation>
+    suspend fun save(locations: List<SavedLocation>)
 }
 
 /** The saved locations, kept across launches — the counterpart of the iOS app's `SavedLocationStore`. */
-class SavedLocationStore(private val repository: SavedLocationRepository) {
+class SavedLocationStore(repository: SavedLocationRepository) {
+    private val persisted = PersistedValue(emptyList(), repository::load, repository::save)
 
-    /** Empty until [load] runs, which reads off disk, so call it off the main thread. */
-    var locations: List<SavedLocation> = emptyList()
-        private set
+    /** Empty until [load] has read the disk; in the order they were saved. */
+    val locations: StateFlow<List<SavedLocation>> = persisted.value
 
-    fun load() {
-        locations = repository.load()
-    }
+    suspend fun load() = persisted.load()
 
-    fun save(label: String, position: Point2D, savedAtMillis: Long = System.currentTimeMillis()): SavedLocation {
+    suspend fun save(label: String, position: Point2D, savedAtMillis: Long = System.currentTimeMillis()): SavedLocation {
         val location = SavedLocation(UUID.randomUUID().toString(), label, position, savedAtMillis)
-        locations = locations + location
-        repository.save(locations)
+        persisted.update { it + location }
         return location
     }
 
-    fun remove(id: String) {
-        locations = locations.filterNot { it.id == id }
-        repository.save(locations)
+    suspend fun remove(id: String) {
+        persisted.update { locations -> locations.filterNot { it.id == id } }
     }
 }

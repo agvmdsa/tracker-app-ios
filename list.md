@@ -239,8 +239,14 @@ backend, fase 6) e o scan duplicado (fase 1).
   por quê. **Diferença do plano:** não observa o Bluetooth sendo desligado no meio do scan (pede
   um `BroadcastReceiver`; fica para a fase 4, com o serviço). **Falta:** mostrar o `status` na
   tela (`TODO(3c)` no `DeviceListViewModel`).
-- [ ] **Repositórios com `Flow`** (beacons, calibração, locais salvos), ainda sobre
-  SharedPreferences. Rótulos A–Z viram `AddAnchorUseCase`. Some o `refreshAnchors()`.
+- [x] ~~**Repositórios com `Flow`**~~ — feito: `AnchorStore`, `CalibrationStore` e
+  `SavedLocationStore` expõem `StateFlow` e são a fonte única de verdade (o `DeviceListViewModel`
+  só mostra o que eles têm; a calibração entra na tela por uma intent só, `CalibrationChanged`).
+  Os três usam `core/data/PersistedValue` (cópia em memória, leitura única do disco, atualização
+  atômica com mutex). As interfaces de persistência viraram `suspend` e as implementações em
+  SharedPreferences fazem o I/O no despachante injetado — mesmas chaves, então o que já está
+  salvo nos aparelhos continua valendo. Rótulos A–Z viraram `AddAnchorUseCase` (escolhidos dentro
+  da atualização do store). Saiu o `refreshAnchors()`.
 - [x] ~~**ViewModels sem `Context`**~~ — feito (`@HiltViewModel`). As classes que recebem `scope` no
   construtor (UWB, AR) são criadas por fábricas simples (`create(scope)`: interface no domínio da
   feature, implementação em `data`) em vez de injeção assistida — o mesmo efeito com menos
@@ -253,7 +259,8 @@ backend, fase 6) e o scan duplicado (fase 1).
 
 Pronto quando: nenhum ViewModel recebe `Context`; uma instância de scanner, `HttpClient` e cada
 repositório; beacon cadastrado no Positioning aparece no Fingerprint sem recarregar; testes e CI
-passando.
+passando. **Fase 1 concluída** (136 testes JVM, lint e build passando localmente); falta só rodar
+no aparelho e o CI no GitHub, que roda depois do push.
 
 ## ESP32 / Embarcados (`esp32-esp8266`)
 
