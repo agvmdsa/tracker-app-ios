@@ -1,14 +1,10 @@
 package br.org.cesar.blueguide.core.model
 
-import br.org.cesar.blueguide.core.data.AnchorStore
-import br.org.cesar.blueguide.core.model.DeviceId
-import br.org.cesar.blueguide.core.positioning.Multilateration
-
 /**
  * One broadcaster, placed by hand at a known point on the floor — the counterpart of the
- * iOS app's `Anchor` (`AnchorStore`/`AnchorPositionEditor`). Unlike the old fixed triangle
- * ([AnchorStore] replaces [AnchorLayout]), there is no assumed count or shape: any three or
- * more anchors with a position are enough for [Multilateration] to produce a fix.
+ * iOS app's `Anchor` (`AnchorStore`/`AnchorPositionEditor`). There is no assumed count or
+ * shape: any three or more anchors with a position are enough for `Multilateration` to
+ * produce a fix.
  */
 data class Anchor(
     val id: DeviceId,

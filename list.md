@@ -262,6 +262,33 @@ repositório; beacon cadastrado no Positioning aparece no Fingerprint sem recarr
 passando. **Fase 1 concluída** (136 testes JVM, lint e build passando localmente); falta só rodar
 no aparelho e o CI no GitHub, que roda depois do push.
 
+#### Fase 2 — núcleo de posicionamento em Kotlin puro
+
+- [x] ~~**Módulos `:core:model` e `:core:positioning`**~~ — feito: Kotlin/JVM, sem Android (a regra de
+  dependência passa a ser garantida pelo build). `:core:model` tem `Point2D`, `DeviceId`, `Anchor`,
+  `BleDevice`, `DeviceSighting`; `:core:positioning` tem `PathLossModel`, `RssiWindow`,
+  `Multilateration`, `MotionLimit`. Mesmos pacotes, então nenhum import mudou; os testes foram
+  junto (os de `DecimalInput`, que é da UI, ficaram no app como `DecimalInputTest`). CI e
+  `make test` rodam também o `test` dos módulos. A configuração dos dois build files é repetida
+  (poucas linhas); um plugin de convenção (`build-logic`) fica para a fase 5, com mais módulos.
+- [ ] **`PositionEstimator`** — interface que coloca o celular a partir das distâncias de um
+  refresh. `Multilateration` é a implementação padrão, ligada pelo Hilt; é aqui que entra um
+  modelo treinado (correção do erro da multilateração, ou fingerprinting).
+- [ ] **`PositioningEngine`** — janelas de RSSI → distâncias e estatísticas → estimador → limite
+  de velocidade, fora do reducer e do estado da tela (a contraparte do `PositioningEngine` do
+  iOS). O ViewModel alimenta o motor com as leituras e o ciclo de 1 s; o reducer só guarda o
+  resultado. Os testes de posicionamento do reducer vão para o módulo com os mesmos números.
+- [ ] **Replay** — `PositioningReplay`: as leituras gravadas passam pelo mesmo motor, no mesmo
+  ritmo de 1 s do app. Teste: o ciclo do ViewModel e o replay dão as mesmas posições para as
+  mesmas leituras.
+
+Fora da fase 2: o programa que lê os `.csv`/`.json` gravados e escreve a posição e o erro de
+cada segundo (o dataset para o ML). Fica para a fase 3, junto com o formato das gravações e a
+calibração nos metadados — sem ela, cada replay teria que receber a calibração à mão.
+
+Pronto quando: `:core:positioning` não depende de Android; o ViewModel não calcula posição; trocar
+o estimador é trocar uma ligação do Hilt; o replay reproduz o app; testes e CI passando.
+
 ## ESP32 / Embarcados (`esp32-esp8266`)
 
 - [ ] **Usar pelo menos 1-2 sensores/atuadores do kit físico** (LED RGB, sensor ultrassônico,

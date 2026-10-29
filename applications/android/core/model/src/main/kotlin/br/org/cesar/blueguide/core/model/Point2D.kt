@@ -2,7 +2,7 @@ package br.org.cesar.blueguide.core.model
 
 import kotlin.math.hypot
 
-/** A point on the floor, in metres, in the frame [AnchorLayout] defines. */
+/** A point on the floor, in metres, in the frame the anchors' positions are entered in. */
 data class Point2D(val x: Double, val y: Double) {
     fun distanceTo(other: Point2D): Double = hypot(x - other.x, y - other.y)
 
