@@ -1,15 +1,16 @@
 package br.org.cesar.blueguide.feature.ar.ui
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import br.org.cesar.blueguide.core.model.Point2D
-import br.org.cesar.blueguide.feature.ar.data.AndroidArPositionTracker
+import br.org.cesar.blueguide.feature.ar.domain.ArPositionTrackerFactory
 import br.org.cesar.blueguide.feature.ar.domain.ArPositionTracking
 import br.org.cesar.blueguide.feature.ar.domain.ArTrackingState
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import javax.inject.Inject
 
 data class ArPositionSnapshot(
     val isTracking: Boolean = false,
@@ -23,9 +24,10 @@ data class ArPositionSnapshot(
  * [ArPositionTracking.onUpdate] is wired into a `StateFlow` here, since the tracker itself
  * is a plain polled object (see its doc comment) with nothing Compose can observe directly.
  */
-class ArPositionViewModel(appContext: Context) : ViewModel() {
+@HiltViewModel
+class ArPositionViewModel @Inject constructor(trackerFactory: ArPositionTrackerFactory) : ViewModel() {
 
-    private val tracker: ArPositionTracking = AndroidArPositionTracker(appContext, viewModelScope)
+    private val tracker: ArPositionTracking = trackerFactory.create(viewModelScope)
 
     private val _state = MutableStateFlow(ArPositionSnapshot())
     val state: StateFlow<ArPositionSnapshot> = _state.asStateFlow()

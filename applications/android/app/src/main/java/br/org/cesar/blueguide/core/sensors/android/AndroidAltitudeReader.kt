@@ -7,6 +7,8 @@ import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import br.org.cesar.blueguide.core.sensors.AltitudeReading
 import br.org.cesar.blueguide.core.sensors.AltitudeSample
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
 
 /**
  * [AltitudeReading] over `SensorManager`'s barometer — the counterpart of the iOS app's
@@ -15,7 +17,7 @@ import br.org.cesar.blueguide.core.sensors.AltitudeSample
  * computes the same international barometric formula given a reference pressure, so passing
  * the first reading of this session as `p0` reproduces that behaviour here.
  */
-class AndroidAltitudeReader(context: Context) : AltitudeReading, SensorEventListener {
+class AndroidAltitudeReader @Inject constructor(@ApplicationContext context: Context) : AltitudeReading, SensorEventListener {
 
     private val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
     private val pressureSensor = sensorManager.getDefaultSensor(Sensor.TYPE_PRESSURE)

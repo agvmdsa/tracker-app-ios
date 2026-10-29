@@ -14,9 +14,13 @@ import br.org.cesar.blueguide.core.model.Point2D
 import br.org.cesar.blueguide.core.network.ObserverFixReport
 import br.org.cesar.blueguide.core.network.PositioningReport
 import br.org.cesar.blueguide.core.network.PositioningReporting
+import br.org.cesar.blueguide.core.system.DeviceInfo
+import br.org.cesar.blueguide.core.system.MonotonicClock
+import br.org.cesar.blueguide.di.IoDispatcher
 import br.org.cesar.blueguide.feature.positioning.domain.SavedLocationStore
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,22 +33,24 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.Instant
+import javax.inject.Inject
 import kotlin.math.roundToInt
 
-class DeviceListViewModel(
+@HiltViewModel
+class DeviceListViewModel @Inject constructor(
     private val scanner: BleScanner,
     private val advertiser: BleAdvertiser,
     private val localDeviceId: LocalDeviceIdProvider,
     private val anchorStore: AnchorStore,
     private val calibrationRepository: CalibrationRepository,
     private val savedLocationStore: SavedLocationStore,
-    /** The phone model sent with every report, as the iOS app's `deviceModel`. */
-    private val deviceModel: String,
-    /** The sightings' clock (`SystemClock.elapsedRealtime`), injected so tests can drive it. */
-    private val nowMs: () -> Long,
-    /** Uploads sightings/fixes to the positioning API while observing. Optional, same as the
-     *  iOS app's `PositioningEngine` reporter — null just means "don't upload". */
-    private val reporter: PositioningReporting? = null
+    /** Its model is sent with every report, as the iOS app's `deviceModel`. */
+    private val deviceInfo: DeviceInfo,
+    /** The sightings' clock, injected so tests can drive it. */
+    private val clock: MonotonicClock,
+    /** Uploads sightings/fixes to the positioning API while observing. */
+    private val reporter: PositioningReporting,
+    @IoDispatcher private val io: CoroutineDispatcher
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(DeviceListState())
@@ -54,27 +60,27 @@ class DeviceListViewModel(
         viewModelScope.launch {
             // First read hits SharedPreferences, so keep it off the main thread. The
             // provider caches, which also warms the lookup the advertiser makes later.
-            val id = withContext(Dispatchers.IO) { localDeviceId.current() }
+            val id = withContext(io) { localDeviceId.current() }
             dispatch(DeviceListIntent.LocalDeviceIdLoaded(id))
         }
 
         viewModelScope.launch {
-            withContext(Dispatchers.IO) { anchorStore.load() }
+            withContext(io) { anchorStore.load() }
             dispatch(DeviceListIntent.AnchorsChanged(anchorStore.anchors))
         }
 
         viewModelScope.launch {
-            withContext(Dispatchers.IO) { savedLocationStore.load() }
+            withContext(io) { savedLocationStore.load() }
             dispatch(DeviceListIntent.SavedLocationsChanged(savedLocationStore.locations))
         }
 
         viewModelScope.launch {
-            val (center, touch) = withContext(Dispatchers.IO) {
+            val (center, touch) = withContext(io) {
                 calibrationRepository.loadCenterRssi() to calibrationRepository.loadTouchRssi()
             }
             center?.let { dispatch(DeviceListIntent.CenterRssiChanged(it)) }
             touch?.let { dispatch(DeviceListIntent.TouchRssiChanged(it)) }
-            val (limited, kmh) = withContext(Dispatchers.IO) {
+            val (limited, kmh) = withContext(io) {
                 calibrationRepository.loadIsSpeedLimited() to calibrationRepository.loadMaxSpeedKmh()
             }
             kmh?.let { dispatch(DeviceListIntent.MaxSpeedChanged(it)) }
@@ -119,8 +125,8 @@ class DeviceListViewModel(
     private suspend fun refreshPeriodically() {
         while (true) {
             delay(DeviceListReducer.REFRESH_INTERVAL_MS)
-            dispatch(DeviceListIntent.Refreshed(nowMs()))
-            reporter?.let { report(it, state.value) }
+            dispatch(DeviceListIntent.Refreshed(clock.nowMs()))
+            report(reporter, state.value)
         }
     }
 
@@ -138,7 +144,7 @@ class DeviceListViewModel(
                 seenAt = Instant.now(),
                 sampleCount = stats?.count ?: 0,
                 rssiStdDev = stats?.stdDev ?: 0.0,
-                deviceModel = deviceModel
+                deviceModel = deviceInfo.model
             )
         }
         runCatching { reporter.send(reports) }
@@ -193,7 +199,7 @@ class DeviceListViewModel(
     /** Adds or edits an anchor, then republishes the list — used by the anchor editor dialog. */
     fun addAnchor(id: DeviceId, label: String?, position: Point2D, height: Double?) {
         viewModelScope.launch {
-            withContext(Dispatchers.IO) { anchorStore.addAnchor(id, label, position, height) }
+            withContext(io) { anchorStore.addAnchor(id, label, position, height) }
             dispatch(DeviceListIntent.AnchorsChanged(anchorStore.anchors))
         }
     }
@@ -201,27 +207,27 @@ class DeviceListViewModel(
     /** The "RSSI no centro" setting: ranges again at once, and is kept for the next launch. */
     fun setCenterRssi(rssi: Double) {
         dispatch(DeviceListIntent.CenterRssiChanged(rssi))
-        viewModelScope.launch(Dispatchers.IO) { calibrationRepository.saveCenterRssi(rssi) }
+        viewModelScope.launch(io) { calibrationRepository.saveCenterRssi(rssi) }
     }
 
     /** The "RSSI encostado" setting: ranges again at once, and is kept for the next launch. */
     fun setTouchRssi(rssi: Double) {
         dispatch(DeviceListIntent.TouchRssiChanged(rssi))
-        viewModelScope.launch(Dispatchers.IO) { calibrationRepository.saveTouchRssi(rssi) }
+        viewModelScope.launch(io) { calibrationRepository.saveTouchRssi(rssi) }
     }
 
     /** Saves where the fix puts the phone now under [label] ("Salvar posição atual"). */
     fun saveCurrentLocation(label: String) {
         val position = state.value.observerFix?.position ?: return
         viewModelScope.launch {
-            withContext(Dispatchers.IO) { savedLocationStore.save(label.trim().ifEmpty { "Local salvo" }, position) }
+            withContext(io) { savedLocationStore.save(label.trim().ifEmpty { "Local salvo" }, position) }
             dispatch(DeviceListIntent.SavedLocationsChanged(savedLocationStore.locations))
         }
     }
 
     fun removeSavedLocation(id: String) {
         viewModelScope.launch {
-            withContext(Dispatchers.IO) { savedLocationStore.remove(id) }
+            withContext(io) { savedLocationStore.remove(id) }
             dispatch(DeviceListIntent.SavedLocationsChanged(savedLocationStore.locations))
         }
     }
@@ -230,12 +236,12 @@ class DeviceListViewModel(
     fun setSpeedLimit(isLimited: Boolean, kmh: Double) {
         dispatch(DeviceListIntent.MaxSpeedChanged(kmh))
         if (!isLimited) dispatch(DeviceListIntent.MaxSpeedChanged(null))
-        viewModelScope.launch(Dispatchers.IO) { calibrationRepository.saveSpeedLimit(isLimited, kmh) }
+        viewModelScope.launch(io) { calibrationRepository.saveSpeedLimit(isLimited, kmh) }
     }
 
     fun removeAnchor(id: DeviceId) {
         viewModelScope.launch {
-            withContext(Dispatchers.IO) { anchorStore.removeAnchor(id) }
+            withContext(io) { anchorStore.removeAnchor(id) }
             dispatch(DeviceListIntent.AnchorsChanged(anchorStore.anchors))
         }
     }

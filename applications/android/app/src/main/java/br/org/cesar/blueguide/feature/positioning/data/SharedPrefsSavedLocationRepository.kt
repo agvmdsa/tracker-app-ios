@@ -6,11 +6,13 @@ import br.org.cesar.blueguide.core.data.prefs.SharedPrefsAnchorRepository
 import br.org.cesar.blueguide.core.model.Point2D
 import br.org.cesar.blueguide.feature.positioning.domain.SavedLocation
 import br.org.cesar.blueguide.feature.positioning.domain.SavedLocationRepository
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import javax.inject.Inject
 
 /** [SavedLocation]s as JSON in SharedPreferences, the same way [SharedPrefsAnchorRepository] keeps anchors. */
-class SharedPrefsSavedLocationRepository(context: Context) : SavedLocationRepository {
+class SharedPrefsSavedLocationRepository @Inject constructor(@ApplicationContext context: Context) : SavedLocationRepository {
 
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 

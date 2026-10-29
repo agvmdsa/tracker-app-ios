@@ -29,6 +29,8 @@ import androidx.core.content.ContextCompat
 import br.org.cesar.blueguide.feature.find.domain.HandshakeChannel
 import br.org.cesar.blueguide.feature.find.domain.HandshakeState
 import br.org.cesar.blueguide.feature.find.domain.UwbHandshakeProtocol
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
 
 /**
  * [HandshakeChannel] over BLE GATT — the counterpart of the iOS app's `BLEHandshake`, adapted
@@ -43,7 +45,7 @@ import br.org.cesar.blueguide.feature.find.domain.UwbHandshakeProtocol
  * to pair in this environment) beyond the pure id-comparison and payload logic covered by
  * `UwbHandshakeProtocolTest`/`UwbHandshakePayloadTest` — see `list.md`.
  */
-class BleUwbHandshakeChannel(private val context: Context) : HandshakeChannel {
+class BleUwbHandshakeChannel @Inject constructor(@ApplicationContext private val context: Context) : HandshakeChannel {
 
     private val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
     private val handler = Handler(Looper.getMainLooper())

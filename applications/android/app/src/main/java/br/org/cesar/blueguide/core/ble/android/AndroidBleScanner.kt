@@ -16,11 +16,13 @@ import br.org.cesar.blueguide.core.ble.BleScanner
 import br.org.cesar.blueguide.core.ble.BlueGuideProtocol
 import br.org.cesar.blueguide.core.model.BleDevice
 import br.org.cesar.blueguide.core.model.DeviceSighting
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import javax.inject.Inject
 
-class AndroidBleScanner(private val context: Context) : BleScanner {
+class AndroidBleScanner @Inject constructor(@ApplicationContext private val context: Context) : BleScanner {
     private fun hasScanPermission(): Boolean =
         ContextCompat.checkSelfPermission(
             context,

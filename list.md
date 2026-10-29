@@ -221,19 +221,28 @@ backend, fase 6) e o scan duplicado (fase 1).
   fixados na tela inicial). `core` não importa `feature`, nenhuma feature importa outra, e os
   pacotes puros de `core` não importam Android. O `Secrets.kt` foi para `core/network/http/`
   (Makefile, `.gitignore` e CI atualizados).
-- [ ] **Base do Hilt:** `@HiltAndroidApp`, `@AndroidEntryPoint`, `hiltViewModel()`, qualificadores
-  `@ApplicationScope` e `@IoDispatcher`.
-- [ ] **Módulos de DI** (`app/di/`): BLE, rede (um `HttpClient`), dados, sensores, sistema
-  (`MonotonicClock`, `DeviceInfo`, `LocalDeviceIdProvider`), ligados às interfaces com `@Binds`.
+- [x] ~~**Base do Hilt**~~ — feito: `@HiltAndroidApp`, `@AndroidEntryPoint`, `hiltViewModel()` (de
+  `androidx.hilt:hilt-lifecycle-viewmodel-compose`), qualificadores `@IoDispatcher` e
+  `@RecordingsDirectory` (`di/Qualifiers.kt`). O `@ApplicationScope` entra com o scan compartilhado.
+- [x] ~~**Módulos de DI**~~ — feito, em `di/` (pacote raiz, a raiz de composição): `SystemModule`
+  (`MonotonicClock`, `DeviceInfo` em `core/system`, despachante de I/O), `BleModule`, `DataModule`
+  (um `AnchorStore` e um `SavedLocationStore` para o app todo), `NetworkModule` (um
+  `PositioningApiClient`, um `HttpClient`), `SensorsModule`, `FeatureModule`. O domínio continua
+  sem anotações de DI: classes puras são montadas com `@Provides`; só as implementações Android
+  têm `@Inject`.
 - [ ] **Um único scan compartilhado** (`SharedBleScanner`): erros viram eventos antes do `shareIn`;
   o fluxo observa permissão e estado do Bluetooth e reinicia o scan sozinho, com espera entre
   tentativas.
 - [ ] **Repositórios com `Flow`** (beacons, calibração, locais salvos), ainda sobre
   SharedPreferences. Rótulos A–Z viram `AddAnchorUseCase`. Some o `refreshAnchors()`.
-- [ ] **ViewModels sem `Context`** (`@HiltViewModel`); classes que recebem `scope` no construtor
-  ganham fábricas com injeção assistida (transição até a fase 4).
-- [ ] **Testes:** ViewModels com fakes; scan compartilhado (dois consumidores, um scan; falha vira
-  evento e reinicia).
+- [x] ~~**ViewModels sem `Context`**~~ — feito (`@HiltViewModel`). As classes que recebem `scope` no
+  construtor (UWB, AR) são criadas por fábricas simples (`create(scope)`: interface no domínio da
+  feature, implementação em `data`) em vez de injeção assistida — o mesmo efeito com menos
+  mágica. O `FingerprintViewModel` usa injeção assistida só para o id do aparelho (como `String`:
+  o código gerado pelo Dagger não lida com value classes do Kotlin).
+- [ ] **Testes:** ~~`DeviceListViewModel` com fakes~~ (feito: o ciclo de 1 s que calcula e envia
+  leituras e posição, com relógio e despachante de teste); scan compartilhado (dois consumidores,
+  um scan; falha vira evento e reinicia).
 
 Pronto quando: nenhum ViewModel recebe `Context`; uma instância de scanner, `HttpClient` e cada
 repositório; beacon cadastrado no Positioning aparece no Fingerprint sem recarregar; testes e CI

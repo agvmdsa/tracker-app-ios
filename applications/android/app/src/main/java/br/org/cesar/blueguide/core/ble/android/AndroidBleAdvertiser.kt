@@ -15,12 +15,14 @@ import br.org.cesar.blueguide.core.ble.BleAdvertiser
 import br.org.cesar.blueguide.core.ble.BlueGuideProtocol
 import br.org.cesar.blueguide.core.ble.BroadcastStatus
 import br.org.cesar.blueguide.core.ble.LocalDeviceIdProvider
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import javax.inject.Inject
 
-class AndroidBleAdvertiser(
-    private val context: Context,
+class AndroidBleAdvertiser @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val localDeviceId: LocalDeviceIdProvider
 ) : BleAdvertiser {
     private fun hasAdvertisePermission(): Boolean =

@@ -6,8 +6,10 @@ import br.org.cesar.blueguide.core.data.AnchorRepository
 import br.org.cesar.blueguide.core.model.Anchor
 import br.org.cesar.blueguide.core.model.DeviceId
 import br.org.cesar.blueguide.core.model.Point2D
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import javax.inject.Inject
 
 /**
  * Persists [Anchor]s as JSON in SharedPreferences — same storage class and granularity as
@@ -18,7 +20,7 @@ import kotlinx.serialization.json.Json
  * a `kotlinx.serialization` annotation, matching how [br.org.cesar.blueguide.domain.ble]
  * never mentions Android Bluetooth types.
  */
-class SharedPrefsAnchorRepository(context: Context) : AnchorRepository {
+class SharedPrefsAnchorRepository @Inject constructor(@ApplicationContext context: Context) : AnchorRepository {
 
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 

@@ -4,6 +4,8 @@ plugins {
     alias(libs.plugins.kotlin.compose) apply false
     alias(libs.plugins.kotlin.serialization) apply false
     alias(libs.plugins.spotless)
+    alias(libs.plugins.hilt) apply false
+    alias(libs.plugins.ksp) apply false
 }
 
 // Formatting, checked by `spotlessCheck` (CI) and fixed by `spotlessApply`. The ktlint rules are

@@ -2,7 +2,9 @@ package br.org.cesar.blueguide
 
 import android.app.Application
 import android.os.StrictMode
+import dagger.hilt.android.HiltAndroidApp
 
+@HiltAndroidApp
 class BlueGuideApplication : Application() {
 
     override fun onCreate() {

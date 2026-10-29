@@ -7,6 +7,8 @@ import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import br.org.cesar.blueguide.core.sensors.DeviceMotionReading
 import br.org.cesar.blueguide.core.sensors.DeviceMotionSample
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
 
 /**
  * [DeviceMotionReading] over `SensorManager`'s rotation-vector sensor — the counterpart of
@@ -21,7 +23,7 @@ import br.org.cesar.blueguide.core.sensors.DeviceMotionSample
  * not assume the other's agree on sign or zero point — the fingerprint recording's metadata
  * documents which convention a given file used.
  */
-class AndroidOrientationReader(context: Context) : DeviceMotionReading, SensorEventListener {
+class AndroidOrientationReader @Inject constructor(@ApplicationContext context: Context) : DeviceMotionReading, SensorEventListener {
 
     private val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
     private val rotationVectorSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)

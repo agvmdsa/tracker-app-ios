@@ -1,22 +1,26 @@
 package br.org.cesar.blueguide.feature.fingerprint.ui
 
-import android.content.Context
-import android.os.Build
-import android.os.SystemClock
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import br.org.cesar.blueguide.core.ble.android.AndroidBleScanner
+import br.org.cesar.blueguide.core.ble.BleScanner
 import br.org.cesar.blueguide.core.data.AnchorStore
-import br.org.cesar.blueguide.core.data.prefs.SharedPrefsAnchorRepository
 import br.org.cesar.blueguide.core.dataset.FingerprintLabel
 import br.org.cesar.blueguide.core.model.DeviceId
-import br.org.cesar.blueguide.core.network.http.PositioningApiClient
-import br.org.cesar.blueguide.core.sensors.android.AndroidAltitudeReader
-import br.org.cesar.blueguide.core.sensors.android.AndroidMotionActivityReader
-import br.org.cesar.blueguide.core.sensors.android.AndroidOrientationReader
+import br.org.cesar.blueguide.core.network.FingerprintUploading
+import br.org.cesar.blueguide.core.sensors.AltitudeReading
+import br.org.cesar.blueguide.core.sensors.DeviceMotionReading
+import br.org.cesar.blueguide.core.sensors.MotionActivityReading
+import br.org.cesar.blueguide.core.system.DeviceInfo
+import br.org.cesar.blueguide.core.system.MonotonicClock
+import br.org.cesar.blueguide.di.IoDispatcher
+import br.org.cesar.blueguide.di.RecordingsDirectory
 import br.org.cesar.blueguide.feature.fingerprint.domain.FingerprintRecorder
 import br.org.cesar.blueguide.feature.fingerprint.domain.FingerprintRecorderState
-import kotlinx.coroutines.Dispatchers
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedFactory
+import dagger.assisted.AssistedInject
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import java.io.File
@@ -28,29 +32,44 @@ import java.io.File
  * rebuilt on every configuration change; a `ViewModel` is retained by the framework across
  * those, same as `DeviceListViewModel` already relies on for the positioning screen.
  */
-class FingerprintViewModel(
-    appContext: Context,
-    node: DeviceId
+@HiltViewModel(assistedFactory = FingerprintViewModel.Factory::class)
+class FingerprintViewModel @AssistedInject constructor(
+    /** This install's id ([DeviceId.value]), the `node` of every row. A plain string: the Java
+     *  code Dagger generates doesn't handle Kotlin value classes as parameters. */
+    @Assisted nodeId: String,
+    scanner: BleScanner,
+    deviceMotion: DeviceMotionReading,
+    altimeter: AltitudeReading,
+    motionActivity: MotionActivityReading,
+    uploader: FingerprintUploading,
+    private val anchorStore: AnchorStore,
+    @RecordingsDirectory directory: File,
+    deviceInfo: DeviceInfo,
+    clock: MonotonicClock,
+    @IoDispatcher private val io: CoroutineDispatcher
 ) : ViewModel() {
 
-    private val anchorStore = AnchorStore(SharedPrefsAnchorRepository(appContext))
+    @AssistedFactory
+    interface Factory {
+        fun create(nodeId: String): FingerprintViewModel
+    }
 
     private val recorder = FingerprintRecorder(
-        scanner = AndroidBleScanner(appContext),
-        deviceMotion = AndroidOrientationReader(appContext),
-        altimeter = AndroidAltitudeReader(appContext),
-        motionActivity = AndroidMotionActivityReader(appContext),
-        uploader = PositioningApiClient(),
+        scanner = scanner,
+        deviceMotion = deviceMotion,
+        altimeter = altimeter,
+        motionActivity = motionActivity,
+        uploader = uploader,
         anchors = { anchorStore.anchors },
-        directory = File(appContext.filesDir, "Fingerprints"),
-        node = node,
-        model = Build.MODEL,
-        systemVersion = Build.VERSION.RELEASE,
+        directory = directory,
+        node = DeviceId(nodeId),
+        model = deviceInfo.model,
+        systemVersion = deviceInfo.systemVersion,
         // Its own thread rather than viewModelScope: the rows are written off the main thread,
         // and stop() in onCleared — when viewModelScope is already cancelled — can still
         // discard a recording left half-way.
-        dispatcher = Dispatchers.IO.limitedParallelism(1),
-        monotonicMs = { SystemClock.elapsedRealtime() }
+        dispatcher = io.limitedParallelism(1),
+        monotonicMs = clock::nowMs
     )
 
     val state: StateFlow<FingerprintRecorderState> = recorder.state
@@ -61,18 +80,15 @@ class FingerprintViewModel(
     }
 
     /**
-     * Re-reads [AnchorStore] from disk. This `ViewModel` keeps its own instance rather than
-     * sharing the positioning screen's (crossing `ViewModel`s would mean one holding a
-     * reference into the other's lifecycle, which is backwards), so an anchor added on the
-     * Positioning tab isn't picked up here until this runs — call it whenever the Fingerprint
-     * tab becomes visible.
+     * Makes sure the [AnchorStore] has been read from disk. It is the same one the Positioning
+     * tab edits, so anchors added there already show up here; the Positioning tab just
+     * usually gets to read it first.
      */
     fun refreshAnchors() {
-        viewModelScope.launch(Dispatchers.IO) { anchorStore.load() }
+        viewModelScope.launch(io) { anchorStore.load() }
     }
 
-    fun startRecording(label: FingerprintLabel, durationSeconds: Double) =
-        recorder.startRecording(label, durationSeconds)
+    fun startRecording(label: FingerprintLabel, durationSeconds: Double) = recorder.startRecording(label, durationSeconds)
 
     fun cancelRecording() = recorder.cancelRecording()
 

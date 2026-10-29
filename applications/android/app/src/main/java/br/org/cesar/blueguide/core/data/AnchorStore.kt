@@ -16,7 +16,9 @@ class AnchorStore(private val repository: AnchorRepository) {
     private val labels = ('A'..'Z').map { it.toString() }
 
     /** Empty until [load] runs. Construction itself must stay cheap — callers read off disk
-     *  explicitly (and off the main thread), same discipline as `LocalDeviceIdProvider`. */
+     *  explicitly (and off the main thread), same discipline as `LocalDeviceIdProvider`.
+     *  Volatile: one store serves the whole app, written and read from different threads. */
+    @Volatile
     var anchors: List<Anchor> = emptyList()
         private set
 

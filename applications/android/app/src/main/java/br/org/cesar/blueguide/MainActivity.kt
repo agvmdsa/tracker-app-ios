@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
@@ -67,6 +68,7 @@ import br.org.cesar.blueguide.feature.positioning.ui.DeviceListScreen
 import br.org.cesar.blueguide.feature.positioning.ui.DeviceListState
 import br.org.cesar.blueguide.feature.positioning.ui.DeviceListViewModel
 import br.org.cesar.blueguide.feature.positioning.ui.ModeSwitcher
+import dagger.hilt.android.AndroidEntryPoint
 
 /**
  * The four things this app does, side by side rather than nested under one mode switcher —
@@ -96,6 +98,7 @@ private object Routes {
     }
 }
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -103,29 +106,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             BlueGuideTheme {
-                // The ViewModel outlives this Activity across rotations, so it must
-                // not capture an Activity Context.
-                val appContext = LocalContext.current.applicationContext
-                val vm: DeviceListViewModel = viewModel(
-                    factory = viewModelFactory {
-                        initializer {
-                            // One instance, so the id is read off disk once and both the
-                            // advertisement and the on-screen badge show the same value.
-                            val localDeviceId = SharedPrefsLocalDeviceIdProvider(appContext)
-                            DeviceListViewModel(
-                                scanner = AndroidBleScanner(appContext),
-                                advertiser = AndroidBleAdvertiser(appContext, localDeviceId),
-                                localDeviceId = localDeviceId,
-                                anchorStore = AnchorStore(SharedPrefsAnchorRepository(appContext)),
-                                calibrationRepository = SharedPrefsCalibrationRepository(appContext),
-                                savedLocationStore = SavedLocationStore(SharedPrefsSavedLocationRepository(appContext)),
-                                deviceModel = Build.MODEL,
-                                nowMs = SystemClock::elapsedRealtime,
-                                reporter = PositioningApiClient()
-                            )
-                        }
-                    }
-                )
+                val vm: DeviceListViewModel = hiltViewModel()
                 val state by vm.state.collectAsStateWithLifecycle()
 
                 val scanGranted = rememberPermissionGranted(Manifest.permission.BLUETOOTH_SCAN)
@@ -228,13 +209,13 @@ class MainActivity : ComponentActivity() {
                         composable(Routes.FINGERPRINT) {
                             val localId = state.localDeviceId
                             if (localId != null) {
-                                FingerprintTab(appContext = appContext, node = localId)
+                                FingerprintTab(node = localId)
                             }
                         }
 
-                        composable(Routes.FIND) { FindDeviceTab(appContext = appContext) }
+                        composable(Routes.FIND) { FindDeviceTab() }
 
-                        composable(Routes.AR) { ArPositionTab(appContext = appContext) }
+                        composable(Routes.AR) { ArPositionTab() }
                     }
                 }
 
@@ -261,22 +242,16 @@ class MainActivity : ComponentActivity() {
 /**
  * The Fingerprint tab's content, backed by a [FingerprintViewModel] keyed on [node] — so it
  * (and the recording it may be running) survives a configuration change, the same guarantee
- * [DeviceListViewModel] already gives the Positioning tab. [FingerprintViewModel.refreshAnchors]
- * runs on every entry to this tab, since its own `AnchorStore` instance otherwise would not
- * notice an anchor added on the Positioning tab.
+ * [DeviceListViewModel] already gives the Positioning tab.
  */
 @Composable
 private fun FingerprintTab(
-    appContext: Context,
     node: DeviceId,
     modifier: Modifier = Modifier
 ) {
-    val vm: FingerprintViewModel = viewModel(
-        key = node.value,
-        factory = viewModelFactory {
-            initializer { FingerprintViewModel(appContext, node) }
-        }
-    )
+    val vm = hiltViewModel<FingerprintViewModel, FingerprintViewModel.Factory>(key = node.value) { factory ->
+        factory.create(node.value)
+    }
     LaunchedEffect(Unit) { vm.refreshAnchors() }
     val recorderState by vm.state.collectAsStateWithLifecycle()
 
@@ -295,12 +270,8 @@ private fun FingerprintTab(
  * identity, so there's no analogous "wait for localDeviceId" gate.
  */
 @Composable
-private fun FindDeviceTab(appContext: Context, modifier: Modifier = Modifier) {
-    val vm: FindDeviceViewModel = viewModel(
-        factory = viewModelFactory {
-            initializer { FindDeviceViewModel(appContext) }
-        }
-    )
+private fun FindDeviceTab(modifier: Modifier = Modifier) {
+    val vm: FindDeviceViewModel = hiltViewModel()
     val trackerState by vm.state.collectAsStateWithLifecycle()
 
     FindDeviceScreen(
@@ -315,12 +286,8 @@ private fun FindDeviceTab(appContext: Context, modifier: Modifier = Modifier) {
 /** The AR tab's content, backed by an [ArPositionViewModel] — same rotation-survival
  *  reasoning as [FingerprintTab]/[FindDeviceTab]. */
 @Composable
-private fun ArPositionTab(appContext: Context, modifier: Modifier = Modifier) {
-    val vm: ArPositionViewModel = viewModel(
-        factory = viewModelFactory {
-            initializer { ArPositionViewModel(appContext) }
-        }
-    )
+private fun ArPositionTab(modifier: Modifier = Modifier) {
+    val vm: ArPositionViewModel = hiltViewModel()
     val arState by vm.state.collectAsStateWithLifecycle()
 
     ArPositionScreen(

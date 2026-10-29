@@ -1,24 +1,29 @@
 package br.org.cesar.blueguide.feature.find.ui
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import br.org.cesar.blueguide.feature.find.data.AndroidUwbSessionController
-import br.org.cesar.blueguide.feature.find.data.BleUwbHandshakeChannel
+import br.org.cesar.blueguide.feature.find.domain.HandshakeChannel
 import br.org.cesar.blueguide.feature.find.domain.UwbProximityTracker
+import br.org.cesar.blueguide.feature.find.domain.UwbSessionControllerFactory
 import br.org.cesar.blueguide.feature.find.domain.UwbTrackerState
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.StateFlow
+import javax.inject.Inject
 
 /**
  * Owns the [UwbProximityTracker] at ViewModel scope — same rotation-survival reasoning as
  * [br.org.cesar.blueguide.feature.fingerprint.ui.FingerprintViewModel]. Counterpart of the
  * iOS app's `ProximityTracker` usage in `TrackingView`.
  */
-class FindDeviceViewModel(appContext: Context) : ViewModel() {
+@HiltViewModel
+class FindDeviceViewModel @Inject constructor(
+    uwbSessionControllerFactory: UwbSessionControllerFactory,
+    handshake: HandshakeChannel
+) : ViewModel() {
 
     private val tracker = UwbProximityTracker(
-        uwb = AndroidUwbSessionController(appContext, viewModelScope),
-        handshake = BleUwbHandshakeChannel(appContext),
+        uwb = uwbSessionControllerFactory.create(viewModelScope),
+        handshake = handshake,
         scope = viewModelScope
     )
 

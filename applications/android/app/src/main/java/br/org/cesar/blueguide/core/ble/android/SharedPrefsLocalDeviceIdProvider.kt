@@ -5,6 +5,9 @@ import androidx.core.content.edit
 import br.org.cesar.blueguide.core.ble.BlueGuideProtocol
 import br.org.cesar.blueguide.core.ble.LocalDeviceIdProvider
 import br.org.cesar.blueguide.core.model.DeviceId
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Keeps this install's [DeviceId] in SharedPreferences, generating it the first time it
@@ -12,8 +15,12 @@ import br.org.cesar.blueguide.core.model.DeviceId
  *
  * Uninstalling or clearing app data starts a new identity, which is the right
  * granularity: what the advertisement claims is "this install", not "this hardware".
+ *
+ * One for the whole app, so the id is read off disk once and the advertisement and the
+ * on-screen badge show the same value.
  */
-class SharedPrefsLocalDeviceIdProvider(context: Context) : LocalDeviceIdProvider {
+@Singleton
+class SharedPrefsLocalDeviceIdProvider @Inject constructor(@ApplicationContext context: Context) : LocalDeviceIdProvider {
 
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 

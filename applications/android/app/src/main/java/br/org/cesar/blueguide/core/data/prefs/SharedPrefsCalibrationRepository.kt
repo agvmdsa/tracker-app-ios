@@ -3,9 +3,11 @@ package br.org.cesar.blueguide.core.data.prefs
 import android.content.Context
 import androidx.core.content.edit
 import br.org.cesar.blueguide.core.data.CalibrationRepository
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
 
 /** The calibration settings in SharedPreferences, next to the anchors. */
-class SharedPrefsCalibrationRepository(context: Context) : CalibrationRepository {
+class SharedPrefsCalibrationRepository @Inject constructor(@ApplicationContext context: Context) : CalibrationRepository {
 
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 

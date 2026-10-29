@@ -12,6 +12,8 @@ import br.org.cesar.blueguide.core.sensors.MotionActivityState
 import com.google.android.gms.location.ActivityRecognition
 import com.google.android.gms.location.ActivityRecognitionResult
 import com.google.android.gms.location.DetectedActivity
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
 
 /**
  * [MotionActivityReading] over Google Play Services' `ActivityRecognitionClient` — the
@@ -25,7 +27,7 @@ import com.google.android.gms.location.DetectedActivity
  * one), since this class's own lifetime already matches when updates should flow — there is
  * nothing for a manifest receiver to wake the process up for here.
  */
-class AndroidMotionActivityReader(private val context: Context) : MotionActivityReading {
+class AndroidMotionActivityReader @Inject constructor(@ApplicationContext private val context: Context) : MotionActivityReading {
 
     private val client = ActivityRecognition.getClient(context)
     private var pendingIntent: PendingIntent? = null
