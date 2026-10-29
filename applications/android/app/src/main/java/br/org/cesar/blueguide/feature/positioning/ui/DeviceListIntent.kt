@@ -5,6 +5,7 @@ import br.org.cesar.blueguide.core.data.CalibrationSettings
 import br.org.cesar.blueguide.core.model.Anchor
 import br.org.cesar.blueguide.core.model.DeviceId
 import br.org.cesar.blueguide.core.model.DeviceSighting
+import br.org.cesar.blueguide.core.positioning.PositioningUpdate
 import br.org.cesar.blueguide.feature.positioning.domain.SavedLocation
 
 sealed interface DeviceListIntent {
@@ -20,12 +21,12 @@ sealed interface DeviceListIntent {
     /** Fired whenever `AnchorStore`'s list changes — read at startup, or after an edit. */
     data class AnchorsChanged(val anchors: List<Anchor>) : DeviceListIntent
 
-    /** Once a second while observing: range from the windows' medians and solve the fix.
-     *  [nowMs] is on the sightings' clock (`SystemClock.elapsedRealtime`). */
-    data class Refreshed(val nowMs: Long) : DeviceListIntent
+    /** Once a second while observing, and at once after a new calibration: what the positioning
+     *  engine worked out. */
+    data class PositioningUpdated(val update: PositioningUpdate) : DeviceListIntent
 
     /** Fired whenever `CalibrationStore`'s settings change — read at startup, or edited on screen.
-     *  An unset field keeps the default. */
+     *  An unset field keeps the default. The engine ranges again with them (the ViewModel). */
     data class CalibrationChanged(val settings: CalibrationSettings) : DeviceListIntent
 
     /** Fired whenever `SavedLocationStore`'s list changes. */

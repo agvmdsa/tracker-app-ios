@@ -271,13 +271,22 @@ no aparelho e o CI no GitHub, que roda depois do push.
   junto (os de `DecimalInput`, que é da UI, ficaram no app como `DecimalInputTest`). CI e
   `make test` rodam também o `test` dos módulos. A configuração dos dois build files é repetida
   (poucas linhas); um plugin de convenção (`build-logic`) fica para a fase 5, com mais módulos.
-- [ ] **`PositionEstimator`** — interface que coloca o celular a partir das distâncias de um
-  refresh. `Multilateration` é a implementação padrão, ligada pelo Hilt; é aqui que entra um
-  modelo treinado (correção do erro da multilateração, ou fingerprinting).
-- [ ] **`PositioningEngine`** — janelas de RSSI → distâncias e estatísticas → estimador → limite
-  de velocidade, fora do reducer e do estado da tela (a contraparte do `PositioningEngine` do
-  iOS). O ViewModel alimenta o motor com as leituras e o ciclo de 1 s; o reducer só guarda o
-  resultado. Os testes de posicionamento do reducer vão para o módulo com os mesmos números.
+- [x] ~~**`PositionEstimator`**~~ — feito: `fun interface` que coloca o celular a partir das
+  distâncias de um refresh; `Multilateration` a implementa e é a ligada pelo Hilt
+  (`di/PositioningModule`, uma linha). É aqui que entra um modelo treinado (correção do erro da
+  multilateração, ou fingerprinting: cada `AnchorRange` traz o RSSI mediano além da distância).
+  Cada chamada é independente; o limite de velocidade é aplicado depois, pelo motor.
+- [x] ~~**`PositioningEngine`**~~ — feito, em `:core:positioning`: janelas de RSSI → distâncias e
+  estatísticas → estimador → limite de velocidade, com `record`, `refresh`, `rangeAgain` (mesmo
+  instante, nova calibração) e `reset` — a contraparte do `PositioningEngine` do iOS, sem scanner
+  nem timer. `PositioningSetup` (âncoras, RSSI no centro/encostado, velocidade) diz com o que ele
+  calcula. O ViewModel é o dono: entrega cada leitura, roda o ciclo de 1 s, recalcula na hora
+  quando o setup muda e esquece tudo ao sair do modo observador. O reducer só guarda o que o motor
+  diz (`PositioningUpdated`); saíram do estado da tela as janelas, a última posição mostrada e as
+  estatísticas. Os testes de posicionamento do reducer foram para `PositioningEngineTest` com os
+  mesmos números, mais o estimador plugável, `reset` e troca de âncoras; os do ViewModel conferem
+  o recálculo na hora e o esquecimento (os dois pegam a falha quando a linha some do ViewModel).
+  **Diferença de antes:** trocar as âncoras também recalcula na hora (antes só a calibração).
 - [ ] **Replay** — `PositioningReplay`: as leituras gravadas passam pelo mesmo motor, no mesmo
   ritmo de 1 s do app. Teste: o ciclo do ViewModel e o replay dão as mesmas posições para as
   mesmas leituras.

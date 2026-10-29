@@ -18,6 +18,8 @@ import br.org.cesar.blueguide.core.model.Point2D
 import br.org.cesar.blueguide.core.network.ObserverFixReport
 import br.org.cesar.blueguide.core.network.PositioningReport
 import br.org.cesar.blueguide.core.network.PositioningReporting
+import br.org.cesar.blueguide.core.positioning.Multilateration
+import br.org.cesar.blueguide.core.positioning.PathLossModel
 import br.org.cesar.blueguide.core.system.DeviceInfo
 import br.org.cesar.blueguide.core.system.MonotonicClock
 import br.org.cesar.blueguide.feature.positioning.domain.AddAnchorUseCase
@@ -32,6 +34,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
@@ -40,9 +43,11 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import kotlin.math.abs
 
 private class ChannelScanner : BleScanner {
     private val channel = Channel<DeviceSighting>(Channel.UNLIMITED)
@@ -127,8 +132,18 @@ class DeviceListViewModelTest {
         deviceInfo = DeviceInfo(model = "Pixel 9", systemVersion = "15"),
         clock = clock,
         reporter = reporter,
+        estimator = Multilateration,
         io = dispatcher
     )
+
+    /** Observing, with every anchor heard at [rssi] and one refresh done. */
+    private fun TestScope.observingOneSecond(vm: DeviceListViewModel, scanner: ChannelScanner, rssi: Int, nowMs: Long) {
+        vm.dispatch(DeviceListIntent.PermissionsChanged(scanGranted = true, advertiseGranted = false))
+        runCurrent()
+        anchors.forEach { scanner.deliver(it.id, rssi, atMs = nowMs) }
+        advanceTimeBy(1_000)
+        runCurrent()
+    }
 
     @Test
     fun `observing, each second it reports every anchor heard and the fix, with this phone's id and model`() = runTest(dispatcher) {
@@ -176,6 +191,45 @@ class DeviceListViewModelTest {
         runCurrent()
         assertEquals(-68.0, calibration.settings.value.centerRssi)
         assertEquals(-68.0, vm.state.value.centerRssi, 0.0)
+
+        vm.viewModelScope.cancel()
+    }
+
+    /** "RSSI no centro" is what the phone reads in the middle of the anchors: taking the RSSI it
+     *  hears now ranges every anchor at their mean distance to the middle, without waiting for
+     *  the next refresh. */
+    @Test
+    fun `a new calibration ranges again at once, from the readings already heard`() = runTest(dispatcher) {
+        val scanner = ChannelScanner()
+        val vm = viewModel(scanner = scanner, clock = { 10_000L })
+        observingOneSecond(vm, scanner, rssi = -76, nowMs = 10_000L)
+        val middle = requireNotNull(PathLossModel.centerDistanceMeters(anchors.map { it.position }))
+        assertTrue(vm.state.value.anchorRanges.none { abs(it.distanceMeters - middle) < 1e-6 })
+
+        vm.setCenterRssi(-76.0)
+        runCurrent()
+
+        assertEquals(3, vm.state.value.anchorRanges.size)
+        vm.state.value.anchorRanges.forEach { assertEquals(middle, it.distanceMeters, 1e-9) }
+
+        vm.viewModelScope.cancel()
+    }
+
+    @Test
+    fun `leaving observer mode forgets what was heard`() = runTest(dispatcher) {
+        val scanner = ChannelScanner()
+        val vm = viewModel(scanner = scanner, clock = { 10_000L })
+        observingOneSecond(vm, scanner, rssi = -60, nowMs = 10_000L)
+        assertTrue(vm.state.value.observerFix != null)
+
+        vm.dispatch(DeviceListIntent.ModeSelected(AppMode.BROADCAST))
+        runCurrent()
+        vm.dispatch(DeviceListIntent.ModeSelected(AppMode.OBSERVER))
+        advanceTimeBy(1_000)
+        runCurrent()
+
+        assertTrue("the readings were still within the window", vm.state.value.anchorRanges.isEmpty())
+        assertNull(vm.state.value.observerFix)
 
         vm.viewModelScope.cancel()
     }

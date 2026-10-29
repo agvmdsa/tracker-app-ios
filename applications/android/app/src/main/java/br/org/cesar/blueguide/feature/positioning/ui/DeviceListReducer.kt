@@ -1,23 +1,8 @@
 package br.org.cesar.blueguide.feature.positioning.ui
 
-import br.org.cesar.blueguide.core.model.DeviceId
-import br.org.cesar.blueguide.core.positioning.AnchorRange
-import br.org.cesar.blueguide.core.positioning.MotionLimit
-import br.org.cesar.blueguide.core.positioning.Multilateration
-import br.org.cesar.blueguide.core.positioning.RssiWindow
-import kotlin.math.sqrt
-
+/** What the Positioning screen shows. The position itself is worked out by the
+ *  `PositioningEngine` the ViewModel feeds; this only keeps what it says. */
 object DeviceListReducer {
-
-    /** How long an advertisement counts toward a beacon's range. A longer window is steadier
-     *  but trails a walking phone (about half the window: 1.5 m at 1 m/s). Same as iOS. */
-    const val RSSI_WINDOW_MS = 3_000L
-
-    /** Room for 3 s of advertisements at up to 40 per second. */
-    const val RSSI_WINDOW_CAPACITY = 120
-
-    /** How often the ranges and the fix are worked out again, and the API reported to. */
-    const val REFRESH_INTERVAL_MS = 1_000L
 
     /** A device not heard for this long leaves the list, like the iOS scanner's `staleAfter`. */
     const val STALE_AFTER_MS = 5_000L
@@ -31,23 +16,10 @@ object DeviceListReducer {
                     state
                 } else {
                     val sighting = intent.sighting
-                    val id = sighting.device.id
-                    // Every advertisement of an anchor goes into its window, not just the
-                    // latest: the range comes from their median. Only anchors are kept, which
-                    // bounds the memory by the number of anchors however many devices pass by.
-                    val windows = if (id != null && state.anchors.any { it.id == id }) {
-                        val window = state.rssiWindows[id] ?: RssiWindow(RSSI_WINDOW_MS, RSSI_WINDOW_CAPACITY)
-                        state.rssiWindows + (id to window.plus(sighting.rssi, sighting.lastSeenAtMillis))
-                    } else {
-                        state.rssiWindows
-                    }
                     // Keying on the device key rather than the address is what stops one
                     // phone from growing a new row every time it rotates its address:
                     // the id stays put, so this replaces the row in place.
-                    state.copy(
-                        devicesByKey = state.devicesByKey + (sighting.device.key to sighting),
-                        rssiWindows = windows
-                    )
+                    state.copy(devicesByKey = state.devicesByKey + (sighting.device.key to sighting))
                 }
             }
 
@@ -60,15 +32,8 @@ object DeviceListReducer {
                     state.copy(
                         mode = intent.mode,
                         devicesByKey = emptyMap(),
-                        // Readings from a room we are no longer listening to would seed the
-                        // next observer session with stale ranges.
-                        rssiWindows = emptyMap(),
                         anchorRanges = emptyList(),
                         observerFix = null,
-                        sampleStats = emptyMap(),
-                        lastRefreshMs = null,
-                        lastShown = null,
-                        limitedFrom = null,
                         broadcastStatus = null
                     )
                 }
@@ -87,68 +52,28 @@ object DeviceListReducer {
                 advertiseGranted = intent.advertiseGranted
             )
 
-            is DeviceListIntent.AnchorsChanged -> {
-                val ids = intent.anchors.map { it.id }.toSet()
-                state.copy(anchors = intent.anchors, rssiWindows = state.rssiWindows.filterKeys { it in ids })
-            }
+            is DeviceListIntent.AnchorsChanged -> state.copy(anchors = intent.anchors)
 
             is DeviceListIntent.SavedLocationsChanged -> state.copy(savedLocations = intent.locations)
 
-            is DeviceListIntent.Refreshed -> refreshed(state, intent.nowMs)
+            is DeviceListIntent.PositioningUpdated ->
+                // An update computed just before a mode switch must not bring the fix back.
+                if (state.mode != AppMode.OBSERVER) {
+                    state
+                } else {
+                    val update = intent.update
+                    state.copy(
+                        devicesByKey = state.devicesByKey.filterValues { it.lastSeenAtMillis >= update.atMs - STALE_AFTER_MS },
+                        anchorRanges = update.ranges,
+                        observerFix = update.fix
+                    )
+                }
 
-            is DeviceListIntent.CalibrationChanged -> rangedAgain(
-                state.copy(
-                    centerRssi = intent.settings.centerRssi ?: state.centerRssi,
-                    touchRssi = intent.settings.touchRssi ?: state.touchRssi,
-                    isSpeedLimited = intent.settings.isSpeedLimited ?: state.isSpeedLimited,
-                    maxSpeedKmh = intent.settings.maxSpeedKmh ?: state.maxSpeedKmh
-                )
+            is DeviceListIntent.CalibrationChanged -> state.copy(
+                centerRssi = intent.settings.centerRssi ?: state.centerRssi,
+                touchRssi = intent.settings.touchRssi ?: state.touchRssi,
+                isSpeedLimited = intent.settings.isSpeedLimited ?: state.isSpeedLimited,
+                maxSpeedKmh = intent.settings.maxSpeedKmh ?: state.maxSpeedKmh
             )
         }
-
-    /** A new calibration ranges again at once, from the last refresh's windows. */
-    private fun rangedAgain(state: DeviceListState): DeviceListState =
-        state.lastRefreshMs?.let { refreshed(state, it) } ?: state
-
-    /** The counterpart of the iOS app's `PositioningEngine.refresh()`. */
-    private fun refreshed(state: DeviceListState, nowMs: Long): DeviceListState {
-        val calibration = state.calibration
-        val stats = mutableMapOf<DeviceId, SampleStats>()
-        val ranges = state.anchors.mapNotNull { anchor ->
-            // An anchor not heard within the window has no range this time.
-            val window = state.rssiWindows[anchor.id] ?: return@mapNotNull null
-            val median = window.median(nowMs) ?: return@mapNotNull null
-            val samples = window.samples(sinceMs = nowMs - REFRESH_INTERVAL_MS)
-            stats[anchor.id] = SampleStats(samples.size, standardDeviation(samples))
-            AnchorRange(anchor, calibration.distanceMeters(median), median)
-        }
-        // Ranging again at the same moment starts from where the last refresh started.
-        val from = if (nowMs == state.lastRefreshMs) state.limitedFrom else state.lastShown
-        val fix = Multilateration.solve(ranges)?.let { computed ->
-            val position = MotionLimit.limited(
-                from?.position,
-                computed.position,
-                state.speedLimitKmh,
-                from?.let { (nowMs - it.atMs) / 1_000.0 } ?: 0.0
-            )
-            computed.copy(position = position)
-        }
-        return state.copy(
-            devicesByKey = state.devicesByKey.filterValues { it.lastSeenAtMillis >= nowMs - STALE_AFTER_MS },
-            anchorRanges = ranges,
-            observerFix = fix,
-            sampleStats = stats,
-            lastRefreshMs = nowMs,
-            lastShown = fix?.let { TimedPosition(it.position, nowMs) } ?: from,
-            limitedFrom = from
-        )
-    }
-
-    /** Sample standard deviation (n-1 denominator). 0 when there are fewer than 2 samples to
-     *  compare, same as the iOS app. */
-    private fun standardDeviation(samples: List<Int>): Double {
-        if (samples.size < 2) return 0.0
-        val mean = samples.average()
-        return sqrt(samples.sumOf { (it - mean) * (it - mean) } / (samples.size - 1))
-    }
 }

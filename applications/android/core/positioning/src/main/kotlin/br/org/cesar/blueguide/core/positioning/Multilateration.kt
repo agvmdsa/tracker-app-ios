@@ -35,9 +35,9 @@ data class ObserverFix(
  * `Multilateration.swift`, so both platforms place an observer the same way. It starts from the
  * unweighted linear solution (which also rejects anchors that are in a line) and refines it by
  * Gauss-Newton, so no single anchor, and in particular not the first one in the list, decides
- * the result.
+ * the result. The app's [PositionEstimator].
  */
-object Multilateration {
+object Multilateration : PositionEstimator {
 
     private const val EPSILON = 1e-9
 
@@ -71,6 +71,8 @@ object Multilateration {
     }
 
     private fun sigma(distanceMeters: Double) = max(MINIMUM_SIGMA_METERS, RELATIVE_DISTANCE_ERROR * distanceMeters)
+
+    override fun estimate(ranges: List<AnchorRange>): ObserverFix? = solve(ranges)
 
     fun solve(readings: List<AnchorRange>): ObserverFix? {
         if (readings.size < 3) return null

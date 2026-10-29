@@ -14,6 +14,9 @@ import br.org.cesar.blueguide.core.model.Point2D
 import br.org.cesar.blueguide.core.network.ObserverFixReport
 import br.org.cesar.blueguide.core.network.PositioningReport
 import br.org.cesar.blueguide.core.network.PositioningReporting
+import br.org.cesar.blueguide.core.positioning.PositionEstimator
+import br.org.cesar.blueguide.core.positioning.PositioningEngine
+import br.org.cesar.blueguide.core.positioning.PositioningUpdate
 import br.org.cesar.blueguide.core.system.DeviceInfo
 import br.org.cesar.blueguide.core.system.MonotonicClock
 import br.org.cesar.blueguide.di.IoDispatcher
@@ -22,6 +25,7 @@ import br.org.cesar.blueguide.feature.positioning.domain.SavedLocationStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -52,11 +56,17 @@ class DeviceListViewModel @Inject constructor(
     private val clock: MonotonicClock,
     /** Uploads sightings/fixes to the positioning API while observing. */
     private val reporter: PositioningReporting,
+    /** How the phone is placed from the ranges; see `PositioningModule`. */
+    estimator: PositionEstimator,
     @IoDispatcher private val io: CoroutineDispatcher
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(DeviceListState())
     val state: StateFlow<DeviceListState> = _state.asStateFlow()
+
+    /** Only touched from the main thread: the sightings, the 1 s loop and the setup below are
+     *  all collected on viewModelScope. */
+    private val engine = PositioningEngine(estimator)
 
     init {
         viewModelScope.launch {
@@ -78,6 +88,19 @@ class DeviceListViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
+            // The engine ranges with the anchors and the calibration the screen shows. A change
+            // ranges again at once from the last refresh's readings, so a new "RSSI no centro"
+            // moves the phone without waiting for the next second.
+            state
+                .map { it.positioningSetup }
+                .distinctUntilChanged()
+                .collect { setup ->
+                    engine.setup = setup
+                    engine.rangeAgain()?.let { dispatch(DeviceListIntent.PositioningUpdated(it)) }
+                }
+        }
+
+        viewModelScope.launch {
             // The radio does one job at a time, and which job is itself part of the
             // state. collectLatest cancels the running mode before starting the next,
             // so a mode switch tears the old flow down (which stops the scan or the
@@ -91,41 +114,36 @@ class DeviceListViewModel @Inject constructor(
                 .collectLatest { (mode, permitted) ->
                     if (!permitted) return@collectLatest
                     when (mode) {
-                        AppMode.OBSERVER -> observe()
+                        AppMode.OBSERVER -> try {
+                            observe()
+                        } finally {
+                            // Readings from a room we are no longer listening to would seed the
+                            // next observer session with stale ranges.
+                            engine.reset()
+                        }
                         AppMode.BROADCAST -> broadcast()
                     }
                 }
         }
-
-        viewModelScope.launch {
-            // Separate from observe()'s collectLatest above so a flood of individual BLE
-            // scan callbacks doesn't turn into a flood of fixes and HTTP requests: once a
-            // second the ranges and the fix are worked out again from the windows' medians,
-            // and reported — same cadence as the iOS app's PositioningEngine.
-            state
-                .map { it.mode to it.isModePermitted }
-                .distinctUntilChanged()
-                .collectLatest { (mode, permitted) ->
-                    if (!permitted || mode != AppMode.OBSERVER) return@collectLatest
-                    refreshPeriodically()
-                }
-        }
     }
 
+    /** Once a second, not on every BLE callback, so a flood of advertisements doesn't turn into
+     *  a flood of fixes and HTTP requests — same cadence as the iOS app's PositioningEngine. */
     private suspend fun refreshPeriodically() {
         while (true) {
-            delay(DeviceListReducer.REFRESH_INTERVAL_MS)
-            dispatch(DeviceListIntent.Refreshed(clock.nowMs()))
-            report(reporter, state.value)
+            delay(PositioningEngine.REFRESH_INTERVAL_MS)
+            val update = engine.refresh(clock.nowMs())
+            dispatch(DeviceListIntent.PositioningUpdated(update))
+            report(update)
         }
     }
 
-    private suspend fun report(reporter: PositioningReporting, snapshot: DeviceListState) {
-        val observerID = snapshot.localDeviceId?.value ?: return
-        if (snapshot.anchorRanges.isEmpty()) return
+    private suspend fun report(update: PositioningUpdate) {
+        val observerID = state.value.localDeviceId?.value ?: return
+        if (update.ranges.isEmpty()) return
 
-        val reports = snapshot.anchorRanges.map { range ->
-            val stats = snapshot.sampleStats[range.anchor.id]
+        val reports = update.ranges.map { range ->
+            val stats = update.sampleStats[range.anchor.id]
             PositioningReport(
                 observerID = observerID,
                 anchorID = range.anchor.id.value,
@@ -140,21 +158,22 @@ class DeviceListViewModel @Inject constructor(
         runCatching { reporter.send(reports) }
             .onFailure { Log.w(TAG, "failed to report sightings", it) }
 
-        snapshot.observerFix?.let { fix ->
+        update.fix?.let { fix ->
             val fixReport = ObserverFixReport(
                 observerID = observerID,
                 x = fix.position.x,
                 y = fix.position.y,
                 uncertaintyMeters = fix.uncertaintyMeters,
                 recordedAt = Instant.now(),
-                anchorCount = snapshot.anchorRanges.size
+                anchorCount = update.ranges.size
             )
             runCatching { reporter.send(fixReport) }
                 .onFailure { Log.w(TAG, "failed to report fix", it) }
         }
     }
 
-    private suspend fun observe() {
+    private suspend fun observe() = coroutineScope {
+        launch { refreshPeriodically() }
         scanner.scan()
             // TODO(3c): show SharedBleScanner.status in DeviceListState instead of only logging.
             // Without a catch, a closed-with-exception flow (Bluetooth off, scan
@@ -165,6 +184,7 @@ class DeviceListViewModel @Inject constructor(
                 Log.w(TAG, "Scan stopped", cause)
             }
             .collect { sighting ->
+                sighting.device.id?.let { engine.record(it, sighting.rssi, sighting.lastSeenAtMillis) }
                 dispatch(DeviceListIntent.DeviceObserved(sighting))
             }
     }
