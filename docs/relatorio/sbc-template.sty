@@ -1,0 +1,67 @@
+% sbc-template.sty -- reprodução do estilo de artigos da Sociedade Brasileira de Computação (SBC),
+% usado nos eventos CSBC. Implementa as mesmas regras de formatação e a mesma interface de comandos
+% do arquivo oficial (\title, \author com \inst, \address, \email, ambientes abstract e resumo),
+% para que o .sty oficial (https://www.sbc.org.br, "Modelos para publicação de artigos") possa
+% substituir este arquivo sem mudar o relatorio.tex.
+%
+% Regras SBC: papel A4; margens superior 3,5 cm, inferior 2,5 cm, laterais 3,0 cm; Times 12 pt;
+% título 16 pt negrito centralizado; resumo/abstract em itálico, recuados 0,8 cm dos dois lados;
+% seções 13 pt negrito, subseções 12 pt negrito; recuo de 1,27 cm na primeira linha do parágrafo;
+% 6 pt de espaço após cada parágrafo; legendas 10 pt negrito, centralizadas.
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{sbc-template}[2026/10/26 Estilo SBC (reproducao)]
+
+\RequirePackage{times}
+\RequirePackage[a4paper,top=3.5cm,bottom=2.5cm,left=3cm,right=3cm,headheight=0pt,headsep=0pt,footskip=1.2cm]{geometry}
+\RequirePackage[font={small,bf},labelsep=period]{caption}
+
+% Parágrafos
+\setlength{\parindent}{1.27cm}
+\setlength{\parskip}{6pt}
+
+% Título, autores e afiliações
+\newcommand{\inst}[1]{\textsuperscript{#1}}
+\renewcommand{\@maketitle}{%
+  \begin{center}
+    {\fontsize{16}{20}\selectfont\bfseries \@title \par}
+    \vspace{12pt}
+    {\fontsize{12}{14}\selectfont\bfseries \@author \par}
+    \vspace{12pt}
+    {\fontsize{12}{14}\selectfont \@address \par}
+  \end{center}
+  \vspace{6pt}}
+\def\@address{}
+\newcommand{\address}[1]{\gdef\@address{#1}}
+\newcommand{\email}[1]{{\fontsize{10}{12}\selectfont\texttt{#1}}}
+\renewcommand{\maketitle}{\thispagestyle{empty}\@maketitle}
+
+% Abstract (inglês) e resumo (português): itálico, recuo de 0,8 cm dos dois lados
+\renewenvironment{abstract}{%
+  \begin{list}{}{\setlength{\leftmargin}{0.8cm}\setlength{\rightmargin}{0.8cm}%
+                 \setlength{\listparindent}{0pt}\setlength{\parsep}{6pt}}%
+  \item\relax\itshape \textbf{\textit{Abstract.}} \ignorespaces}%
+  {\end{list}}
+\newenvironment{resumo}{%
+  \begin{list}{}{\setlength{\leftmargin}{0.8cm}\setlength{\rightmargin}{0.8cm}%
+                 \setlength{\listparindent}{0pt}\setlength{\parsep}{6pt}}%
+  \item\relax\itshape \textbf{\textit{Resumo.}} \ignorespaces}%
+  {\end{list}}
+
+% Seções
+\renewcommand{\section}{\@startsection{section}{1}{0pt}{-12pt}{6pt}{\fontsize{13}{15}\selectfont\bfseries}}
+\renewcommand{\subsection}{\@startsection{subsection}{2}{0pt}{-12pt}{6pt}{\fontsize{12}{14}\selectfont\bfseries}}
+\renewcommand{\subsubsection}{\@startsection{subsubsection}{3}{0pt}{-6pt}{3pt}{\fontsize{12}{14}\selectfont\bfseries\itshape}}
+
+% Referências: título "Referências", itens alinhados à esquerda com recuo deslocado (estilo SBC)
+\renewenvironment{thebibliography}[1]{%
+  \section*{\refname}%
+  \list{}{\setlength{\leftmargin}{0.5cm}\setlength{\itemindent}{-0.5cm}%
+          \setlength{\itemsep}{6pt}\setlength{\parsep}{0pt}}%
+  \sloppy\clubpenalty4000\widowpenalty4000}%
+  {\endlist}
+\renewcommand{\@biblabel}[1]{}
+
+% Numeração de página centralizada no rodapé
+\pagestyle{plain}
+
+\endinput

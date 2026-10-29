@@ -20,3 +20,11 @@ xcuserdata/
 
 # macOS
 .DS_Store
+
+# LaTeX build output (docs/relatorio, schematics)
+*.aux
+*.log
+*.fls
+*.fdb_latexmk
+*.out
+*.synctex.gz

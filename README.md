@@ -17,8 +17,8 @@ applications/
   api/        FastAPI ingestion/positioning API + Postgres + Grafana (applications/api/README.md)
   web/        Next.js live floor-plan map, reads the API (applications/web/README.md)
 esp32-esp8266/  ESP32 beacon/collector firmware, PlatformIO (esp32-esp8266/USAGE.md)
-docs/           Technical report (CSBC/ABNT2 template) — not written yet
-schematics/     Circuit diagrams — not made yet
+docs/           Technical report (CSBC/SBC template, LaTeX + PDF) — docs/README.md
+schematics/     Circuit diagrams (ESP32 node: PDF/PNG + Wokwi diagram.json)
 scripts/        Dev utilities (e.g. advertising a Mac as a BLE anchor for testing)
 ```
 

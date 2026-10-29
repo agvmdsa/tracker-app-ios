@@ -1,0 +1,1242 @@
+% Relatório técnico — Sistemas Embarcados (CESAR School), modelo SBC (CSBC).
+% Compilar:  latexmk -pdf relatorio.tex      (ou: pdflatex relatorio && pdflatex relatorio)
+% Overleaf:  enviar só esta pasta (relatorio.tex + sbc-template.sty). Os códigos do apêndice e a
+%            figura do circuito estão embutidos neste arquivo; nada é lido de fora da pasta.
+%            Ao mudar um desses arquivos no repositório, atualizar a cópia aqui (cada listagem
+%            indica o arquivo de origem num comentário).
+%
+% Trechos marcados com \pendente{...} (em vermelho no PDF) dependem de medições/dados que só o
+% grupo tem. Procure por "\pendente" antes da entrega e substitua todos.
+\documentclass[12pt]{article}
+
+\usepackage{sbc-template}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[brazil]{babel}
+\usepackage{graphicx}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds,calc,shapes.geometric}
+\usepackage[hidelinks]{hyperref}
+
+\urlstyle{same}
+\sloppy
+
+% --------------------------------------------------------------------------------------------
+% Macros do relatório
+% --------------------------------------------------------------------------------------------
+\newcommand{\tema}{Computação} % tema oficial declarado (um dos 5 temas permitidos pela disciplina)
+\newcommand{\repo}{\url{https://github.com/agvmdsa/tracker-app-ios}}
+\newcommand{\pendente}[1]{\textcolor{red}{\textbf{[PENDENTE: #1]}}}
+\newcommand{\arq}[1]{\texttt{\detokenize{#1}}}
+
+% Listagens de código (apêndices). "literate" troca os caracteres UTF-8 dos comentários do código
+% (travessão, setas etc.), que o listings não aceita diretamente com pdflatex.
+\definecolor{cmt}{RGB}{90,110,90}
+\definecolor{kw}{RGB}{20,60,140}
+\definecolor{str}{RGB}{150,60,30}
+\lstset{
+  basicstyle=\ttfamily\scriptsize,
+  keywordstyle=\color{kw}\bfseries,
+  commentstyle=\color{cmt}\itshape,
+  stringstyle=\color{str},
+  numbers=left, numberstyle=\tiny\color{gray}, numbersep=6pt,
+  frame=single, rulecolor=\color{gray!50},
+  breaklines=true, breakatwhitespace=false, columns=fullflexible, keepspaces=true,
+  showstringspaces=false, tabsize=4, captionpos=t, xleftmargin=1.5em, framexleftmargin=1.5em,
+  extendedchars=true,
+  literate={—}{{---}}1 {–}{{--}}1 {→}{{$\rightarrow$}}1 {←}{{$\leftarrow$}}1 {…}{{...}}1
+           {≥}{{$\geq$}}1 {≤}{{$\leq$}}1 {á}{{\'a}}1 {à}{{\`a}}1 {ã}{{\~a}}1 {â}{{\^a}}1
+           {é}{{\'e}}1 {ê}{{\^e}}1 {í}{{\'i}}1 {ó}{{\'o}}1 {õ}{{\~o}}1 {ô}{{\^o}}1 {ú}{{\'u}}1
+           {ç}{{\c c}}1 {Ç}{{\c C}}1 {É}{{\'E}}1 {“}{{``}}1 {”}{{''}}1 {’}{{'}}1 {²}{{$^2$}}1
+}
+\lstdefinelanguage{Swift}{
+  morekeywords={import,struct,enum,class,let,var,func,return,guard,else,for,in,static,private,
+    if,nil,true,false,self,init,protocol,extension,where,throws,async,await},
+  sensitive=true, morecomment=[l]{//}, morecomment=[s]{/*}{*/}, morestring=[b]"
+}
+\lstdefinelanguage{yaml}{
+  morekeywords={true,false}, sensitive=false, morecomment=[l]{\#}, morestring=[b]", morestring=[b]'
+}
+\renewcommand{\lstlistingname}{Listagem}
+
+% --------------------------------------------------------------------------------------------
+\title{TrackerApp: Posicionamento \textit{Indoor} por BLE com Nós ESP32,
+Telemetria MQTT em Pilha Dupla IPv6/IPv4 e Painéis em Tempo Real}
+
+\author{Camila Cirne\inst{1}, Anderson Gabriel\inst{1}, Luís Filipe Macedo dos Santos\inst{1},\\
+\pendente{demais integrantes}\inst{1}}
+
+\address{\inst{1}CESAR School -- Recife, PE -- Brasil\\
+  \email{camilacirne@hotmail.com, lfms2@cesar.org.br}}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This report describes TrackerApp, an indoor positioning system built for the Embedded Systems
+course. Fixed ESP32 boards act as Bluetooth Low Energy (BLE) beacons, and a collector ESP32 or a
+smartphone measures their received signal strength (RSSI). A log-distance path loss model turns
+RSSI into distance, and least-squares multilateration over $N \geq 3$ anchors yields a 2D
+position. The collector publishes continuous telemetry over MQTT to an Eclipse Mosquitto broker
+using an IPv6-first connection with automatic IPv4 fallback, which detects an IPv6 infrastructure
+failure and recovers without rebooting the board. A FastAPI service stores the data in
+PostgreSQL, Grafana shows historical panels (peak hours, density, occupancy and dwell time), and a
+Next.js map shows live positions pushed through Server-Sent Events.
+\end{abstract}
+
+\begin{resumo}
+Este relatório descreve o TrackerApp, um sistema de posicionamento \textit{indoor} desenvolvido na
+disciplina de Sistemas Embarcados. Placas ESP32 fixas atuam como \textit{beacons} Bluetooth Low
+Energy (BLE), e um ESP32 coletor ou um \textit{smartphone} mede a intensidade do sinal recebido
+(RSSI). Um modelo log-distância de perda de percurso converte RSSI em distância, e a
+multilateração por mínimos quadrados sobre $N \geq 3$ âncoras fornece uma posição 2D. O coletor
+publica telemetria contínua via MQTT num \textit{broker} Eclipse Mosquitto, com conexão que tenta
+IPv6 primeiro e recai automaticamente para IPv4, detectando a falha da infraestrutura IPv6 e se
+recuperando sem reiniciar a placa. Um serviço FastAPI grava os dados em PostgreSQL, o Grafana
+exibe painéis históricos (horário de pico, densidade, ocupação e permanência) e um mapa em Next.js
+mostra as posições ao vivo, recebidas por \textit{Server-Sent Events}.
+\end{resumo}
+
+% ============================================================================================
+\section{Introdução}
+\label{sec:intro}
+
+Sistemas de navegação por satélite (GNSS) não funcionam bem dentro de edificações: o sinal chega
+atenuado e refletido, e o erro passa facilmente de dezenas de metros. Saber onde pessoas e objetos
+estão em ambientes internos --- salas de aula, laboratórios, corredores --- exige outra
+infraestrutura. Entre as alternativas (Wi-Fi, UWB, visão computacional, BLE), o Bluetooth Low
+Energy se destaca pelo baixo custo dos nós e pela presença em praticamente todo
+\textit{smartphone} \cite{zafari2019survey}.
+
+O \textbf{TrackerApp} explora essa alternativa com uma infraestrutura de baixo custo: placas
+ESP32 fixas anunciam um identificador BLE, e um observador (outro ESP32 ou um celular) mede o RSSI
+de cada uma, estima a distância e calcula a própria posição. Os dados seguem por MQTT e HTTP para
+um \textit{backend} que alimenta painéis em tempo real e históricos, e também formam um
+\textit{dataset} rotulado (\textit{fingerprinting}) para o treinamento posterior de modelos de
+aprendizado de máquina, abordagem que associa o vetor de RSSI medido num ponto à posição conhecida
+desse ponto \cite{bahl2000radar,faragher2015fingerprinting}.
+
+\textbf{Tema do projeto.} O projeto se enquadra no tema \textbf{\tema}, um dos cinco temas
+definidos pela disciplina: trata de computação ubíqua e Internet das Coisas aplicadas à
+localização em ambientes internos, à análise de ocupação de espaços e à coleta de dados para
+aprendizado de máquina.
+
+\textbf{Objetivos.} O objetivo geral é construir um sistema embarcado de ponta a ponta para
+posicionamento \textit{indoor}. Os objetivos específicos, alinhados aos requisitos da disciplina,
+são:
+\begin{enumerate}
+  \item desenvolver o \textit{firmware} do ESP32 nos papéis de \textit{beacon} e de coletor de
+    RSSI, com um protocolo de anúncio compartilhado com os aplicativos iOS e Android;
+  \item transmitir a telemetria do coletor por \textbf{MQTT} a um \textit{broker};
+  \item usar \textbf{IPv6} na comunicação, com detecção de falha da infraestrutura e retorno
+    automático para IPv4;
+  \item coletar e armazenar os dados (PostgreSQL) por meio de uma API;
+  \item exibir os dados em \textbf{painéis em tempo real} (mapa da planta e Grafana).
+\end{enumerate}
+
+O restante do relatório está organizado assim: a Seção~\ref{sec:fundamentacao} apresenta os
+conceitos usados; a Seção~\ref{sec:metodologia}, a arquitetura e as decisões de implementação; a
+Seção~\ref{sec:resultados}, os resultados obtidos; e a Seção~\ref{sec:conclusao}, as conclusões e
+os trabalhos futuros. Os principais códigos estão nos apêndices.
+
+% ============================================================================================
+\section{Fundamentação Teórica}
+\label{sec:fundamentacao}
+
+\subsection{Bluetooth Low Energy e RSSI}
+No BLE, um dispositivo pode apenas anunciar pacotes periódicos (\textit{advertising}) sem
+estabelecer conexão. No anúncio legado, a carga útil é limitada a 31 bytes
+\cite{bluetooth2023core}. Todo receptor que escuta um anúncio obtém o \textit{Received Signal
+Strength Indicator} (RSSI), em dBm, que diminui com a distância, mas também varia com obstáculos,
+reflexões, orientação da antena e o corpo de quem segura o aparelho.
+
+\subsection{Modelo log-distância de perda de percurso}
+A relação entre RSSI e distância é aproximada pelo modelo log-distância \cite{rappaport2002}:
+\begin{equation}
+  \mathrm{RSSI}(d) = \mathrm{RSSI}_0 - 10\,n\,\log_{10}\!\left(\frac{d}{d_0}\right)
+  \quad\Longrightarrow\quad
+  d = d_0 \cdot 10^{\frac{\mathrm{RSSI}_0 - \mathrm{RSSI}}{10\,n}},
+  \label{eq:pathloss}
+\end{equation}
+em que $\mathrm{RSSI}_0$ é o RSSI medido à distância de referência $d_0 = 1$\,m e $n$ é o expoente
+de perda (2 no espaço livre; tipicamente entre 2 e 4 em ambientes internos). O projeto usa
+$\mathrm{RSSI}_0 = -59$\,dBm e $n = 2{,}0$ como valores nominais, ainda a calibrar no ambiente
+real. Para reduzir o ruído, o RSSI de cada âncora passa por suavização exponencial
+($\alpha = 0{,}15$) antes da conversão.
+
+\subsection{Multilateração por mínimos quadrados}
+Dadas $N$ âncoras em posições conhecidas $(x_i, y_i)$ e distâncias estimadas $d_i$, a posição
+$(x, y)$ satisfaz $(x-x_i)^2 + (y-y_i)^2 = d_i^2$. Subtraindo a equação da primeira âncora das
+demais, obtém-se um sistema linear $A\,\mathbf{p} = \mathbf{b}$, com $\mathbf{p} = (x, y)^T$ e,
+para $i = 2, \ldots, N$:
+\begin{equation}
+  A_i = \big[\,2(x_i - x_1),\; 2(y_i - y_1)\,\big], \qquad
+  b_i = d_1^2 - d_i^2 + x_i^2 - x_1^2 + y_i^2 - y_1^2 .
+\end{equation}
+Com $N \geq 3$ âncoras não colineares, a solução por mínimos quadrados é
+$\mathbf{p} = (A^TA)^{-1}A^T\mathbf{b}$. Para $N = 3$ ela coincide com a trilateração em forma
+fechada. A incerteza reportada é o erro quadrático médio entre as distâncias medidas e as
+distâncias da posição calculada a cada âncora.
+
+\subsection{MQTT}
+O MQTT é um protocolo de mensagens \textit{publish/subscribe} sobre TCP, padronizado pela OASIS
+\cite{mqtt311}. Clientes publicam mensagens em tópicos hierárquicos (por exemplo,
+\texttt{tracker/A1B2C3/sightings}), e um \textit{broker} as entrega a quem assinou o tópico,
+inclusive com curingas (\texttt{tracker/+/sightings}). O cabeçalho mínimo de 2 bytes e a conexão
+persistente tornam o protocolo adequado a dispositivos com poucos recursos, como o ESP32. O projeto
+usa o \textit{broker} Eclipse Mosquitto \cite{light2017mosquitto}.
+
+\subsection{IPv6 e pilha dupla}
+O IPv6 \cite{rfc8200} amplia o espaço de endereçamento para 128 bits e elimina a necessidade de NAT
+para dispositivos IoT. Na transição, redes e servidores costumam operar em pilha dupla (IPv4 e
+IPv6). O mecanismo \textit{Happy Eyeballs} \cite{rfc8305} recomenda preferir IPv6 e recorrer ao
+IPv4 quando o IPv6 não responde em pouco tempo, para que uma falha do caminho IPv6 não se torne
+uma falha do serviço. O \textit{firmware} do projeto aplica uma versão sequencial dessa ideia
+(Seção~\ref{sec:ipv6}).
+
+% ============================================================================================
+\section{Metodologia}
+\label{sec:metodologia}
+
+\subsection{Arquitetura geral}
+A Figura~\ref{fig:arquitetura} mostra os componentes do sistema. O código fica num único
+repositório (\textit{monorepo}) organizado conforme a estrutura pedida pela disciplina:
+\arq{esp32-esp8266/} (\textit{firmware}), \arq{applications/} (iOS, Android, API e \textit{web}),
+\arq{docs/} (este relatório) e \arq{schematics/} (diagramas de circuito).
+
+\begin{figure}[htb]
+\centering
+\begin{tikzpicture}[
+    font=\footnotesize,
+    box/.style={draw, rounded corners=2pt, align=center, minimum height=8mm, inner sep=3pt, fill=white},
+    hw/.style={box, fill=blue!7},
+    sv/.style={box, fill=green!8},
+    ui/.style={box, fill=orange!10},
+    arr/.style={-{Stealth[length=2mm]}, thick},
+    lbl/.style={font=\scriptsize, fill=white, inner sep=1pt}]
+  % Camada de sensores
+  \node[hw] (b1) {ESP32\\\textit{beacon} 1};
+  \node[hw, below=3mm of b1] (b2) {ESP32\\\textit{beacon} 2};
+  \node[hw, below=3mm of b2] (b3) {ESP32\\\textit{beacon} $N$};
+  % Observadores
+  \node[hw, right=17mm of b1] (col) {ESP32\\coletor};
+  \node[hw, right=17mm of b3] (phone) {iPhone /\\Android};
+  \draw[arr, dashed] (b1) -- node[lbl, above] {BLE} (col);
+  \draw[arr, dashed] (b2) -- (col);
+  \draw[arr, dashed] (b2) -- (phone);
+  \draw[arr, dashed] (b3) -- node[lbl, below] {BLE} (phone);
+  % Servidor
+  \node[sv, right=19mm of col] (mqtt) {Mosquitto\\(MQTT)};
+  \node[sv, below=7mm of mqtt] (api) {API FastAPI};
+  \node[sv, below=7mm of api] (db) {PostgreSQL};
+  \draw[arr] (col) -- node[lbl, above] {MQTT} node[lbl, below] {IPv6 / IPv4} (mqtt);
+  \draw[arr] (mqtt) -- node[lbl, right] {assina} (api);
+  \draw[arr] (col.south east) -- node[lbl, sloped, above] {HTTPS} (api.west);
+  \draw[arr] (phone) -- node[lbl, sloped, below] {HTTPS} (api.south west);
+  \draw[arr] (api) -- (db);
+  % Visualização
+  \node[ui, right=13mm of api] (web) {Mapa ao vivo\\(Next.js)};
+  \node[ui, right=13mm of db] (graf) {Grafana};
+  \draw[arr] (api) -- node[lbl, above] {SSE} (web);
+  \draw[arr] (db) -- node[lbl, above] {SQL} (graf);
+  % Agrupamentos
+  \begin{scope}[on background layer]
+    \node[draw=gray, dashed, rounded corners, fit=(mqtt)(api)(db), inner sep=4pt,
+          label={[font=\scriptsize]above:\textit{docker compose} / Render}] {};
+  \end{scope}
+\end{tikzpicture}
+\caption{Arquitetura do TrackerApp. Linhas tracejadas: anúncios BLE; linhas cheias: rede IP.}
+\label{fig:arquitetura}
+\end{figure}
+
+O fluxo de dados tem três caminhos, cada um com um propósito:
+\begin{itemize}
+  \item \textbf{Telemetria contínua (MQTT):} o ESP32 coletor publica uma mensagem por anúncio BLE
+    recebido; a API assina os tópicos e grava cada leitura na tabela \texttt{sightings}.
+  \item \textbf{Posição calculada (HTTP):} o celular observador calcula a própria posição a cada
+    segundo e a envia em \texttt{POST /fixes}; a API a repassa ao mapa por SSE.
+  \item \textbf{\textit{Dataset} rotulado (HTTP):} gravações feitas num ponto de posição conhecida
+    sobem em lote para \texttt{POST /fingerprints}, base de treino dos modelos de ML.
+\end{itemize}
+
+\subsection{Hardware}
+Cada nó é uma placa \textbf{ESP32 DevKit} (módulo ESP32-WROOM-32, núcleo duplo Xtensa LX6 de
+240\,MHz, 520\,KB de SRAM, Wi-Fi 802.11\,b/g/n e Bluetooth 4.2/BLE) \cite{espressif2023esp32},
+usando a antena de PCB do próprio módulo. Os nós são alimentados pela porta USB (carregador ou
+\textit{power bank}), que também serve para gravação e para o console serial (115\,200\,bps). O
+mesmo binário roda em todas as placas; o papel (\textit{beacon} ou coletor) e o identificador ficam
+na memória não volátil (NVS) e são definidos pelo console serial. O diagrama de circuito do nó está
+na Figura~\ref{fig:circuito} e em \arq{schematics/}.
+
+\begin{figure}[htb]
+\centering
+% Mesmo desenho de schematics/esp32-node/esp32-node.tex (copiado para o relatório compilar sozinho)
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[font=\small, node distance=8mm and 12mm,
+    blk/.style={draw, rounded corners=2pt, align=center, minimum height=11mm, minimum width=24mm, fill=white},
+    pwr/.style={-{Stealth[length=2.2mm]}, very thick, red!70!black},
+    gnd/.style={very thick, black},
+    sig/.style={{Stealth[length=2mm]}-{Stealth[length=2mm]}, thick, blue!70!black},
+    one/.style={-{Stealth[length=2mm]}, thick, blue!70!black},
+    lbl/.style={font=\scriptsize, fill=white, inner sep=1pt, align=center}]
+
+  % Fonte externa
+  \node[blk, fill=green!10] (src) {Fonte USB 5\,V\\\scriptsize carregador, \textit{power bank} ou PC};
+
+  % Componentes da placa
+  \node[blk, right=36mm of src, fill=gray!20, minimum width=18mm] (usb) {Conector\\micro-USB};
+  \node[blk, right=of usb, yshift=10mm] (uart) {CP2102\\\scriptsize ponte USB--serial};
+  \node[blk, right=of usb, yshift=-10mm] (ldo) {AMS1117-3.3\\\scriptsize regulador LDO};
+  \node[blk, right=32mm of uart, yshift=-10mm, minimum height=30mm, minimum width=34mm, fill=gray!12] (mod)
+        {ESP32-WROOM-32\\[2pt]\scriptsize Xtensa LX6 $\times$2, 240\,MHz\\\scriptsize 520\,KB SRAM, 4\,MB \textit{flash}\\\scriptsize Wi-Fi 802.11 b/g/n + BLE};
+  \node[draw, fill=yellow!25, minimum width=34mm, minimum height=5mm, above=0mm of mod, font=\scriptsize] (ant)
+        {antena de PCB 2,4\,GHz};
+  \node[blk, below=10mm of mod.south west, anchor=north west, minimum width=14mm, minimum height=7mm, xshift=2mm] (en) {EN\\\scriptsize\textit{reset}};
+  \node[blk, below=10mm of mod.south east, anchor=north east, minimum width=14mm, minimum height=7mm, xshift=-2mm] (boot) {BOOT\\\scriptsize GPIO0};
+
+  % Conexões
+  \draw[pwr] (src) -- node[lbl, above] {cabo USB de dados} node[lbl, below] {VBUS, GND, D+, D$-$} (usb);
+  \draw[pwr] (usb.east) ++(0,-2mm) -- ++(4mm,0) |- node[lbl, pos=0.75, below] {5\,V} (ldo.west);
+  \draw[sig] (usb.east) ++(0,2mm) -- ++(4mm,0) |- node[lbl, pos=0.75, above] {D+ / D$-$} (uart.west);
+  \draw[pwr] (ldo.east) -- node[lbl, below] {3,3\,V} (ldo.east -| mod.west);
+  \draw[sig] (uart.east) -- node[lbl, above] {UART0\\\scriptsize TX=GPIO1, RX=GPIO3} (uart.east -| mod.west);
+  \draw[one] (en.north) -- node[lbl, left] {EN} (en.north |- mod.south);
+  \draw[one] (boot.north) -- node[lbl, right] {GPIO0} (boot.north |- mod.south);
+
+  % Moldura da placa
+  \begin{scope}[on background layer]
+    \node[draw, rounded corners=4pt, fill=blue!4, inner sep=5mm, fit=(usb)(uart)(ldo)(mod)(ant)(en)(boot),
+          label={[font=\small\bfseries, anchor=south west]north west:ESP32 DevKit V1 (30 pinos)}] (board) {};
+  \end{scope}
+
+  % Legenda
+  \node[below=6mm of board.south west, anchor=north west, font=\scriptsize, align=left] {%
+    \textcolor{red!70!black}{\rule[2pt]{6mm}{1.2pt}} alimentação \quad
+    \textcolor{blue!70!black}{\rule[2pt]{6mm}{1pt}} sinal\\
+    Nenhum sensor ou atuador externo: os pinos GPIO livres ficam desconectados.
+    O rádio BLE/Wi-Fi é interno ao módulo.};
+\end{tikzpicture}}
+\caption{Diagrama do nó ESP32 (\textit{beacon} ou coletor): a placa é alimentada e gravada pela
+USB e usa a antena de PCB do módulo. Também disponível em \arq{schematics/esp32-node/}.}
+\label{fig:circuito}
+\end{figure}
+
+\subsection{\textit{Firmware} do ESP32}
+O \textit{firmware} foi escrito em C++17 sobre o \textit{framework} Arduino-ESP32 (plataforma
+\texttt{espressif32@8.0.0}), com PlatformIO, e usa as bibliotecas NimBLE-Arduino~2.5.1 (pilha BLE),
+espMqttClient~1.7.3 (cliente MQTT) e AsyncTCP~3.5.0. As versões são fixas no
+\arq{platformio.ini} para garantir compilações reprodutíveis.
+
+O código segue uma separação em camadas:
+\begin{itemize}
+  \item \arq{lib/domain/}: lógica pura, sem dependência de \textit{hardware} (identificador do
+    \textit{beacon}, \textit{parser} de comandos, rótulos, formato dos registros, filas, cargas JSON
+    e a estratégia de pilha dupla). É testada no computador, sem placa;
+  \item \arq{src/hal/}: adaptadores de \textit{hardware} (rádio BLE, relógio, NVS, cliente MQTT,
+    \textit{upload} HTTP), atrás de interfaces;
+  \item \arq{src/app/}: papéis (\textit{beacon} e coletor), tarefa de gravação e um supervisor
+    que troca de papel e despacha eventos. Os objetos têm alocação estática; nada é alocado em
+    regime permanente.
+\end{itemize}
+
+\textbf{Papel \textit{beacon}.} Anuncia pacotes não conectáveis a cada 100\,ms com 0\,dBm de
+potência (ambos configuráveis). O pacote tem exatamente 31 bytes: \textit{flags} (3), o UUID de
+serviço de 128 bits do projeto (18) e o nome local com o identificador de 8 caracteres
+hexadecimais (10). O mesmo protocolo é usado pelos aplicativos iOS e Android, de modo que
+celulares também podem servir de âncora.
+
+\textbf{Papel coletor.} Faz varredura contínua (janela de 99\,ms a cada 100\,ms) e só aceita
+anúncios com o UUID do projeto e nome de 8 caracteres hexadecimais; a identidade é o ID, nunca o
+endereço MAC, que pode mudar. No modo ocioso, imprime uma linha por \textit{beacon} por segundo
+(RSSI e taxa de anúncios); no modo de gravação (\texttt{label}, \texttt{rec start},
+\texttt{rec stop}), imprime uma linha por anúncio com o rótulo do ponto (sessão, ponto, $x$, $y$)
+e ao final um resumo por \textit{beacon}. Cada leitura também é publicada por MQTT e, se gravando,
+enfileirada para \texttt{POST /fingerprints} em lotes de até 20 registros ou a cada 5\,s.
+
+\textbf{Configuração.} Credenciais e endereços ficam em \arq{include/config.h}, ignorado pelo Git
+(há um \arq{config.example.h} versionado). Comandos seriais (\texttt{id}, \texttt{role},
+\texttt{power}, \texttt{interval}, \texttt{config save|reset}) gravam na NVS, que tem precedência
+sobre os valores de compilação.
+
+\subsection{Comunicação MQTT}
+\label{sec:mqtt}
+O coletor publica no tópico \texttt{<prefixo>/<node\_id>/sightings} (por exemplo,
+\texttt{tracker/A1B2C3/sightings}), com QoS~0 e sem retenção, uma mensagem JSON por anúncio:
+\begin{center}
+\texttt{\{"observerID":"A1B2C3","anchorID":"9F3C1A02","rssi":-67\}}
+\end{center}
+O QoS~0 foi escolhido porque cada leitura é logo substituída pela seguinte: perder uma amostra
+isolada não prejudica a visualização, e evitar confirmações reduz o tráfego disputado com o BLE
+(o ESP32 compartilha um único rádio de 2,4\,GHz entre Wi-Fi e Bluetooth). A placa não envia
+horário, pois não tem relógio sincronizado; o servidor usa o instante de recepção.
+
+No servidor, o Mosquitto~2.0 roda num contêiner, e o módulo \arq{mqtt_consumer.py} da API assina
+\texttt{tracker/+/sightings} numa \textit{thread} própria (\texttt{loop\_start}), converte o RSSI
+em distância com a Equação~\ref{eq:pathloss} e grava a leitura. Mensagens malformadas são
+registradas e descartadas sem derrubar o assinante (Apêndice~\ref{ap:mqtt}).
+
+\subsection{IPv6 com detecção de falha e retorno para IPv4}
+\label{sec:ipv6}
+Quando o endereço IPv6 do \textit{broker} é configurado (\texttt{MQTT\_HOST\_V6}), o
+\textit{firmware} ativa o IPv6 na interface Wi-Fi (SLAAC) e, a cada nova tentativa de conexão,
+tenta IPv6 primeiro. Se a conexão não for estabelecida em 5\,s, a estratégia troca para o endereço
+IPv4 sem reiniciar a placa e emite um evento de aviso na serial. Uma nova tentativa (Wi-Fi
+reconectado ou conexão MQTT perdida) volta a tentar IPv6, já que uma queda isolada não significa
+que o caminho IPv6 deixou de existir. Sem endereço IPv6 configurado, a etapa é pulada. A
+Figura~\ref{fig:ipv6} resume a máquina de estados.
+
+\begin{figure}[htb]
+\centering
+\begin{tikzpicture}[font=\footnotesize, node distance=10mm and 16mm,
+    st/.style={draw, rounded corners=3pt, align=center, minimum width=26mm, minimum height=9mm, fill=white},
+    arr/.style={-{Stealth[length=2mm]}, thick},
+    lbl/.style={font=\scriptsize, align=center}]
+  \node[st, fill=gray!10] (wifi) {Wi-Fi\\conectado};
+  \node[st, fill=blue!8, right=of wifi] (v6) {Tentando\\IPv6};
+  \node[st, fill=orange!12, below=of v6] (v4) {Tentando\\IPv4};
+  \node[st, fill=green!12, right=of v6] (ok) {Conectado\\(MQTT)};
+  \draw[arr] (wifi) -- node[lbl, above] {\texttt{reset()}\\com IPv6} (v6);
+  \draw[arr] (wifi) |- node[lbl, pos=0.75, below] {sem IPv6\\configurado} (v4);
+  \draw[arr] (v6) -- node[lbl, right] {5\,s sem conectar\\\texttt{mqtt\_ipv6\_fallback}} (v4);
+  \draw[arr] (v6) -- node[lbl, above] {conectou} (ok);
+  \draw[arr] (v4) -| node[lbl, pos=0.25, below] {conectou} (ok);
+  \draw[arr] (ok.north) to[bend right=30] node[lbl, above] {conexão perdida: \texttt{reset()}} (v6.north);
+\end{tikzpicture}
+\caption{Estratégia de conexão em pilha dupla do publicador MQTT.}
+\label{fig:ipv6}
+\end{figure}
+
+A decisão de qual família usar fica numa classe pura (\arq{dual_stack_strategy.h},
+Apêndice~\ref{ap:ipv6}), sem cabeçalhos de rede, o que permite testar a temporização no
+computador; os \textit{sockets} ficam no adaptador \arq{esp_mqtt_publisher.cpp}. Os eventos
+\texttt{mqtt\_dual\_stack}, \texttt{mqtt\_connected} (``\textit{connected over IPv6}'' ou
+``\textit{over IPv4}'') e \texttt{mqtt\_ipv6\_fallback} na serial demonstram a detecção.
+
+\subsection{\textit{Backend} e armazenamento}
+A API foi escrita em Python com FastAPI \cite{fastapi} e SQLAlchemy, sobre PostgreSQL~16. Os
+\textit{endpoints} de escrita (\texttt{POST /sightings}, \texttt{/fixes} e \texttt{/fingerprints})
+exigem o cabeçalho \texttt{X-API-Key}; os de leitura (\texttt{GET /health}, \texttt{/fixes/recent}
+e \texttt{/fixes/stream}) são abertos. A distância é sempre recalculada no servidor a partir do
+RSSI, para que exista uma única fórmula, independente do cliente. As tabelas são:
+\begin{itemize}
+  \item \texttt{sightings}: observador, âncora, RSSI, distância, instantes de leitura e recepção;
+  \item \texttt{fixes}: posição $(x, y)$ calculada, incerteza e número de âncoras;
+  \item \texttt{fingerprint\_records}: leituras rotuladas com a posição real do ponto e, nos
+    celulares, orientação, altitude relativa e estado de movimento.
+\end{itemize}
+Localmente, um \arq{docker-compose.yml} sobe PostgreSQL, Mosquitto, API, Grafana e o mapa
+(Apêndice~\ref{ap:infra}). Em produção, API, Grafana e banco rodam como serviços no Render.
+
+\subsection{Painéis (\textit{dashboards})}
+\textbf{Mapa ao vivo.} Aplicação Next.js/TypeScript que desenha a planta em SVG, com um ponto
+por observador, rastro das últimas posições, halo proporcional à incerteza e uma camada de calor
+(células de 0,5\,m) que pode ser ligada e desligada. As posições chegam por
+\textit{Server-Sent Events} (\texttt{GET /fixes/stream}): ao conectar, o cliente recebe um retrato
+das posições recentes e, depois, um evento por posição nova, sem consultas periódicas. O navegador
+reconecta sozinho se a conexão cair.
+
+\textbf{Grafana.} Lê o PostgreSQL diretamente e vem com a fonte de dados e o painel já
+provisionados. São quatro gráficos, definidos em SQL (Apêndice~\ref{ap:grafana}): horário de pico
+(observadores distintos por hora), densidade (posições por célula, ponderadas pela confiança),
+ocupação (observadores distintos por célula) e tempo de permanência por célula (tempo entre
+posições consecutivas que se moveram menos de 0,5\,m).
+
+\subsection{Aplicativos móveis}
+O aplicativo iOS (Swift/SwiftUI) e o Android (``BlueGuide'', Kotlin/Jetpack Compose) implementam
+os mesmos papéis de âncora e observador, com multilateração para qualquer $N \geq 3$
+(Apêndice~\ref{ap:multilateracao}), cadastro manual ou por realidade aumentada (ARKit/ARCore) da
+posição das âncoras, coletor de \textit{fingerprints} em formato compatível com o do ESP32, e
+rastreamento ponto a ponto por UWB entre dois aparelhos (estilo AirTag).
+
+\subsection{Testes e verificação}
+A lógica pura de cada parte é coberta por testes automatizados que rodam sem \textit{hardware}:
+Unity (via \texttt{pio test -e native}) no \textit{firmware}, XCTest no iOS e JUnit no Android.
+A integração MQTT e os painéis do Grafana foram verificados manualmente contra um \textit{broker}
+e um PostgreSQL reais (\texttt{docker compose up}), conferindo as linhas gravadas e a resposta da
+API do Grafana.
+
+\subsection{Divisão de tarefas}
+A Tabela~\ref{tab:tarefas} resume as contribuições, conforme o histórico do repositório.
+
+\begin{table}[htb]
+\centering
+\caption{Divisão de tarefas no grupo.}
+\label{tab:tarefas}
+\small
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{3.6cm} X}
+\toprule
+\textbf{Integrante} & \textbf{Principais contribuições} \\
+\midrule
+Anderson Gabriel & Aplicativo iOS inicial e rastreamento UWB; \textit{firmware} ESP32
+  (\textit{beacon} e coletor); script de âncora BLE no macOS. \\
+Luís Filipe M. dos Santos & Troca de \textit{tokens} UWB via BLE; correção dos testes de
+  posicionamento; registro de dados no aplicativo. \\
+Camila Cirne & Posicionamento BLE; \textit{upload} de \textit{fingerprints}; reorganização em
+  \textit{monorepo}; MQTT, Grafana e IPv6; aplicativo Android no \textit{monorepo}. \\
+\pendente{nome} & \pendente{API e mapa \textit{web} (repositório original \texttt{api\_tracker\_app}); revisar a tabela} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+% ============================================================================================
+\section{Resultados}
+\label{sec:resultados}
+
+\subsection{Recursos do \textit{firmware}}
+A compilação para \texttt{esp32dev}, com a tabela de partições \texttt{huge\_app} (necessária
+porque a pilha TLS do cliente HTTPS não cabe na partição padrão de 1,25\,MB), ocupa
+\textbf{25,8\% da RAM} e \textbf{51,3\% da memória \textit{flash}} disponíveis para a aplicação. O
+pacote de anúncio do \textit{beacon} tem 31 bytes, exatamente o limite do anúncio legado, como
+relatado pela própria placa no evento \texttt{advertising} (\texttt{packet=31}).
+
+\subsection{Testes automatizados}
+A Tabela~\ref{tab:testes} resume os testes existentes no repositório.
+
+\begin{table}[htb]
+\centering
+\caption{Testes automatizados por componente.}
+\label{tab:testes}
+\small
+\begin{tabular}{llr}
+\toprule
+\textbf{Componente} & \textbf{Ferramenta} & \textbf{Casos de teste} \\
+\midrule
+\textit{Firmware} ESP32 (17 suítes) & Unity / PlatformIO \texttt{native} & 164 \\
+\quad dos quais: estratégia IPv6/IPv4 & Unity & 5 \\
+Aplicativo iOS & XCTest & 92 \\
+Aplicativo Android & JUnit (JVM) & 45 \\
+API e mapa \textit{web} & --- & 0 (validação manual) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Os cinco testes da estratégia de pilha dupla verificam que a conexão começa em IPv6, permanece
+nele antes do limite de 5\,s, recai para IPv4 ao atingir o limite e não volta sozinha, tenta IPv6
+de novo após um \texttt{reset()} e pula o IPv6 quando ele não está configurado.
+
+\subsection{Comunicação MQTT de ponta a ponta}
+O caminho ESP32 $\rightarrow$ Mosquitto $\rightarrow$ API $\rightarrow$ PostgreSQL foi validado
+com o \textit{broker} real: as mensagens publicadas em \texttt{tracker/<node>/sightings} viraram
+linhas na tabela \texttt{sightings}, com a distância calculada pelo servidor. O mesmo teste pode
+ser repetido sem placa, publicando uma mensagem com \texttt{paho-mqtt}
+(\arq{esp32-esp8266/USAGE.md}, cap.~8).
+
+\pendente{informar a taxa de mensagens MQTT por segundo observada e, se possível, a latência entre a
+leitura na serial e a linha no banco}.
+
+\subsection{IPv6}
+A lógica de detecção de falha e retorno para IPv4 está implementada e testada. O caminho IPv6 em
+si \pendente{ainda não foi validado em \textit{hardware}: nem o Mosquitto local usado até agora nem
+o Render oferecem IPv6. Executar o roteiro do \texttt{USAGE.md} (cap.~8) numa rede com IPv6 real e
+registrar aqui o log \texttt{mqtt\_connected: connected over IPv6} e o teste de falha (desligar o
+IPv6 do \textit{broker} e observar \texttt{mqtt\_ipv6\_fallback})}.
+
+\subsection{Painéis}
+Os quatro painéis do Grafana foram validados contra um PostgreSQL real, via
+\texttt{docker compose up} e a API do Grafana, e o mapa ao vivo recebe as posições por SSE à
+medida que chegam em \texttt{POST /fixes}.
+
+\begin{figure}[htb]
+\centering
+\fbox{\parbox[c][4cm][c]{0.9\textwidth}{\centering
+  \pendente{inserir captura de tela do mapa ao vivo e do painel do Grafana com dados reais\\
+  (\texttt{\textbackslash includegraphics\{figuras/mapa.png\}})}}}
+\caption{Mapa ao vivo e painel do Grafana durante a demonstração.}
+\label{fig:dashboards}
+\end{figure}
+
+\subsection{Precisão do posicionamento}
+\pendente{medir o erro de posição: com 3 a 4 \textit{beacons} fixos em posições conhecidas, ficar
+em pelo menos 5 pontos marcados no chão, registrar a posição calculada por 60\,s em cada um e
+informar o erro médio e o máximo (em metros) numa tabela. Informar também a taxa de anúncios
+recebidos por segundo no coletor ESP32 e no celular (linhas \texttt{S} da serial e resumo do app),
+com e sem o Wi-Fi ligado no coletor}.
+
+% ============================================================================================
+\section{Conclusão}
+\label{sec:conclusao}
+
+O TrackerApp integra, num único repositório, \textit{firmware} embarcado, aplicativos móveis,
+\textit{backend} e painéis para posicionamento \textit{indoor} por BLE. Os requisitos de
+comunicação MQTT, coleta e armazenamento de dados e visualização em tempo real foram atendidos e
+verificados com serviços reais. O uso de IPv6 foi implementado com detecção de falha e retorno
+automático para IPv4, com a lógica coberta por testes; falta a validação numa rede IPv6 real.
+
+A separação entre lógica pura e adaptadores de \textit{hardware} foi decisiva: permitiu testar
+no computador a maior parte do \textit{firmware} (164 casos) e manter o mesmo protocolo de anúncio
+entre ESP32, iOS e Android.
+
+Como trabalhos futuros, destacam-se: calibrar $\mathrm{RSSI}_0$ e $n$ no ambiente real; coletar o
+\textit{dataset} de \textit{fingerprints} e treinar modelos de regressão que comparem o
+desempenho com a multilateração; incorporar sensores e atuadores do kit (por exemplo, um LED RGB
+que indique o estado da conexão MQTT); adicionar autenticação e TLS ao \textit{broker}; e
+substituir a chave única da API por credenciais por dispositivo.
+
+O código-fonte, as instruções de uso e os diagramas estão disponíveis em \repo.
+
+% ============================================================================================
+\begin{thebibliography}{99}
+
+\bibitem[Bahl e Padmanabhan 2000]{bahl2000radar}
+Bahl, P. e Padmanabhan, V. N. (2000). RADAR: an in-building RF-based user location and tracking
+system. In \textit{Proceedings of IEEE INFOCOM 2000}, volume~2, p. 775--784.
+
+\bibitem[Bluetooth SIG 2023]{bluetooth2023core}
+Bluetooth SIG (2023). \textit{Bluetooth Core Specification}, versão 5.4. Bluetooth Special
+Interest Group.
+
+\bibitem[Deering e Hinden 2017]{rfc8200}
+Deering, S. e Hinden, R. (2017). Internet Protocol, Version 6 (IPv6) Specification. RFC 8200,
+IETF.
+
+\bibitem[Espressif 2023]{espressif2023esp32}
+Espressif Systems (2023). \textit{ESP32 Series Datasheet}. Disponível em:
+\url{https://www.espressif.com/en/support/documents/technical-documents}.
+
+\bibitem[Faragher e Harle 2015]{faragher2015fingerprinting}
+Faragher, R. e Harle, R. (2015). Location fingerprinting with Bluetooth Low Energy beacons.
+\textit{IEEE Journal on Selected Areas in Communications}, 33(11):2418--2428.
+
+\bibitem[Light 2017]{light2017mosquitto}
+Light, R. A. (2017). Mosquitto: server and client implementation of the MQTT protocol.
+\textit{Journal of Open Source Software}, 2(13):265.
+
+\bibitem[OASIS 2014]{mqtt311}
+OASIS (2014). \textit{MQTT Version 3.1.1}. OASIS Standard. Editado por A. Banks e R. Gupta.
+
+\bibitem[Ramírez 2018]{fastapi}
+Ramírez, S. (2018). \textit{FastAPI}. Disponível em: \url{https://fastapi.tiangolo.com}.
+
+\bibitem[Rappaport 2002]{rappaport2002}
+Rappaport, T. S. (2002). \textit{Wireless Communications: Principles and Practice}. Prentice Hall,
+2ª edição.
+
+\bibitem[Schinazi e Pauly 2017]{rfc8305}
+Schinazi, D. e Pauly, T. (2017). Happy Eyeballs Version 2: Better Connectivity Using Concurrency.
+RFC 8305, IETF.
+
+\bibitem[Zafari et al. 2019]{zafari2019survey}
+Zafari, F., Gkelias, A. e Leung, K. K. (2019). A survey of indoor localization systems and
+technologies. \textit{IEEE Communications Surveys \& Tutorials}, 21(3):2568--2599.
+
+\end{thebibliography}
+
+% ============================================================================================
+\clearpage
+\appendix
+\renewcommand{\thesection}{\Alph{section}}
+\section*{Apêndices}
+Os trechos abaixo são cópias dos arquivos do repositório (\repo), com o caminho de cada um
+indicado na legenda.
+
+\section{Estratégia de conexão IPv6/IPv4}
+\label{ap:ipv6}
+% Copiado de esp32-esp8266/lib/domain/dual_stack_strategy.h (atualizar aqui se o arquivo mudar)
+\begin{lstlisting}[language=C++, caption={\arq{esp32-esp8266/lib/domain/dual_stack_strategy.h}}]
+// Decides which IP address family to attempt next for the MQTT broker connection, given how long
+// the current attempt has run — tries IPv6 first, falls back to IPv4 automatically if it doesn't
+// connect within a timeout (the IPv6 "infra failure detection" requirement: the device notices
+// the preferred path isn't there and recovers on its own, rather than just failing). Pure logic:
+// no Arduino/network headers, so the fallback timing is tested on the host; the actual sockets
+// are in hal/esp_mqtt_publisher.cpp.
+#pragma once
+
+#include <cstdint>
+
+namespace domain {
+
+enum class AddressFamily { V6, V4 };
+
+class DualStackConnectStrategy {
+public:
+    // `v6TimeoutMs`: how long to let an IPv6 attempt run before giving up on it for this attempt
+    // and switching to IPv4. `hasV6`: false when no IPv6 address is configured at all — then
+    // every attempt goes straight to IPv4, skipping the IPv6 phase entirely.
+    DualStackConnectStrategy(uint32_t v6TimeoutMs, bool hasV6) : v6TimeoutMs_(v6TimeoutMs), hasV6_(hasV6) {}
+
+    // Call once when starting a fresh connection attempt (e.g. after Wi-Fi comes up, or after a
+    // previous connection was lost) — always retries IPv6 first, since a disconnect doesn't mean
+    // IPv6 itself is gone, just that this one connection was.
+    void reset(uint32_t nowMs) {
+        family_ = hasV6_ ? AddressFamily::V6 : AddressFamily::V4;
+        attemptStartMs_ = nowMs;
+    }
+
+    // Call periodically while not yet connected. Returns the family that should be in use right
+    // now; switches itself from V6 to V4 once v6TimeoutMs_ has passed without connecting.
+    AddressFamily poll(uint32_t nowMs) {
+        if (family_ == AddressFamily::V6 && (nowMs - attemptStartMs_) >= v6TimeoutMs_) {
+            family_ = AddressFamily::V4;
+            attemptStartMs_ = nowMs;
+        }
+        return family_;
+    }
+
+    AddressFamily currentFamily() const { return family_; }
+
+private:
+    uint32_t v6TimeoutMs_;
+    bool hasV6_;
+    uint32_t attemptStartMs_ = 0;
+    AddressFamily family_ = AddressFamily::V4;
+};
+
+}  // namespace domain
+\end{lstlisting}
+% Copiado de esp32-esp8266/test/test_dual_stack_strategy/test_main.cpp (atualizar aqui se o arquivo mudar)
+\begin{lstlisting}[language=C++, caption={Testes da estratégia (\arq{test_dual_stack_strategy/test_main.cpp})}]
+// IPv6-first, fall-back-to-IPv4 timing for the MQTT connection attempt.
+#include <unity.h>
+
+#include "dual_stack_strategy.h"
+
+using namespace domain;
+
+void setUp() {}
+void tearDown() {}
+
+static void test_starts_on_v6_when_v6_is_configured() {
+    DualStackConnectStrategy s(5000, /*hasV6=*/true);
+    s.reset(1000);
+    TEST_ASSERT_TRUE(AddressFamily::V6 == s.poll(1000));
+}
+
+static void test_stays_on_v6_before_the_timeout() {
+    DualStackConnectStrategy s(5000, /*hasV6=*/true);
+    s.reset(1000);
+    TEST_ASSERT_TRUE(AddressFamily::V6 == s.poll(1000));
+    TEST_ASSERT_TRUE(AddressFamily::V6 == s.poll(4000));
+    TEST_ASSERT_TRUE(AddressFamily::V6 == s.poll(5999));
+}
+
+static void test_falls_back_to_v4_once_the_timeout_elapses() {
+    DualStackConnectStrategy s(5000, /*hasV6=*/true);
+    s.reset(1000);
+    TEST_ASSERT_TRUE(AddressFamily::V4 == s.poll(6000));
+    // and stays there, it doesn't bounce back to V6 on its own
+    TEST_ASSERT_TRUE(AddressFamily::V4 == s.poll(60000));
+}
+
+static void test_a_fresh_reset_tries_v6_again_even_after_a_previous_fallback() {
+    DualStackConnectStrategy s(5000, /*hasV6=*/true);
+    s.reset(1000);
+    s.poll(10000);  // falls back to V4
+    TEST_ASSERT_TRUE(AddressFamily::V4 == s.currentFamily());
+    s.reset(20000);  // e.g. Wi-Fi reconnected, or the MQTT connection dropped
+    TEST_ASSERT_TRUE(AddressFamily::V6 == s.poll(20000));
+}
+
+static void test_skips_v6_entirely_when_none_is_configured() {
+    DualStackConnectStrategy s(5000, /*hasV6=*/false);
+    s.reset(1000);
+    TEST_ASSERT_TRUE(AddressFamily::V4 == s.poll(1000));
+    TEST_ASSERT_TRUE(AddressFamily::V4 == s.poll(1500));  // never waits for a timeout that won't matter
+}
+
+int main(int, char**) {
+    UNITY_BEGIN();
+    RUN_TEST(test_starts_on_v6_when_v6_is_configured);
+    RUN_TEST(test_stays_on_v6_before_the_timeout);
+    RUN_TEST(test_falls_back_to_v4_once_the_timeout_elapses);
+    RUN_TEST(test_a_fresh_reset_tries_v6_again_even_after_a_previous_fallback);
+    RUN_TEST(test_skips_v6_entirely_when_none_is_configured);
+    return UNITY_END();
+}
+\end{lstlisting}
+
+\section{Publicador MQTT no ESP32}
+\label{ap:mqtt-esp}
+% Copiado de esp32-esp8266/src/hal/esp_mqtt_publisher.cpp (atualizar aqui se o arquivo mudar)
+\begin{lstlisting}[language=C++, caption={\arq{esp32-esp8266/src/hal/esp_mqtt_publisher.cpp}}]
+#include "hal/esp_mqtt_publisher.h"
+
+#include <WiFi.h>
+
+#include <cstring>
+
+#include "sighting_payload.h"
+
+namespace {
+
+void copyString(char* destination, std::size_t capacity, const char* source) {
+    std::strncpy(destination, source, capacity - 1);
+    destination[capacity - 1] = '\0';
+}
+
+}  // namespace
+
+void EspMqttPublisher::begin(const char* wifiSsid, const char* wifiPassword, const char* host,
+                             const char* hostV6, uint16_t port, const char* user, const char* password,
+                             const char* topicPrefix, const char* nodeId) {
+    copyString(wifiSsid_, sizeof(wifiSsid_), wifiSsid);
+    copyString(wifiPassword_, sizeof(wifiPassword_), wifiPassword);
+    enabled_ = host[0] != '\0';
+    if (!enabled_) return;
+
+    copyString(host_, sizeof(host_), host);
+    copyString(hostV6_, sizeof(hostV6_), hostV6);
+    port_ = port;
+    strategy_ = domain::DualStackConnectStrategy(5000, hostV6_[0] != '\0');
+    std::snprintf(topic_, sizeof(topic_), "%s/%s/sightings", topicPrefix, nodeId);
+    if (user[0] != '\0') client_.setCredentials(user, password);
+    if (hostV6_[0] != '\0') {
+        WiFi.enableIPv6();
+        events_.event("info", "mqtt_dual_stack", "IPv6 configured, will be tried before IPv4 on each connection attempt");
+    }
+}
+
+bool EspMqttPublisher::publishSighting(const char* node, const char* beacon, int rssi) {
+    if (!enabled_ || !client_.connected()) return false;
+    char body[128];
+    if (domain::formatSightingPayload(body, sizeof(body), node, beacon, rssi) < 0) return false;
+    return client_.publish(topic_, 0, false, body) != 0;
+}
+
+void EspMqttPublisher::poll() {
+    if (!enabled_) return;
+
+    connectWifiIfNeeded();
+    client_.loop();
+
+    const bool wifiConnected = WiFi.status() == WL_CONNECTED;
+    if (!wifiConnected) {
+        wifiWasConnected_ = false;
+        return;
+    }
+    if (!wifiWasConnected_) {
+        // Wi-Fi just came up: start a fresh attempt, trying IPv6 first again if it's configured
+        // — the timeout clock starts now, not whenever Wi-Fi itself happened to begin connecting.
+        wifiWasConnected_ = true;
+        strategy_.reset(millis());
+        connectingFamily_ = strategy_.currentFamily();
+        connectToCurrentFamily();
+        return;
+    }
+
+    if (client_.connected()) {
+        if (!mqttWasConnected_) {
+            mqttWasConnected_ = true;
+            events_.event("info", "mqtt_connected",
+                          connectingFamily_ == domain::AddressFamily::V6 ? "connected over IPv6" : "connected over IPv4");
+        }
+        return;
+    }
+    mqttWasConnected_ = false;
+
+    const domain::AddressFamily wanted = strategy_.poll(millis());
+    if (wanted != connectingFamily_) {
+        connectingFamily_ = wanted;
+        if (wanted == domain::AddressFamily::V4) {
+            events_.event("warn", "mqtt_ipv6_fallback", "IPv6 did not connect in time, falling back to IPv4");
+        }
+        connectToCurrentFamily();
+    } else if (client_.disconnected()) {
+        connectToCurrentFamily();
+    }
+}
+
+void EspMqttPublisher::connectToCurrentFamily() {
+    const char* host = connectingFamily_ == domain::AddressFamily::V6 ? hostV6_ : host_;
+    client_.setServer(host, port_);
+    client_.connect();
+}
+
+void EspMqttPublisher::connectWifiIfNeeded() {
+    if (WiFi.status() == WL_CONNECTED) return;
+    if (WiFi.status() != WL_DISCONNECTED) return;  // already trying
+    WiFi.begin(wifiSsid_, wifiPassword_);
+}
+\end{lstlisting}
+% Copiado de esp32-esp8266/lib/domain/sighting_payload.cpp (atualizar aqui se o arquivo mudar)
+\begin{lstlisting}[language=C++, caption={Carga JSON da mensagem (\arq{lib/domain/sighting_payload.cpp})}]
+#include "sighting_payload.h"
+
+#include <cstdio>
+
+namespace domain {
+
+int formatSightingPayload(char* buf, std::size_t cap, const char* node, const char* beacon, int rssi) {
+    const int written = std::snprintf(
+        buf, cap, "{\"observerID\":\"%s\",\"anchorID\":\"%s\",\"rssi\":%d}", node, beacon, rssi);
+    if (written < 0 || static_cast<std::size_t>(written) >= cap) return -1;
+    return written;
+}
+
+}  // namespace domain
+\end{lstlisting}
+
+\section{Assinante MQTT e modelo de perda de percurso (API)}
+\label{ap:mqtt}
+% Copiado de applications/api/app/mqtt_consumer.py (atualizar aqui se o arquivo mudar)
+\begin{lstlisting}[language=Python, caption={\arq{applications/api/app/mqtt_consumer.py}}]
+"""Subscribes to the ESP32 collectors' live RSSI telemetry over MQTT and persists it the same
+way `POST /sightings` does. This is the project's IoT/pub-sub data path — distinct from the
+HTTP-only paths: `/sightings`/`/fixes` are phones reporting computed results, `/fingerprints` is
+a one-shot batch upload after a finished recording, and this is the ESP32 collector's continuous,
+unlabelled telemetry (the same data its `L`/idle-view serial lines carry), which a pub/sub broker
+fits better than a request per reading would.
+
+Optional: does nothing if `MQTT_HOST` isn't set, same convention `API_KEY` does NOT follow (that
+one's required) — MQTT is additive telemetry, not core to the API working, so a missing broker
+shouldn't block startup or break the rest of the API.
+"""
+
+import json
+import logging
+import os
+from datetime import datetime, timezone
+
+import paho.mqtt.client as mqtt
+
+from app.database import SessionLocal
+from app.models import Sighting
+from app.path_loss import distance_meters
+
+logger = logging.getLogger("mqtt_consumer")
+
+MQTT_HOST = os.environ.get("MQTT_HOST", "")
+MQTT_PORT = int(os.environ.get("MQTT_PORT", "1883"))
+# Matches embedded/include/config.example.h's TOPIC_PREFIX default ("tracker") and the node-scoped
+# shape a collector would publish under, e.g. tracker/A1B2C3/sightings.
+MQTT_TOPIC = os.environ.get("MQTT_TOPIC", "tracker/+/sightings")
+
+
+def _insert_sighting(payload: dict) -> None:
+    """One JSON object per MQTT message, same field names/shapes as `SightingIn` (see
+    app/schemas.py) — camelCase, not the serial protocol's CSV-ish `R`/`L` line format. A
+    malformed message is logged and dropped, not raised: one bad reading from one board
+    shouldn't take down the subscriber thread.
+
+    `seenAt` is optional, same reasoning as `FingerprintRecordIn.seenAt`: the ESP32 has no
+    battery-backed, NTP-synced clock by default, so it may not send one — falls back to the
+    received-at time when absent.
+    """
+    received_at = datetime.now(timezone.utc)
+    seen_at_field = payload.get("seenAt")
+    seen_at = datetime.fromisoformat(seen_at_field.replace("Z", "+00:00")) if seen_at_field else received_at
+    db = SessionLocal()
+    try:
+        db.add(
+            Sighting(
+                observer_id=payload["observerID"],
+                anchor_id=payload["anchorID"],
+                rssi=payload["rssi"],
+                distance_meters=distance_meters(payload["rssi"]),
+                seen_at=seen_at,
+                received_at=received_at,
+                sample_count=payload.get("sampleCount"),
+                rssi_std_dev=payload.get("rssiStdDev"),
+                device_model=payload.get("deviceModel"),
+            )
+        )
+        db.commit()
+    finally:
+        db.close()
+
+
+def _on_connect(client: mqtt.Client, userdata: object, flags: dict, reason_code: object, properties: object = None) -> None:
+    logger.info("connected to MQTT broker %s:%s, subscribing to %s", MQTT_HOST, MQTT_PORT, MQTT_TOPIC)
+    client.subscribe(MQTT_TOPIC)
+
+
+def _on_message(client: mqtt.Client, userdata: object, msg: mqtt.MQTTMessage) -> None:
+    try:
+        payload = json.loads(msg.payload.decode("utf-8"))
+        _insert_sighting(payload)
+    except Exception:
+        logger.exception("dropping unprocessable MQTT message on %s", msg.topic)
+
+
+def start_mqtt_consumer() -> mqtt.Client | None:
+    """Starts the subscriber in a background thread (`loop_start`) and returns the client, or
+    None when `MQTT_HOST` isn't set. `connect_async` + `loop_start` retry the connection on their
+    own if the broker isn't reachable yet — this never blocks or raises on startup.
+    """
+    if not MQTT_HOST:
+        logger.info("MQTT_HOST not set, MQTT telemetry consumer disabled")
+        return None
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+    client.on_connect = _on_connect
+    client.on_message = _on_message
+    client.connect_async(MQTT_HOST, MQTT_PORT, keepalive=60)
+    client.loop_start()
+    return client
+
+
+def stop_mqtt_consumer(client: mqtt.Client | None) -> None:
+    if client is None:
+        return
+    client.loop_stop()
+    client.disconnect()
+\end{lstlisting}
+% Copiado de applications/api/app/path_loss.py (atualizar aqui se o arquivo mudar)
+\begin{lstlisting}[language=Python, caption={\arq{applications/api/app/path_loss.py}}]
+REFERENCE_RSSI = -59.0
+PATH_LOSS_EXPONENT = 2.0
+
+
+def distance_meters(rssi: float) -> float:
+    return 10.0 ** ((REFERENCE_RSSI - rssi) / (10.0 * PATH_LOSS_EXPONENT))
+\end{lstlisting}
+
+\section{Multilateração (iOS)}
+\label{ap:multilateracao}
+% Copiado de applications/ios/TrackerApp/Core/Positioning/Multilateration.swift (atualizar aqui se o arquivo mudar)
+\begin{lstlisting}[language=Swift, caption={\arq{Multilateration.swift} (\arq{applications/ios/.../Positioning/})}]
+import Foundation
+
+struct AnchorRange {
+    let anchor: Anchor
+    let distanceMeters: Double
+}
+
+struct ObserverFix {
+    let readings: [AnchorRange]
+    let position: Point2D
+    let uncertaintyMeters: Double
+}
+
+enum Multilateration {
+    private static let epsilon = 1e-9
+
+    static func solve(readings: [AnchorRange]) -> ObserverFix? {
+        guard readings.count >= 3 else { return nil }
+
+        let first = readings[0]
+        let p1 = first.anchor.position
+        let d1 = first.distanceMeters
+
+        var m11 = 0.0, m12 = 0.0, m22 = 0.0
+        var c1 = 0.0, c2 = 0.0
+
+        for reading in readings.dropFirst() {
+            let p = reading.anchor.position
+            let a1 = 2 * (p.x - p1.x)
+            let a2 = 2 * (p.y - p1.y)
+            let b = sq(d1) - sq(reading.distanceMeters) + sq(p.x) - sq(p1.x) + sq(p.y) - sq(p1.y)
+
+            m11 += a1 * a1
+            m12 += a1 * a2
+            m22 += a2 * a2
+            c1 += a1 * b
+            c2 += a2 * b
+        }
+
+        let determinant = m11 * m22 - m12 * m12
+        guard abs(determinant) > epsilon else { return nil }
+
+        let position = Point2D(
+            x: (c1 * m22 - m12 * c2) / determinant,
+            y: (m11 * c2 - c1 * m12) / determinant
+        )
+
+        let residual = sqrt(
+            readings.reduce(0.0) { partial, reading in
+                partial + sq(reading.anchor.position.distance(to: position) - reading.distanceMeters)
+            } / Double(readings.count)
+        )
+
+        return ObserverFix(readings: readings, position: position, uncertaintyMeters: residual)
+    }
+
+    private static func sq(_ value: Double) -> Double { value * value }
+}
+\end{lstlisting}
+
+\section{Consultas dos painéis do Grafana}
+\label{ap:grafana}
+% Copiado de applications/api/grafana/queries.sql (atualizar aqui se o arquivo mudar)
+\begin{lstlisting}[language=SQL, caption={\arq{applications/api/grafana/queries.sql}}]
+-- Grafana panel queries for the Positioning API's `fixes` table.
+-- Paste the SELECT directly into a Grafana panel's "Code" query editor (Postgres datasource).
+-- $__timeFilter(recorded_at) is a Grafana macro — it expands to a WHERE clause using the
+-- dashboard's time range picker, so these queries respect whatever window you select in Grafana.
+
+-- ============================================================
+-- 1. Heatmap density — grid cells weighted by fix confidence
+-- ============================================================
+-- Panel type: Heatmap (or Geomap with a static floor-plan image as the base layer, x/y as
+-- lon/lat-like coordinates). 0.5 is the grid cell size in metres — shrink it for a sharper
+-- heatmap once there's enough data density to support it, grow it if cells look too sparse.
+-- `greatest(uncertainty_meters, 0.1)` floors the weight so a near-zero uncertainty fix doesn't
+-- dominate the whole map by itself.
+SELECT
+    round(x / 0.5) * 0.5 AS grid_x,
+    round(y / 0.5) * 0.5 AS grid_y,
+    count(*) AS fix_count,
+    sum(1.0 / greatest(uncertainty_meters, 0.1)) AS weighted_density
+FROM fixes
+WHERE $__timeFilter(recorded_at)
+GROUP BY grid_x, grid_y
+ORDER BY weighted_density DESC;
+
+-- ============================================================
+-- 2. Occupancy — distinct observers seen per grid cell
+-- ============================================================
+-- Panel type: Heatmap or a table. This is the "how many different phones were in this area"
+-- view — counts distinct observer_id, not raw fix count, so one phone sending fixes every
+-- second doesn't look like a crowd.
+SELECT
+    round(x / 0.5) * 0.5 AS grid_x,
+    round(y / 0.5) * 0.5 AS grid_y,
+    count(DISTINCT observer_id) AS distinct_observers
+FROM fixes
+WHERE $__timeFilter(recorded_at)
+GROUP BY grid_x, grid_y
+ORDER BY distinct_observers DESC;
+
+-- ============================================================
+-- 3. Peak hours — traffic over time (not spatial)
+-- ============================================================
+-- Panel type: Time series. date_trunc('hour', ...) buckets into hourly columns; swap for
+-- 'day'/'minute' depending on how long a time range the dashboard is set to.
+SELECT
+    date_trunc('hour', recorded_at) AS time,
+    count(DISTINCT observer_id) AS distinct_observers,
+    count(*) AS fix_count
+FROM fixes
+WHERE $__timeFilter(recorded_at)
+GROUP BY time
+ORDER BY time;
+
+-- ============================================================
+-- 4. Dwell time per cell — "stopped here" vs "walked through"
+-- ============================================================
+-- Panel type: Heatmap or table. No new phone data needed for this — it's inferred purely from
+-- consecutive fixes already being sent: if an observer's position barely moves between two
+-- fixes (< 0.5m), the elapsed time between them counts as "dwelling" at that cell. A phone that
+-- jumps between distant fixes contributes nothing (it was just passing through).
+WITH ordered_fixes AS (
+    SELECT
+        observer_id,
+        x,
+        y,
+        recorded_at,
+        lag(x) OVER (PARTITION BY observer_id ORDER BY recorded_at) AS prev_x,
+        lag(y) OVER (PARTITION BY observer_id ORDER BY recorded_at) AS prev_y,
+        lag(recorded_at) OVER (PARTITION BY observer_id ORDER BY recorded_at) AS prev_time
+    FROM fixes
+    WHERE $__timeFilter(recorded_at)
+),
+movement AS (
+    SELECT
+        x,
+        y,
+        sqrt(power(x - prev_x, 2) + power(y - prev_y, 2)) AS distance_moved,
+        extract(epoch FROM (recorded_at - prev_time)) AS seconds_elapsed
+    FROM ordered_fixes
+    WHERE prev_x IS NOT NULL
+)
+SELECT
+    round(x / 0.5) * 0.5 AS grid_x,
+    round(y / 0.5) * 0.5 AS grid_y,
+    sum(CASE WHEN distance_moved < 0.5 THEN seconds_elapsed ELSE 0 END) AS dwell_seconds
+FROM movement
+GROUP BY grid_x, grid_y
+ORDER BY dwell_seconds DESC;
+\end{lstlisting}
+
+\section{Infraestrutura}
+\label{ap:infra}
+% Copiado de applications/api/docker-compose.yml (atualizar aqui se o arquivo mudar)
+\begin{lstlisting}[language=yaml, caption={\arq{applications/api/docker-compose.yml}}]
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: positioning
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    restart: unless-stopped
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    ports:
+      - "1883:1883"
+
+  api:
+    build: .
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/positioning
+      API_KEY: dev-only-local-key
+      MQTT_HOST: mosquitto
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mosquitto:
+        condition: service_started
+
+  frontend:
+    # The live floor-plan map web app (Next.js, applications/web — a sibling of this directory
+    # now that the repo is a monorepo, so the build context is "../web" not "./front").
+    # Browser-facing, so NEXT_PUBLIC_API_BASE_URL points at the host-published API port, not the
+    # internal "api" service name. Mapped to 3001 since Grafana owns 3000.
+    build:
+      context: ../web
+      args:
+        NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+        NEXT_PUBLIC_USE_MOCK: "false"
+        NEXT_PUBLIC_POLL_INTERVAL_MS: "1000"
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    depends_on:
+      - api
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: positioning
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_SSLMODE: disable
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  grafana_data:
+\end{lstlisting}
+% Copiado de applications/api/mosquitto/mosquitto.conf (atualizar aqui se o arquivo mudar)
+\begin{lstlisting}[language=yaml, caption={\arq{applications/api/mosquitto/mosquitto.conf}}]
+# Local dev only: anonymous, unencrypted. Eclipse Mosquitto 2.x refuses all connections unless a
+# listener is explicitly configured, so this exists even though the settings themselves are
+# permissive. Don't deploy this config as-is anywhere reachable from the internet.
+listener 1883
+allow_anonymous true
+\end{lstlisting}
+
+\end{document}

@@ -174,15 +174,29 @@ qualquer melhoria de UI/paridade adicional que não estava no escopo original.
 
 ## Documentação / Entrega (critérios de nota do PDF de Embarcados)
 
-- [ ] **Relatório técnico** (modelo CSBC/ABNT2) — `docs/`, zero progresso até agora. Maior peso
-  de nota (20 pts) sem nenhum trabalho feito ainda.
-- [ ] **Diagramas de circuito** (`schematics/`) — mesmo que seja só o ESP32 e a antena, falta
-  documentar.
-- [ ] **Declarar o tema oficial do projeto** no relatório (provavelmente "Computação" ou
-  "Tecnologias Assistivas", dos 5 temas permitidos).
+- [x] ~~**Relatório técnico**~~ (modelo CSBC/SBC) — feito: `docs/relatorio/relatorio.tex` + PDF
+  compilado (introdução, fundamentação, metodologia, resultados, conclusão, referências, códigos
+  em apêndice lidos direto do repo). **Falta o grupo preencher os trechos em vermelho**
+  (`\pendente{...}`): nomes dos integrantes, medições de precisão/taxa, validação IPv6 real e
+  capturas de tela dos painéis. Ver `docs/README.md`.
+- [x] ~~**Diagramas de circuito**~~ — feito: `schematics/esp32-node/` (diagrama em PDF/PNG a partir
+  de TikZ + `diagram.json` do Wokwi). Atualizar se algum sensor do kit for adicionado.
+- [x] ~~**Declarar o tema oficial**~~ — declarado como **Computação** no relatório (macro `\tema`,
+  uma linha pra trocar se o grupo preferir "Tecnologias Assistivas").
 - [ ] **Esclarecer com os professores se IPv6 é obrigatório ou só bônus** — aparece nos dois
   lugares no PDF, ambíguo. A implementação (fallback IPv6→IPv4 no MQTT, ver item do ESP32 acima)
   já existe; falta confirmar se cobre o requisito e se o fato de não ter rede IPv6 real pra
   demonstrar o caminho feliz é um problema pra nota.
-- [ ] Histórico de commits do backend/frontend não foi preservado na migração pro monorepo —
-  decidir se isso importa pro critério "GitHub (Organização)" (commits colaborativos).
+- [ ] Histórico de commits do backend/frontend não foi preservado na migração pro monorepo.
+  **Decisão: importa** (critério "commits colaborativos" vale 10 pts, e quem fez API/web/Android
+  hoje não aparece no histórico). Recuperar sem reescrever nada do `main`, enxertando o histórico
+  antigo com um merge que não muda arquivos (repetir pro `btloc` → `applications/android`):
+  ```bash
+  git clone https://github.com/<dono>/api_tracker_app /tmp/old-api && cd /tmp/old-api
+  pip install git-filter-repo && git filter-repo --to-subdirectory-filter applications/api
+  # (separar web: rodar de novo num clone com --path front --path-rename front:applications/web, se for o caso)
+  cd <tracker-app-ios> && git remote add old-api /tmp/old-api && git fetch old-api
+  git merge -s ours --allow-unrelated-histories old-api/main -m "Import api_tracker_app history"
+  ```
+  `-s ours` mantém os arquivos atuais intactos; só os commits antigos (com os autores) entram no
+  histórico e no gráfico de contribuidores. Fazer num branch + PR.
