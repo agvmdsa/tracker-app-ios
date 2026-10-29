@@ -47,21 +47,7 @@ class DeviceListViewModel(
     private val reporter: PositioningReporting? = null
 ): ViewModel() {
 
-    /*
-    * Point here is that MutableStateFlow can be written to and StateFlow
-    * can only be read.
-    *
-    * I assume that the thing between parenthesis below is *what* the
-    * MutableStateFlow is, as in "I have a MutableStateFlow of
-    * DeviceListState", and then "I have a StateFlow of this map
-    * (DeviceListState) to be seen from outside". I assume the StateFlow
-    * "only" exists due to encapsulation.
-    * */
-
-    // My internal state
     private val _state = MutableStateFlow(DeviceListState())
-
-    // Public state
     val state: StateFlow<DeviceListState> = _state.asStateFlow()
 
     init {
@@ -199,7 +185,7 @@ class DeviceListViewModel(
             }
     }
 
-    // In MVI the only way in is/should be through a dispatcher/onIntent
+    /** The only way the state changes: every change goes through [DeviceListReducer]. */
     fun dispatch(intent: DeviceListIntent) {
         _state.update { current -> DeviceListReducer.reduce(current, intent) }
     }

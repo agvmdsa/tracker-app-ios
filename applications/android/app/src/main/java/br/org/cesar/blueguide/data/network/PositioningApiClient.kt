@@ -7,6 +7,7 @@ import br.org.cesar.blueguide.domain.network.PositioningReporting
 import br.org.cesar.blueguide.domain.network.PositioningReportingError
 import br.org.cesar.blueguide.domain.position.FingerprintRecord
 import io.ktor.client.HttpClient
+import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.header
@@ -59,7 +60,9 @@ class PositioningApiClient(
     }
 
     companion object {
-        private fun defaultClient() = HttpClient(OkHttp) {
+        /** The engine is a parameter so the contract tests can run this exact configuration
+         *  against a mock engine: what goes over the wire is decided here, not in the test. */
+        internal fun defaultClient(engine: HttpClientEngine = OkHttp.create()) = HttpClient(engine) {
             install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
         }
     }

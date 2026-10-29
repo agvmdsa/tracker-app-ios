@@ -10,7 +10,6 @@ import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.ParcelUuid
-import android.os.SystemClock
 import androidx.core.content.ContextCompat
 import br.org.cesar.blueguide.domain.ble.BleScanException
 import br.org.cesar.blueguide.domain.ble.BleScanner
@@ -87,5 +86,7 @@ private fun ScanResult.toDeviceSighting(): DeviceSighting = DeviceSighting(
         )
     ),
     rssi = rssi,
-    lastSeenAtMillis = SystemClock.elapsedRealtime()
+    // When the controller observed it, on the elapsedRealtime() clock: the callback that
+    // brings it here can run later, and several at once.
+    lastSeenAtMillis = timestampNanos / 1_000_000
 )

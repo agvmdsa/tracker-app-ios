@@ -46,7 +46,10 @@ class FingerprintViewModel(
         node = node,
         model = Build.MODEL,
         systemVersion = Build.VERSION.RELEASE,
-        scope = viewModelScope,
+        // Its own thread rather than viewModelScope: the rows are written off the main thread,
+        // and stop() in onCleared — when viewModelScope is already cancelled — can still
+        // discard a recording left half-way.
+        dispatcher = Dispatchers.IO.limitedParallelism(1),
         monotonicMs = { SystemClock.elapsedRealtime() }
     )
 

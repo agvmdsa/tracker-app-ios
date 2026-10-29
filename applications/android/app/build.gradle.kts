@@ -37,6 +37,18 @@ android {
     }
     buildFeatures {
         compose = true
+        // BuildConfig.DEBUG turns StrictMode on (BlueGuideApplication).
+        buildConfig = true
+    }
+    lint {
+        // Any new warning fails the build; the ones already there are frozen in the baseline
+        // (and get fixed from there, not added to).
+        warningsAsErrors = true
+        abortOnError = true
+        baseline = file("lint-baseline.xml")
+        // "A newer version exists" changes whenever a library ships, with no change here, so it
+        // must not break the build: keeping dependencies current is a separate job.
+        disable += setOf("NewerVersionAvailable", "GradleDependency", "AndroidGradlePluginVersion", "OldTargetApi")
     }
 }
 

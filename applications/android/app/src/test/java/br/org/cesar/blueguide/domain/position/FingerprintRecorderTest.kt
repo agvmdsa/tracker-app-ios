@@ -11,6 +11,8 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -25,8 +27,8 @@ import org.junit.Test
 
 private class FakeBleScanner : BleScanner {
     private val channel = Channel<DeviceSighting>(Channel.UNLIMITED)
-    fun deliver(id: DeviceId, rssi: Int) {
-        channel.trySend(DeviceSighting(BleDevice(address = "AA:BB:CC:DD:EE:FF", name = null, id = id), rssi, 0L))
+    fun deliver(id: DeviceId, rssi: Int, atMs: Long = 0L) {
+        channel.trySend(DeviceSighting(BleDevice(address = "AA:BB:CC:DD:EE:FF", name = null, id = id), rssi, atMs))
     }
     override fun scan(): Flow<DeviceSighting> = channel.receiveAsFlow()
 }
@@ -92,7 +94,12 @@ class FingerprintRecorderTest {
         directory.deleteRecursively()
     }
 
-    private fun recorder(testScope: kotlinx.coroutines.CoroutineScope) = FingerprintRecorder(
+    /** The recorder's single thread is a test dispatcher on the test's scheduler, so its
+     *  commands run when the test advances it (`runCurrent`/`advanceUntilIdle`). */
+    private fun recorder(
+        testScope: TestScope,
+        uploadBatchSize: Int = FingerprintRecorder.DEFAULT_UPLOAD_BATCH_SIZE
+    ) = FingerprintRecorder(
         scanner = scanner,
         deviceMotion = deviceMotion,
         altimeter = altimeter,
@@ -103,9 +110,10 @@ class FingerprintRecorderTest {
         node = node,
         model = "Pixel 9",
         systemVersion = "15",
-        scope = testScope,
+        dispatcher = StandardTestDispatcher(testScope.testScheduler),
         monotonicMs = { fakeClockMs },
-        now = { Instant.ofEpochMilli(fakeClockMs) }
+        now = { Instant.ofEpochMilli(fakeClockMs) },
+        uploadBatchSize = uploadBatchSize
     )
 
     @Test
@@ -116,6 +124,7 @@ class FingerprintRecorderTest {
 
         val label = requireNotNull(FingerprintLabel.of("S1", "P1", x = 1.0, y = 2.0))
         sut.startRecording(label, durationSeconds = 2.0)
+        runCurrent()
 
         // runCurrent(), not advanceUntilIdle(), for both deliveries: advancing virtual time
         // here would run the 2s end-of-recording timer to completion before the second row
@@ -142,6 +151,23 @@ class FingerprintRecorderTest {
         assertTrue(lines[1].contains("\"Pixel 9\""))
         assertTrue(lines[1].endsWith("S1,P1,1.00,2.00"))
         sut.stop() // cancels the scan collector job, so runTest sees no leftover work
+    }
+
+    @Test
+    fun `t_ms is when the scan saw the advertisement, not when the recorder got to it`() = runTest {
+        val sut = recorder(this)
+        sut.start()
+        advanceUntilIdle()
+        sut.startRecording(requireNotNull(FingerprintLabel.of("S1", "P1", 0.0, 0.0)), durationSeconds = 1.0)
+        runCurrent()
+
+        fakeClockMs = 5_000 // the recorder runs later than the radio saw it
+        scanner.deliver(beaconA, rssi = -60, atMs = 4_321)
+        advanceUntilIdle()
+
+        val row = sut.state.value.recordings.first().readLines()[1]
+        assertTrue(row, row.startsWith("4321,"))
+        sut.stop()
     }
 
     @Test
@@ -179,6 +205,22 @@ class FingerprintRecorderTest {
     }
 
     @Test
+    fun `a long recording is uploaded in batches, in order`() = runTest {
+        val sut = recorder(this, uploadBatchSize = 2)
+        sut.start()
+        advanceUntilIdle()
+
+        sut.startRecording(requireNotNull(FingerprintLabel.of("S1", "P1", 0.0, 0.0)), durationSeconds = 1.0)
+        runCurrent()
+        (1..5).forEach { scanner.deliver(beaconA, rssi = -60 - it) }
+        advanceUntilIdle()
+
+        assertEquals(listOf(2, 2, 1), uploader.uploadedBatches.map { it.size })
+        assertEquals((1..5).map { -60 - it }, uploader.uploadedBatches.flatten().map { it.rssi })
+        sut.stop()
+    }
+
+    @Test
     fun `cancelling a recording deletes its file and leaves no trace in state`() = runTest {
         val sut = recorder(this)
         sut.start()
@@ -191,6 +233,7 @@ class FingerprintRecorderTest {
         runCurrent()
 
         sut.cancelRecording()
+        runCurrent()
 
         assertFalse(sut.state.value.isRecording)
         assertTrue(sut.state.value.recordings.isEmpty())
@@ -204,13 +247,15 @@ class FingerprintRecorderTest {
         sut.start()
         advanceUntilIdle()
 
-        // No advanceUntilIdle() between these: startRecording() updates state synchronously,
-        // and advancing time here would run the 10s end-of-recording timer to completion
-        // before the second recording even starts, defeating the point of this test.
+        // runCurrent(), not advanceUntilIdle(), after each one: advancing time here would run
+        // the 10s end-of-recording timer to completion before the second recording even
+        // starts, defeating the point of this test.
         sut.startRecording(requireNotNull(FingerprintLabel.of("S1", "P1", 0.0, 0.0)), durationSeconds = 10.0)
+        runCurrent()
         assertNotNull(sut.state.value.activeRecording)
 
         sut.startRecording(requireNotNull(FingerprintLabel.of("S1", "P2", 1.0, 1.0)), durationSeconds = 10.0)
+        runCurrent()
 
         assertEquals("P2", sut.state.value.activeRecording?.label?.point)
         assertTrue(sut.state.value.recordings.isEmpty()) // the discarded one never "finished"

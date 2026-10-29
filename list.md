@@ -140,6 +140,101 @@ qualquer melhoria de UI/paridade adicional que não estava no escopo original.
   `git show master:ios/Tests/TrackerAppTests/PositioningTests.swift` e portar os testes que
   ainda fizerem sentido pra `applications/ios/Tests/TrackerAppTests/PositioningTests.swift`.
 
+### Reestruturação do Android (plano)
+
+Objetivo: deixar o app fácil de entender e manter, e pronto pra produção, aplicando os princípios
+da Clean Architecture sem a cerimônia. Cada fase deixa o app funcionando e os testes passando.
+
+**Regras:**
+
+- **Regra de dependência:** domínio não importa Android, banco nem rede. Na fase 2 isso passa a ser
+  garantido por módulos Gradle (`:core:positioning` é Kotlin/JVM puro).
+- **Use case só onde há lógica.** Nada de use case que só repassa pro repositório: aí o ViewModel
+  chama o repositório direto.
+- **DTOs só em `data`.** Formato da API e do CSV/JSON de fingerprint não vaza pro domínio.
+- **Organização por feature**, com camadas dentro de cada uma (não `data/domain/presentation`
+  globais).
+
+**Contratos que não mudam** (iOS, ESP32 e API dependem deles): protocolo BLE (UUID do serviço, ID no
+nome local / manufacturer data), formato CSV/JSON das gravações, endpoints e campos da API.
+Protegidos por testes de contrato (fase 0).
+
+| Fase | Conteúdo |
+|---|---|
+| 0 | Rede de segurança (testes de contrato, ktlint, lint, CI, StrictMode) e bugs que afetam o dataset |
+| 1 | Injeção de dependência (Hilt), instâncias únicas, repositórios com `Flow`, pacotes por feature |
+| 2 | `:core:positioning` (JVM puro) + `PositioningEngine` + interface `PositionEstimator` (destrava ML e replay offline) |
+| 3 | Gravação: armazenamento na camada `data`, upload por WorkManager lendo o arquivo, calibração nos metadados |
+| 4 | Serviço em primeiro plano dono do scan e da gravação |
+| 5 | Demais módulos, DataStore, navegação tipada, UI padronizada por feature, permissões por feature |
+| 6 | Release: R8, assinatura, configuração por ambiente, relatório de falhas; autenticação por dispositivo (depende do backend) |
+
+#### Fase 0 — rede de segurança e correções que afetam o dataset
+
+- [x] ~~**Testes de contrato**~~ — feito: `app/src/test/java/.../contract/` + arquivos esperados em
+  `app/src/test/resources/contracts/` (cabeçalho e linhas do CSV com escape de aspas, JSON de
+  metadados, JSON enviado a `/sightings`, `/fixes` e `/fingerprints` com a configuração de produção
+  do cliente, constantes do protocolo BLE). Chaves do JSON conferidas contra os `CodingKeys` do
+  iOS; campos da API contra `applications/api/app/schemas.py`. **Achou um bug:** o JSON de
+  metadados do Android saía **sem `schema_version`** (o kotlinx.serialization não grava valores
+  padrão); corrigido com `encodeDefaults`. Gravações Android já feitas podem não ter o campo: o
+  pipeline de ML deve ler a ausência como versão 1.
+- [ ] **Formatação (Spotless + ktlint)** — configurado (`build.gradle.kts` da raiz do Android,
+  `.editorconfig`), `spotlessCheck` no CI. Estilo `intellij_idea`, 140 colunas, regras de
+  assinatura desligadas (não juntar parâmetros numa linha). As regras ficam no Gradle
+  (`editorConfigOverride`): o ktlint do Spotless ignorou o `.editorconfig`. **Falta:** rodar
+  `./gradlew spotlessApply` (34 arquivos, ~350 linhas) num commit só de formatação, depois dos
+  commits da fase 0 — o CI falha até isso ser feito.
+- [x] ~~**Android Lint** falhando o build~~ — feito: `warningsAsErrors` + `lint-baseline.xml` com os
+  14 avisos e 1 dica atuais (recursos sem uso, etc.). Os avisos de "versão mais nova disponível"
+  estão desligados: mudam sozinhos a cada lançamento de biblioteca (atualizar dependências é
+  trabalho para Dependabot/Renovate).
+- [x] ~~**CI**~~ — escrito (`.github/workflows/android.yml`, só para `applications/android/**`):
+  `spotlessCheck lintDebug testDebugUnitTest assembleDebug`, JDK 21, `Secrets.kt` do `.example`.
+  Ainda não rodou: só roda no GitHub, depois do push.
+- [x] ~~**`BlueGuideApplication` + StrictMode**~~ — feito (debug, só log; `buildConfig = true`).
+  **Falta:** rodar o app num aparelho e listar as violações no logcat (tag `StrictMode`).
+- [x] ~~**`t_ms` do Android vem do scan**~~ — feito: `ScanResult.timestampNanos`, mesmo relógio do
+  `elapsedRealtime()`, como o README documenta.
+- [x] ~~**Gravador fora da thread principal**~~ — feito: todo o trabalho num despachante de uma
+  thread só (`Dispatchers.IO.limitedParallelism(1)`), `flush` no máximo 1 vez por segundo,
+  listagem de gravações no `start()`. O gravador é dono do próprio escopo, então o `stop()` no
+  `onCleared` ainda descarta a gravação pela metade. **Falta:** conferir no aparelho (gravação de
+  10 min sem aviso do StrictMode vindo do gravador).
+- [x] ~~**Sem custo quadrático e upload em lotes**~~ — feito: `ArrayList` e lotes de 1.000 linhas, um
+  depois do outro; a primeira falha para os demais e a mensagem diz quantas linhas foram.
+- [x] ~~**Limpeza**~~ — feito: testes de exemplo do template removidos, `FakeBleScanner` do código
+  principal apagado (não era usado: o teste do gravador tem o seu), notas de estudo do
+  `DeviceListViewModel` tiradas.
+
+Fora da fase 0: a chave da API dentro do APK (só resolve com autenticação por dispositivo no
+backend, fase 6) e o scan duplicado (fase 1).
+
+#### Fase 1 — injeção de dependência e organização por feature
+
+- [ ] **Compatibilidade:** confirmar Hilt + KSP com o Kotlin embutido do AGP 9.4 e Kotlin 2.2.10.
+  Se não der, contêiner manual (`AppContainer` na `Application`) com os mesmos limites.
+- [ ] **Pacotes por feature** (só mover, commit isolado): `app/`, `core/{model,positioning,ble,
+  sensors,network,data}`, `feature/{positioning,fingerprint,find,ar}`. O `Secrets.kt` muda de
+  caminho: atualizar `SECRETS` no Makefile e o `.gitignore` no mesmo commit.
+- [ ] **Base do Hilt:** `@HiltAndroidApp`, `@AndroidEntryPoint`, `hiltViewModel()`, qualificadores
+  `@ApplicationScope` e `@IoDispatcher`.
+- [ ] **Módulos de DI** (`app/di/`): BLE, rede (um `HttpClient`), dados, sensores, sistema
+  (`MonotonicClock`, `DeviceInfo`, `LocalDeviceIdProvider`), ligados às interfaces com `@Binds`.
+- [ ] **Um único scan compartilhado** (`SharedBleScanner`): erros viram eventos antes do `shareIn`;
+  o fluxo observa permissão e estado do Bluetooth e reinicia o scan sozinho, com espera entre
+  tentativas.
+- [ ] **Repositórios com `Flow`** (beacons, calibração, locais salvos), ainda sobre
+  SharedPreferences. Rótulos A–Z viram `AddAnchorUseCase`. Some o `refreshAnchors()`.
+- [ ] **ViewModels sem `Context`** (`@HiltViewModel`); classes que recebem `scope` no construtor
+  ganham fábricas com injeção assistida (transição até a fase 4).
+- [ ] **Testes:** ViewModels com fakes; scan compartilhado (dois consumidores, um scan; falha vira
+  evento e reinicia).
+
+Pronto quando: nenhum ViewModel recebe `Context`; uma instância de scanner, `HttpClient` e cada
+repositório; beacon cadastrado no Positioning aparece no Fingerprint sem recarregar; testes e CI
+passando.
+
 ## ESP32 / Embarcados (`esp32-esp8266`)
 
 - [ ] **Usar pelo menos 1-2 sensores/atuadores do kit físico** (LED RGB, sensor ultrassônico,

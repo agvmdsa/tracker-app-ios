@@ -1,0 +1,3 @@
+t_ms,timestamp_ms,node,model,system_version,beacon,rssi,roll,pitch,yaw,relative_altitude_m,pressure_kpa,motion_state,motion_confidence,session,point,x,y
+123456789,1767323045678,AABBCCDD,"Pixel 8,Pro ""X""","Android 15",9F3C1A02,-67,0.1235,-1.5000,3.1416,1.235,101.325,walking,87,S1,P3,2.00,4.50
+123456789,1767323045678,AABBCCDD,"Pixel 8","Android 15",9F3C1A02,-67,,,,,,,,S1,P3,2.00,4.50

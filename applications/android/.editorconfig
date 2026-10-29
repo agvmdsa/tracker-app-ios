@@ -1,0 +1,15 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+
+# For the editor. The formatter's (ktlint) rules are in build.gradle.kts, under `spotless`:
+# keep max_line_length and the trailing commas the same in both.
+[*.{kt,kts}]
+indent_style = space
+indent_size = 4
+max_line_length = 140
+ij_kotlin_allow_trailing_comma = false
+ij_kotlin_allow_trailing_comma_on_call_site = false

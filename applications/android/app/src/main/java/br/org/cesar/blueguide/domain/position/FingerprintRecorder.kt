@@ -12,8 +12,11 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -71,6 +74,10 @@ data class FingerprintRecorderState(
  * point gets the same amount of data: one file per recording, one row per advertisement
  * (`FingerprintRecord`), plus a JSON file with the recording's window and context
  * (`FingerprintRecordingMetadata`) once it ends.
+ *
+ * All of its work — the scan, the files, the state — runs one thing at a time on the
+ * dispatcher it is given, so the commands below return at once and their effect shows up in
+ * [state] a moment later.
  */
 class FingerprintRecorder(
     private val scanner: BleScanner,
@@ -87,13 +94,22 @@ class FingerprintRecorder(
     private val node: DeviceId,
     private val model: String,
     private val systemVersion: String,
-    private val scope: CoroutineScope,
+    /** Single-threaded and off the main thread (`Dispatchers.IO.limitedParallelism(1)`): rows
+     *  are written as they arrive, which must not block the UI, and one thread at a time is
+     *  what lets the recorder keep its state without locks. */
+    dispatcher: CoroutineDispatcher,
     /** Injected rather than read from `android.os.SystemClock` directly, so this file needs
-     *  no Android import — pass `SystemClock::elapsedRealtime` from the call site. */
+     *  no Android import — pass `SystemClock::elapsedRealtime` from the call site. Same clock
+     *  as the sightings' `lastSeenAtMillis`. */
     private val monotonicMs: () -> Long,
-    private val now: () -> Instant = Instant::now
+    private val now: () -> Instant = Instant::now,
+    /** Rows per upload request: a long recording is tens of thousands of rows, too many for
+     *  one request. */
+    private val uploadBatchSize: Int = DEFAULT_UPLOAD_BATCH_SIZE
 ) {
-    private val _state = MutableStateFlow(FingerprintRecorderState(recordings = existingRecordings()))
+    private val scope = CoroutineScope(SupervisorJob() + dispatcher)
+
+    private val _state = MutableStateFlow(FingerprintRecorderState())
     val state: StateFlow<FingerprintRecorderState> = _state.asStateFlow()
 
     /**
@@ -105,45 +121,74 @@ class FingerprintRecorder(
      */
     val layoutCheck: AnchorLayoutCheck get() = AnchorLayoutCheck.of(anchors(), heardBeacons)
 
-    private var heardBeacons: Set<DeviceId> = emptySet()
+    /** Written on the recorder's thread, read by [layoutCheck] from any other. */
+    @Volatile private var heardBeacons: Set<DeviceId> = emptySet()
     private var scanJob: Job? = null
     private var endJob: Job? = null
     private var writer: BufferedWriter? = null
     private var file: File? = null
-    private var pendingUploadRows: List<FingerprintRecord> = emptyList()
+    private var lastFlushMs = 0L
+    private val pendingUploadRows = ArrayList<FingerprintRecord>()
 
-    /** Starts listening to the beacons and the sensors; nothing is written until
-     *  [startRecording]. */
+    /** Lists the recordings already on disk and starts listening to the beacons and the
+     *  sensors; nothing is written until [startRecording]. */
     fun start() {
-        scanJob?.cancel()
-        scanJob = scope.launch {
-            scanner.scan()
-                .catch { cause ->
-                    // A scan failure here just means rows stop arriving, same tolerance as
-                    // the observer screen's own scan collector — but a real cancellation
-                    // (stop() tearing this job down) must still propagate, not be eaten.
-                    if (cause is CancellationException) throw cause
-                }
-                .collect { sighting -> onSighting(sighting) }
+        scope.launch {
+            _state.update { it.copy(recordings = existingRecordings()) }
+            scanJob?.cancel()
+            scanJob = scope.launch {
+                scanner.scan()
+                    .catch { cause ->
+                        // A scan failure here just means rows stop arriving, same tolerance as
+                        // the observer screen's own scan collector — but a real cancellation
+                        // (stop() tearing this job down) must still propagate, not be eaten.
+                        if (cause is CancellationException) throw cause
+                    }
+                    .collect { sighting -> onSighting(sighting) }
+            }
         }
         deviceMotion.start()
         altimeter.start()
         motionActivity.start()
     }
 
-    /** Stops listening. A recording still in progress is discarded, as with [cancelRecording]. */
+    /** Stops for good: a recording still in progress is discarded, as with [cancelRecording],
+     *  and the recorder can't be started again. */
     fun stop() {
-        cancelRecording()
-        scanJob?.cancel()
-        scanJob = null
         deviceMotion.stop()
         altimeter.stop()
         motionActivity.stop()
+        scope.launch {
+            discardActiveRecording()
+            scanJob?.cancel()
+        }.invokeOnCompletion { scope.cancel() }
     }
 
     /** Records every advertisement for [durationSeconds], then stops on its own. */
     fun startRecording(label: FingerprintLabel, durationSeconds: Double) {
-        cancelRecording()
+        scope.launch { beginRecording(label, durationSeconds) }
+    }
+
+    /** Stops the recording in progress early and deletes its file: a recording that didn't
+     *  last its full time would leave that point with less data than the others. */
+    fun cancelRecording() {
+        scope.launch { discardActiveRecording() }
+    }
+
+    /** Deletes a recording's CSV and its metadata. */
+    fun deleteRecording(target: File) {
+        scope.launch {
+            if (!target.delete()) {
+                _state.update { it.copy(errorMessage = "Could not delete ${target.name}") }
+                return@launch
+            }
+            metadataFile(target).delete()
+            _state.update { it.copy(recordings = it.recordings.filterNot { f -> f == target }) }
+        }
+    }
+
+    private fun beginRecording(label: FingerprintLabel, durationSeconds: Double) {
+        discardActiveRecording()
         val startedAt = now()
         val target = File(directory, fileName(label, startedAt))
         try {
@@ -158,7 +203,8 @@ class FingerprintRecorder(
             return
         }
         file = target
-        pendingUploadRows = emptyList()
+        lastFlushMs = monotonicMs()
+        pendingUploadRows.clear()
         val active = ActiveFingerprintRecording(label, startedAt, durationSeconds, monotonicMs(), anchors())
         _state.update { it.copy(activeRecording = active, recordsPerBeacon = emptyMap(), errorMessage = null) }
 
@@ -168,25 +214,13 @@ class FingerprintRecorder(
         }
     }
 
-    /** Stops the recording in progress early and deletes its file: a recording that didn't
-     *  last its full time would leave that point with less data than the others. */
-    fun cancelRecording() {
+    private fun discardActiveRecording() {
         if (_state.value.activeRecording == null) return
         val target = file
         closeWriter()
         target?.delete()
-        pendingUploadRows = emptyList()
+        pendingUploadRows.clear()
         _state.update { it.copy(activeRecording = null, recordsPerBeacon = emptyMap()) }
-    }
-
-    /** Deletes a recording's CSV and its metadata. */
-    fun deleteRecording(target: File) {
-        if (!target.delete()) {
-            _state.update { it.copy(errorMessage = "Could not delete ${target.name}") }
-            return
-        }
-        metadataFile(target).delete()
-        _state.update { it.copy(recordings = it.recordings.filterNot { f -> f == target }) }
     }
 
     private fun finishRecording() {
@@ -203,8 +237,8 @@ class FingerprintRecorder(
             durationSeconds = (endedAt.toEpochMilli() - active.startedAt.toEpochMilli()) / 1000.0,
             recordsPerBeacon = recordsPerBeacon
         )
-        val rowsToUpload = pendingUploadRows
-        pendingUploadRows = emptyList()
+        val rowsToUpload = pendingUploadRows.toList()
+        pendingUploadRows.clear()
 
         _state.update {
             it.copy(
@@ -218,15 +252,27 @@ class FingerprintRecorder(
     }
 
     /** The CSV (already safely on disk) is kept no matter what happens here — a failed
-     *  upload just means the training data stays local-only until exported by hand. */
+     *  upload just means the training data stays local-only until exported by hand. Batches
+     *  go one after another, and the first failure stops the rest. */
     private fun uploadIfConfigured(records: List<FingerprintRecord>) {
         val uploader = uploader
         if (uploader == null || records.isEmpty()) return
         scope.launch {
+            var sent = 0
             try {
-                uploader.upload(records)
+                for (batch in records.chunked(uploadBatchSize)) {
+                    uploader.upload(batch)
+                    sent += batch.size
+                }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                _state.update { it.copy(errorMessage = "Recording saved locally, but the upload to the API failed: ${e.message}") }
+                _state.update {
+                    it.copy(
+                        errorMessage = "Recording saved locally, but the upload to the API failed after " +
+                            "$sent of ${records.size} rows: ${e.message}"
+                    )
+                }
             }
         }
     }
@@ -240,7 +286,7 @@ class FingerprintRecorder(
         if (beaconId == null) return // no id, nothing to label the `beacon` column with
 
         val record = FingerprintRecord(
-            monotonicMs = monotonicMs(),
+            monotonicMs = sighting.lastSeenAtMillis,
             seenAt = now(),
             node = node,
             model = model,
@@ -255,17 +301,28 @@ class FingerprintRecorder(
         try {
             currentWriter.write(record.csvLine)
             currentWriter.newLine()
-            currentWriter.flush()
+            flushIfDue(currentWriter)
         } catch (e: Exception) {
-            cancelRecording()
+            discardActiveRecording()
             _state.update { it.copy(errorMessage = "Recording interrupted and discarded: ${e.message}") }
             return
         }
-        pendingUploadRows = pendingUploadRows + record
+        pendingUploadRows.add(record)
         _state.update {
             val updated = it.recordsPerBeacon.toMutableMap()
             updated[beaconId] = (updated[beaconId] ?: 0) + 1
             it.copy(recordsPerBeacon = updated)
+        }
+    }
+
+    /** At most once a second, not once per row: the rows reach the disk in a few larger
+     *  writes. A recording cut short loses at most its last second, which costs nothing — a
+     *  CSV without its JSON is left out of the dataset anyway. */
+    private fun flushIfDue(writer: BufferedWriter) {
+        val nowMs = monotonicMs()
+        if (nowMs - lastFlushMs >= FLUSH_INTERVAL_MS) {
+            writer.flush()
+            lastFlushMs = nowMs
         }
     }
 
@@ -330,6 +387,10 @@ class FingerprintRecorder(
     companion object {
         /** `DeviceMotionReading`'s requested sensor rate — see `AndroidOrientationReader`. */
         private const val ORIENTATION_RATE_HZ = 50.0
+
+        private const val FLUSH_INTERVAL_MS = 1_000L
+
+        const val DEFAULT_UPLOAD_BATCH_SIZE = 1_000
 
         private val FILE_NAME_FORMAT: DateTimeFormatter =
             DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss", Locale.ROOT).withZone(ZoneId.systemDefault())

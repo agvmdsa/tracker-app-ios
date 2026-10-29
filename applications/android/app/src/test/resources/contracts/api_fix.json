@@ -1,0 +1,8 @@
+{
+    "observerID": "AABBCCDD",
+    "x": 1.0,
+    "y": 2.0,
+    "uncertaintyMeters": 0.3,
+    "recordedAt": "2026-01-01T00:00:00Z",
+    "anchorCount": 3
+}

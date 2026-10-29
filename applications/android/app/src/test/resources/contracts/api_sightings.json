@@ -1,0 +1,12 @@
+[
+    {
+        "observerID": "AABBCCDD",
+        "anchorID": "11223344",
+        "rssi": -65,
+        "distanceMeters": 1.5,
+        "seenAt": "2026-01-01T00:00:00Z",
+        "sampleCount": 5,
+        "rssiStdDev": 1.2,
+        "deviceModel": "Pixel 6"
+    }
+]

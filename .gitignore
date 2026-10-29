@@ -1,7 +1,9 @@
 # Spec-kit tooling and Claude Code configuration (never versioned)
 .specify/
 .claude/
-.github/
+# ...except the CI workflows, which are versioned.
+.github/*
+!.github/workflows/
 specs/
 
 # ESP32 firmware (esp32-esp8266/): secrets, build output and the local Python environment

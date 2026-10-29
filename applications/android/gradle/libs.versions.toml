@@ -15,6 +15,7 @@ playServicesLocation = "21.3.0"
 coreUwb = "1.0.0"
 arcore = "1.57.0"
 navigationCompose = "2.10.2"
+spotless = "8.0.0"
 
 [libraries]
 play-services-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "playServicesLocation" }
@@ -51,3 +52,4 @@ android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
