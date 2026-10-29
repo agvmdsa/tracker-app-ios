@@ -166,7 +166,7 @@ class DeviceListViewModel @Inject constructor(
 
     private suspend fun observe() {
         scanner.scan()
-            // TODO(3c): surface this in DeviceListState instead of only logging.
+            // TODO(3c): show SharedBleScanner.status in DeviceListState instead of only logging.
             // Without a catch, a closed-with-exception flow (Bluetooth off, scan
             // failure) propagates out of collect and crashes the app.
             .catch { cause ->

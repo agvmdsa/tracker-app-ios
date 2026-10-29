@@ -230,9 +230,15 @@ backend, fase 6) e o scan duplicado (fase 1).
   `PositioningApiClient`, um `HttpClient`), `SensorsModule`, `FeatureModule`. O domínio continua
   sem anotações de DI: classes puras são montadas com `@Provides`; só as implementações Android
   têm `@Inject`.
-- [ ] **Um único scan compartilhado** (`SharedBleScanner`): erros viram eventos antes do `shareIn`;
-  o fluxo observa permissão e estado do Bluetooth e reinicia o scan sozinho, com espera entre
-  tentativas.
+- [x] ~~**Um único scan compartilhado**~~ — feito: `core/ble/SharedBleScanner` (Kotlin puro), um
+  scan do rádio para o Positioning e o gravador, `shareIn(@ApplicationScope, WhileSubscribed(5 s))`
+  — trocar de modo rápido não reinicia o hardware. Falhas não chegam a quem escuta: o scan
+  recomeça sozinho com espera crescente (1, 2, 5, 10, 30 s; volta à primeira quando chegam
+  leituras), o que também o inicia quando a permissão é concedida depois — antes, a aba
+  Fingerprint ficava sem scan até ser recriada. `status` (`Idle`/`Scanning`/`Interrupted`) diz
+  por quê. **Diferença do plano:** não observa o Bluetooth sendo desligado no meio do scan (pede
+  um `BroadcastReceiver`; fica para a fase 4, com o serviço). **Falta:** mostrar o `status` na
+  tela (`TODO(3c)` no `DeviceListViewModel`).
 - [ ] **Repositórios com `Flow`** (beacons, calibração, locais salvos), ainda sobre
   SharedPreferences. Rótulos A–Z viram `AddAnchorUseCase`. Some o `refreshAnchors()`.
 - [x] ~~**ViewModels sem `Context`**~~ — feito (`@HiltViewModel`). As classes que recebem `scope` no
@@ -240,9 +246,10 @@ backend, fase 6) e o scan duplicado (fase 1).
   feature, implementação em `data`) em vez de injeção assistida — o mesmo efeito com menos
   mágica. O `FingerprintViewModel` usa injeção assistida só para o id do aparelho (como `String`:
   o código gerado pelo Dagger não lida com value classes do Kotlin).
-- [ ] **Testes:** ~~`DeviceListViewModel` com fakes~~ (feito: o ciclo de 1 s que calcula e envia
-  leituras e posição, com relógio e despachante de teste); scan compartilhado (dois consumidores,
-  um scan; falha vira evento e reinicia).
+- [x] ~~**Testes**~~ — feito: `DeviceListViewModel` com fakes (o ciclo de 1 s que calcula e envia
+  leituras e posição, com relógio e despachante de teste); `SharedBleScannerTest` (dois
+  consumidores, um scan; falha vira status e o scan recomeça com espera crescente; o rádio para
+  só depois do tempo de espera sem ninguém escutando).
 
 Pronto quando: nenhum ViewModel recebe `Context`; uma instância de scanner, `HttpClient` e cada
 repositório; beacon cadastrado no Positioning aparece no Fingerprint sem recarregar; testes e CI

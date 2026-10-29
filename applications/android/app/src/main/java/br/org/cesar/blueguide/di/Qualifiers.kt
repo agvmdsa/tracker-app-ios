@@ -2,6 +2,12 @@ package br.org.cesar.blueguide.di
 
 import javax.inject.Qualifier
 
+/** Lives as long as the app (`SupervisorJob` + `Dispatchers.Default`): for work shared by every
+ *  screen, like the one BLE scan. */
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class ApplicationScope
+
 /** `Dispatchers.IO`, injected so tests can run the work on their own dispatcher. */
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
