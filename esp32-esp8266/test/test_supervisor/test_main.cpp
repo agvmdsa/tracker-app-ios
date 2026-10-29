@@ -1,5 +1,6 @@
 // Supervisor behaviour on the host: the device state machine (data-model.md), the boot banner and
 // the generic serial commands (contracts/serial-protocol.md).
+#include <stdio.h>
 #include <string.h>
 #include <unity.h>
 
@@ -122,6 +123,42 @@ static void test_status_shows_configuration_without_secrets() {
     TEST_ASSERT_TRUE(rig.out.hasLineStartingWith("# status state=running_beacon role=beacon id=9F3C1A02"));
     TEST_ASSERT_TRUE(rig.out.hasLineContaining("heap_free=150000"));
     TEST_ASSERT_FALSE(rig.out.hasLineContaining("password"));
+}
+
+/** The network half (Wi-Fi link, IP, uploads) is a third status line, from whatever reports it on
+ *  the board (HttpFingerprintUploader). */
+static void test_status_shows_the_network_line_when_there_is_a_source() {
+    struct FakeNetwork : INetworkStatus {
+        int describe(char* buf, std::size_t cap) const override {
+            return snprintf(buf, cap, "wifi=connected ip=10.0.0.5 uploaded=40 failed=0 dropped=0");
+        }
+    } network;
+    Rig rig;
+    rig.supervisor.setNetworkStatus(&network);
+    rig.supervisor.begin();
+    rig.commands.push("status");
+    rig.supervisor.tick();
+    TEST_ASSERT_TRUE(rig.out.hasLineStartingWith("# status net wifi=connected ip=10.0.0.5 uploaded=40"));
+}
+
+static void test_status_without_a_network_source_has_no_network_line() {
+    Rig rig;
+    rig.supervisor.begin();
+    rig.commands.push("status");
+    rig.supervisor.tick();
+    TEST_ASSERT_FALSE(rig.out.hasLineStartingWith("# status net"));
+}
+
+/** The status reports the Wi-Fi in use, not the build flag: a beacon built with ENABLE_WIFI 1
+ *  leaves it off. */
+static void test_status_shows_wifi_off_on_a_beacon_built_with_wifi() {
+    DeviceConfiguration defaults = defaultsConfig();
+    defaults.wifiEnabled = true;
+    Rig rig(defaults);
+    rig.supervisor.begin();
+    rig.commands.push("status");
+    rig.supervisor.tick();
+    TEST_ASSERT_TRUE(rig.out.hasLineContaining("wifi=off"));
 }
 
 static void test_role_command_persists_the_override() {
@@ -361,6 +398,9 @@ int main(int, char**) {
     RUN_TEST(test_role_unavailable_is_reported);
     RUN_TEST(test_help_lists_the_commands);
     RUN_TEST(test_status_shows_configuration_without_secrets);
+    RUN_TEST(test_status_shows_the_network_line_when_there_is_a_source);
+    RUN_TEST(test_status_without_a_network_source_has_no_network_line);
+    RUN_TEST(test_status_shows_wifi_off_on_a_beacon_built_with_wifi);
     RUN_TEST(test_role_command_persists_the_override);
     RUN_TEST(test_config_reset_clears_the_overrides);
     RUN_TEST(test_config_save_confirms);

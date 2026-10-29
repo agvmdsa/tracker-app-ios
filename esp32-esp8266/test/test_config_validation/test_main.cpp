@@ -119,6 +119,37 @@ static void test_overrides_take_precedence_over_defaults() {
     TEST_ASSERT_EQUAL_UINT32(115200, resolved.serialBaud);
 }
 
+/** Wi-Fi only serves the collector (uploads, MQTT): a beacon never turns it on, so one config.h
+ *  with ENABLE_WIFI 1 can be flashed on every board. Wi-Fi on a beacon only shared its radio with
+ *  BLE and set off the brownout detector. */
+static void test_wifi_is_used_only_by_the_collector() {
+    DeviceConfiguration c = validConfig();
+    c.wifiEnabled = true;
+    c.mqttEnabled = true;
+
+    c.role = Role::Beacon;
+    TEST_ASSERT_FALSE(domain::usesWifi(c));
+    TEST_ASSERT_FALSE(domain::usesMqtt(c));
+
+    c.role = Role::Collector;
+    TEST_ASSERT_TRUE(domain::usesWifi(c));
+    TEST_ASSERT_TRUE(domain::usesMqtt(c));
+}
+
+static void test_the_collector_uses_wifi_only_when_it_is_enabled() {
+    DeviceConfiguration c = validConfig();
+    c.role = Role::Collector;
+    c.wifiEnabled = false;
+    c.mqttEnabled = true;
+    TEST_ASSERT_FALSE(domain::usesWifi(c));
+    TEST_ASSERT_FALSE(domain::usesMqtt(c));
+
+    c.wifiEnabled = true;
+    c.mqttEnabled = false;
+    TEST_ASSERT_TRUE(domain::usesWifi(c));
+    TEST_ASSERT_FALSE(domain::usesMqtt(c));
+}
+
 int main(int, char**) {
     UNITY_BEGIN();
     RUN_TEST(test_valid_configuration_has_no_error);
@@ -130,5 +161,7 @@ int main(int, char**) {
     RUN_TEST(test_collector_role_does_not_need_a_valid_beacon_id);
     RUN_TEST(test_no_overrides_keeps_the_defaults);
     RUN_TEST(test_overrides_take_precedence_over_defaults);
+    RUN_TEST(test_wifi_is_used_only_by_the_collector);
+    RUN_TEST(test_the_collector_uses_wifi_only_when_it_is_enabled);
     return UNITY_END();
 }

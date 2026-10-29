@@ -247,7 +247,12 @@ void Supervisor::printStatus() {
                   u(config_.advIntervalMs), u(config_.windowMs));
     reply(line);
     std::snprintf(line, sizeof(line), "# status wifi=%s mqtt=%s node=%s boot=%lu heap_free=%lu heap_min=%lu",
-                  config_.wifiEnabled ? "on" : "off", config_.mqttEnabled ? "on" : "off", config_.nodeId,
+                  domain::usesWifi(config_) ? "on" : "off", domain::usesMqtt(config_) ? "on" : "off", config_.nodeId,
                   u(boot_), u(system_.freeHeapBytes()), u(system_.minFreeHeapBytes()));
     reply(line);
+    if (network_ != nullptr) {
+        constexpr char kPrefix[] = "# status net ";
+        std::memcpy(line, kPrefix, sizeof(kPrefix));
+        if (network_->describe(line + sizeof(kPrefix) - 1, sizeof(line) - (sizeof(kPrefix) - 1)) > 0) reply(line);
+    }
 }

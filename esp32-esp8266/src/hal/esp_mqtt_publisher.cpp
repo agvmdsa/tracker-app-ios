@@ -92,7 +92,10 @@ void EspMqttPublisher::connectToCurrentFamily() {
 }
 
 void EspMqttPublisher::connectWifiIfNeeded() {
-    if (WiFi.status() == WL_CONNECTED) return;
-    if (WiFi.status() != WL_DISCONNECTED) return;  // already trying
+    const wl_status_t status = WiFi.status();
+    if (status == WL_CONNECTED) return;
+    // The station starts as WL_STOPPED until the first WiFi.begin(): waiting for WL_DISCONNECTED
+    // alone never connected. Anything else means a connection attempt is already under way.
+    if (status != WL_DISCONNECTED && status != WL_STOPPED && status != WL_NO_SHIELD) return;
     WiFi.begin(wifiSsid_, wifiPassword_);
 }

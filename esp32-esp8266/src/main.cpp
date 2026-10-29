@@ -27,6 +27,7 @@
 #include "app/rtos_observation_queue.h"
 #include "app/serial_task.h"
 #include "app/supervisor.h"
+#include "config_validation.h"
 #include "device_config.h"
 #include "hal/ble_adapter.h"
 #include "hal/clock.h"
@@ -87,7 +88,7 @@ NvsStore gStore;
 SerialConsole gConsole;
 NimBleRadio gRadio;
 RtosObservationQueue gObservations;
-HttpFingerprintUploader gUploader;
+HttpFingerprintUploader gUploader(gEvents);
 EspMqttPublisher gMqttPublisher(gEvents);
 BeaconRole gBeacon(gRadio, gEvents);
 CollectorRole gCollector(gRadio, gObservations, gConsole, gUploader, gMqttPublisher, gClock, gEvents);
@@ -101,15 +102,18 @@ void setup() {
     gStore.begin();
     gObservations.begin();
     gEvents.target = &gSupervisor;
+    gSupervisor.setNetworkStatus(&gUploader);
     gSupervisor.begin();
 
     // After begin(), not before: this is the resolved config (defaults + NVS overrides), the
     // same one `status` reports — calling .begin() on these before here would silently ignore
     // wifiEnabled/mqttEnabled and any NVS-saved override of the Wi-Fi/MQTT settings.
     const domain::DeviceConfiguration& config = gSupervisor.config();
-    if (config.wifiEnabled) {
+    // Only the collector turns Wi-Fi on (config_validation.h): a beacon built from the same
+    // config.h keeps its radio for BLE.
+    if (domain::usesWifi(config)) {
         gUploader.begin(config.wifiSsid, config.wifiPassword, config.apiHost, config.apiKey);
-        if (config.mqttEnabled) {
+        if (domain::usesMqtt(config)) {
             gMqttPublisher.begin(config.wifiSsid, config.wifiPassword, config.mqttHost, config.mqttHostV6,
                                  config.mqttPort, config.mqttUser, config.mqttPassword, config.topicPrefix,
                                  config.nodeId);
@@ -119,8 +123,8 @@ void setup() {
 
 void loop() {
     gSupervisor.tick();
-    // Both are only ever active when wifiEnabled (and, for MQTT, mqttEnabled) were on at boot —
-    // a no-op call otherwise, so it's safe to run unconditionally even in the beacon role.
+    // Both are only ever active on a collector with wifiEnabled (and, for MQTT, mqttEnabled) at boot
+    // — a no-op call otherwise, so it's safe to run unconditionally even in the beacon role.
     gUploader.poll();
     gMqttPublisher.poll();
     vTaskDelay(pdMS_TO_TICKS(10));

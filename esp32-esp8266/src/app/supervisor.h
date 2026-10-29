@@ -13,6 +13,7 @@
 #include "device_config.h"
 #include "events.h"
 #include "hal/clock.h"
+#include "hal/network_status.h"
 #include "hal/publisher.h"
 #include "hal/store.h"
 #include "hal/system_info.h"
@@ -32,6 +33,10 @@ public:
     void tick();
 
     void event(const char* level, const char* code, const char* message) override;
+
+    // Where `status` gets its `# status net` line; none (the default) leaves the line out. Set it
+    // before begin(), once the network side exists.
+    void setNetworkStatus(const INetworkStatus* network) { network_ = network; }
 
     State state() const { return state_; }
     const domain::DeviceConfiguration& config() const { return config_; }
@@ -55,6 +60,7 @@ private:
     ICommandSource& commands_;
     const RoleFactory& roles_;
     const char* firmware_;
+    const INetworkStatus* network_ = nullptr;
     IRole* active_ = nullptr;
     State state_ = State::Boot;
     uint32_t boot_ = 0;

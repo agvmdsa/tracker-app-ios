@@ -49,4 +49,12 @@ DeviceConfiguration resolveConfig(const DeviceConfiguration& defaults, const Ove
     return resolved;
 }
 
+bool usesWifi(const DeviceConfiguration& config) {
+    return config.role == Role::Collector && config.wifiEnabled;
+}
+
+bool usesMqtt(const DeviceConfiguration& config) {
+    return usesWifi(config) && config.mqttEnabled;
+}
+
 }  // namespace domain

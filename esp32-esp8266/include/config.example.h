@@ -23,13 +23,15 @@
 
 #define SERIAL_BAUD 115200
 
-// Network features are off by default (the collector runs with Wi-Fi off to protect the scan rate).
-#define ENABLE_WIFI 0
+// Wi-Fi is used only by the collector (fingerprint uploads, MQTT): a beacon never turns it on,
+// even with ENABLE_WIFI 1, so the same config.h serves every board. Set ENABLE_WIFI 0 to collect
+// over serial only (Wi-Fi shares the radio with the BLE scan and can lower its rate).
+#define ENABLE_WIFI 1
 #define ENABLE_MQTT 0
 
-// Wi-Fi credentials (placeholders).
-#define WIFI_SSID "your-network"
-#define WIFI_PASSWORD "your-password"
+// Wi-Fi credentials: the lab network (2.4 GHz; the ESP32 has no 5 GHz).
+#define WIFI_SSID "uaifai-brum"
+#define WIFI_PASSWORD "bemvindoaocesar"
 
 // MQTT broker (placeholders).
 #define MQTT_HOST "192.168.0.10"

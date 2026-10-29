@@ -196,7 +196,7 @@ modelo de fingerprinting. Isso evita o passo manual de copiar o log serial e con
 #define ENABLE_WIFI 1
 #define WIFI_SSID "sua-rede"
 #define WIFI_PASSWORD "sua-senha"
-#define API_HOST "api-tracker-app.onrender.com"
+#define API_HOST "tracker-app-ios.onrender.com"
 #define API_KEY "a-mesma-chave-configurada-no-render"
 ```
 
@@ -206,6 +206,11 @@ ser **exatamente** o mesmo valor da variável `API_KEY` do serviço da API no Re
 
 **Como funciona:**
 
+- **Só a coletora liga o Wi-Fi.** Um beacon nunca liga, mesmo gravado com `ENABLE_WIFI 1`: o mesmo
+  `config.h` serve para todas as placas, e o rádio do beacon fica só para o BLE (o Wi-Fi dividia o
+  rádio e o pico de corrente dele disparava o brownout). Como o papel muda com `role` + `reboot`, o
+  Wi-Fi acompanha: ao virar coletora, a placa liga o Wi-Fi no próximo boot. O `status` mostra o
+  Wi-Fi em uso (`wifi=off` num beacon).
 - Grava local e sobe em lote são independentes: a linha `R` sempre sai na serial, com ou sem
   Wi-Fi. O upload só acontece além disso, se `ENABLE_WIFI 1` e `API_HOST` não estiver vazio.
 - Lotes de até 20 linhas, ou a cada 5 segundos se tiver menos que isso esperando — não precisa de
@@ -216,6 +221,33 @@ ser **exatamente** o mesmo valor da variável `API_KEY` do serviço da API no Re
 - **O Wi-Fi disputa o rádio com o BLE** (por isso fica desligado por padrão — capítulo 6). Ligar
   `ENABLE_WIFI` pode reduzir a taxa de anúncios que o coletor recebe; se notar isso, teste com e
   sem Wi-Fi ligado e compare a taxa (`taxa_por_s` nas linhas `S`).
+- Se a conexão falhar (rede não encontrada, senha recusada, conexão perdida), a placa tenta de novo
+  a cada 10 segundos.
+
+**Como conferir pelo monitor serial.** A placa avisa em linhas `E` quando o estado muda (não a cada
+tentativa):
+
+| Linha | Quer dizer |
+|---|---|
+| `E,…,info,wifi_connected,ip=192.168.0.23` | Conectou; o IP que a rede deu |
+| `E,…,warn,wifi_no_network,…` | A rede não foi encontrada: nome errado em `WIFI_SSID`, ou é só 5 GHz (o ESP32 só tem 2,4 GHz) |
+| `E,…,error,wifi_auth_failed,…` | A rede recusou a senha (`WIFI_PASSWORD`) |
+| `E,…,warn,wifi_lost,…` | Estava conectada e caiu; vai tentar de novo |
+| `E,…,info,upload_ok,http=201 rows=20` | O primeiro lote subiu (os seguintes que derem certo não geram linha) |
+| `E,…,warn,upload_failed,http=401 …` | A API recusou a chave: confira `API_KEY` |
+| `E,…,warn,upload_failed,http=-1 …` | Sem conexão com a API: confira `API_HOST` e o Wi-Fi |
+
+Como a placa costuma conectar antes de você abrir o monitor, o mais fácil é o comando `status`, que
+tem uma terceira linha com o estado da rede:
+
+```
+# status net wifi=connected ip=192.168.0.23 uploaded=40 failed=0 dropped=0
+```
+
+`wifi` é `off` (desligado no `config.h`), `connecting`, `connected`, `no_network`, `auth_failed` ou
+`lost`; `uploaded` são as linhas que a API aceitou, `failed` os lotes recusados ou sem conexão, e
+`dropped` as linhas que não couberam na fila (o envio não acompanhou a gravação). Ou aperte o botão
+EN da placa com o monitor aberto para ver tudo desde o início.
 
 ## 8. Publicar no broker MQTT
 
@@ -313,4 +345,9 @@ Depois confira se virou linha na tabela `sightings` do Postgres.
   anúncio (nome na resposta de varredura) preparada para esse caso.
 - **Placa não aparece em `pio device list`:** troque o cabo (precisa ser de dados) e confira o
   driver USB-serial da placa.
+- **Monitor aberto, mas nada aparece:** a placa já escreveu a linha inicial antes de o monitor abrir.
+  Digite `status` e Enter, ou aperte o botão EN para reiniciá-la.
+- **`# status net wifi=connecting` que não muda:** a placa ainda não conseguiu falar com a rede. Se
+  depois de uns 30 s aparecer `no_network` ou `auth_failed`, veja a tabela do capítulo 7. Redes com
+  página de login (portal) não funcionam com o ESP32.
 - **Mais itens:** completados na tarefa T067.

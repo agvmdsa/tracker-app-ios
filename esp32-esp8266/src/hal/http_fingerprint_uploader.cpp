@@ -20,6 +20,7 @@ void HttpFingerprintUploader::begin(const char* wifiSsid, const char* wifiPasswo
     copyString(wifiPassword_, sizeof(wifiPassword_), wifiPassword);
     copyString(apiHost_, sizeof(apiHost_), apiHost);
     copyString(apiKey_, sizeof(apiKey_), apiKey);
+    wifiConfigured_ = true;
     enabled_ = apiHost[0] != '\0';
     lastFlushMs_ = millis();
 }
@@ -40,6 +41,7 @@ bool HttpFingerprintUploader::queueRow(const domain::RawRecord& record) {
 }
 
 void HttpFingerprintUploader::poll() {
+    if (wifiConfigured_) trackWifi();
     if (!enabled_) return;
     connectWifiIfNeeded();
     if (WiFi.status() != WL_CONNECTED) return;
@@ -49,10 +51,42 @@ void HttpFingerprintUploader::poll() {
     }
 }
 
+void HttpFingerprintUploader::trackWifi() {
+    domain::WifiLink link = domain::WifiLink::Connecting;
+    switch (WiFi.status()) {
+        case WL_CONNECTED: link = domain::WifiLink::Connected; break;
+        case WL_NO_SSID_AVAIL: link = domain::WifiLink::NoNetwork; break;
+        case WL_CONNECT_FAILED: link = domain::WifiLink::AuthFailed; break;
+        case WL_CONNECTION_LOST: link = domain::WifiLink::Lost; break;
+        default: link = domain::WifiLink::Connecting; break;
+    }
+    const String ip = link == domain::WifiLink::Connected ? WiFi.localIP().toString() : String();
+    domain::NetworkEvent event;
+    if (wifi_.update(link, ip.c_str(), event)) events_.event(event.level, event.code, event.message);
+}
+
 void HttpFingerprintUploader::connectWifiIfNeeded() {
-    if (WiFi.status() == WL_CONNECTED) return;
-    if (WiFi.status() != WL_DISCONNECTED) return;  // already trying
+    const wl_status_t status = WiFi.status();
+    if (status == WL_CONNECTED) return;
+    const unsigned long now = millis();
+    if (status == WL_STOPPED || status == WL_NO_SHIELD || status == WL_DISCONNECTED || status == WL_IDLE_STATUS) {
+        // Not trying: the station starts as WL_STOPPED until the first WiFi.begin() (waiting for
+        // WL_DISCONNECTED alone, as before, never connected), or the radio dropped back to idle.
+        if (lastAttemptMs_ != 0 && now - lastAttemptMs_ < kRetryIntervalMs) return;
+    } else if (status == WL_NO_SSID_AVAIL || status == WL_CONNECT_FAILED || status == WL_CONNECTION_LOST) {
+        // A failed attempt: try again, but not on every loop.
+        if (now - lastAttemptMs_ < kRetryIntervalMs) return;
+        WiFi.disconnect();
+    } else {
+        return;  // already trying
+    }
+    lastAttemptMs_ = now;
     WiFi.begin(wifiSsid_, wifiPassword_);
+}
+
+int HttpFingerprintUploader::describe(char* buf, std::size_t cap) const {
+    return domain::formatNetworkStatus(buf, cap, wifiConfigured_ ? wifi_.link() : domain::WifiLink::Off, wifi_.ip(),
+                                       uploads_.uploadedRows(), uploads_.failedBatches(), queue_.dropped());
 }
 
 bool HttpFingerprintUploader::dueToFlush() const {
@@ -74,15 +108,16 @@ void HttpFingerprintUploader::flush() {
     if (n == 0) return;
 
     char body[kBodyCapacity];
+    domain::NetworkEvent event;
     if (domain::formatFingerprintBatch(body, sizeof(body), records, n, "ESP32") < 0) {
-        ++failedBatches_;
+        events_.event("error", "upload_body_too_large", "a batch did not fit the request body; dropped");
         return;
     }
 
     HTTPClient http;
     const String url = String("https://") + apiHost_ + "/fingerprints";
     if (!http.begin(url)) {
-        ++failedBatches_;
+        if (uploads_.onBatch(-1, n, event)) events_.event(event.level, event.code, event.message);
         return;
     }
     http.addHeader("Content-Type", "application/json");
@@ -90,9 +125,5 @@ void HttpFingerprintUploader::flush() {
     const int status = http.POST(reinterpret_cast<uint8_t*>(body), std::strlen(body));
     http.end();
 
-    if (status >= 200 && status < 300) {
-        uploaded_ += static_cast<uint32_t>(n);
-    } else {
-        ++failedBatches_;
-    }
+    if (uploads_.onBatch(status, n, event)) events_.event(event.level, event.code, event.message);
 }
