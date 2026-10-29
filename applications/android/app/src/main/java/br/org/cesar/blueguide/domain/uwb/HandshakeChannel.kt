@@ -28,6 +28,7 @@ interface HandshakeChannel {
     val localId: String
 
     var onPeerDiscovered: ((peerId: String) -> Unit)?
+
     /** Fired once, when the peer's full payload has arrived. */
     var onPeerPayload: ((ByteArray) -> Unit)?
     var onStateChange: ((HandshakeState) -> Unit)?

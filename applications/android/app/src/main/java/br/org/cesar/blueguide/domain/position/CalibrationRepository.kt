@@ -7,6 +7,7 @@ interface CalibrationRepository {
     fun saveCenterRssi(rssi: Double)
     fun loadTouchRssi(): Double?
     fun saveTouchRssi(rssi: Double)
+
     /** The speed limit in km/h, null when turned off; [loadMaxSpeedKmh] alone is what it was set
      *  to, kept while off. Unset means on, at [MotionLimit.DEFAULT_MAX_SPEED_KMH]. */
     fun loadIsSpeedLimited(): Boolean?

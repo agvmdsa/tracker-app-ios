@@ -47,10 +47,18 @@ data class FingerprintRecord(
             val motionFields = motionActivity?.let { listOf(it.state.wireValue, it.confidence.toString()) } ?: listOf("", "")
 
             val fields = listOf(
-                monotonicMs.toString(), seenAt.toEpochMilli().toString(), node.value,
-                quoted(model), quoted(systemVersion), beacon.value, rssi.toString()
+                monotonicMs.toString(),
+                seenAt.toEpochMilli().toString(),
+                node.value,
+                quoted(model),
+                quoted(systemVersion),
+                beacon.value,
+                rssi.toString()
             ) + orientationFields + altitudeFields + motionFields + listOf(
-                label.session, label.point, decimal(label.x, 2), decimal(label.y, 2)
+                label.session,
+                label.point,
+                decimal(label.x, 2),
+                decimal(label.y, 2)
             )
             return fields.joinToString(",")
         }

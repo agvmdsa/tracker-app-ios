@@ -1,13 +1,13 @@
 package br.org.cesar.blueguide.domain.position
 
 import br.org.cesar.blueguide.domain.entity.DeviceId
-import kotlin.math.log10
-import kotlin.math.sqrt
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlin.math.log10
+import kotlin.math.sqrt
 
 /**
  * The weighted multilateration, the RSSI window and the "RSSI no centro" calibration, with the

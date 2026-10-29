@@ -5,8 +5,6 @@ import br.org.cesar.blueguide.domain.entity.BleDevice
 import br.org.cesar.blueguide.domain.entity.DeviceId
 import br.org.cesar.blueguide.domain.entity.DeviceSighting
 import br.org.cesar.blueguide.domain.network.FingerprintUploading
-import java.io.File
-import java.time.Instant
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -24,6 +22,8 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.io.File
+import java.time.Instant
 
 private class FakeBleScanner : BleScanner {
     private val channel = Channel<DeviceSighting>(Channel.UNLIMITED)
@@ -36,22 +36,34 @@ private class FakeBleScanner : BleScanner {
 private class FakeDeviceMotionReading : DeviceMotionReading {
     override var latest: DeviceMotionSample? = DeviceMotionSample(roll = 0.1, pitch = 0.2, yaw = 0.3)
     var running = false
-    override fun start() { running = true }
-    override fun stop() { running = false }
+    override fun start() {
+        running = true
+    }
+    override fun stop() {
+        running = false
+    }
 }
 
 private class FakeAltitudeReading : AltitudeReading {
     override var latest: AltitudeSample? = AltitudeSample(relativeAltitudeM = 1.5, pressureKPa = 101.3)
     var running = false
-    override fun start() { running = true }
-    override fun stop() { running = false }
+    override fun start() {
+        running = true
+    }
+    override fun stop() {
+        running = false
+    }
 }
 
 private class FakeMotionActivityReading : MotionActivityReading {
     override var latest: MotionActivitySample? = MotionActivitySample(MotionActivityState.STATIONARY, confidence = 90)
     var running = false
-    override fun start() { running = true }
-    override fun stop() { running = false }
+    override fun start() {
+        running = true
+    }
+    override fun stop() {
+        running = false
+    }
 }
 
 private class FakeFingerprintUploader : FingerprintUploading {
@@ -81,7 +93,10 @@ class FingerprintRecorderTest {
 
     @Before
     fun setUp() {
-        directory = File.createTempFile("fingerprints", "").apply { delete(); mkdirs() }
+        directory = File.createTempFile("fingerprints", "").apply {
+            delete()
+            mkdirs()
+        }
         scanner = FakeBleScanner()
         deviceMotion = FakeDeviceMotionReading()
         altimeter = FakeAltitudeReading()

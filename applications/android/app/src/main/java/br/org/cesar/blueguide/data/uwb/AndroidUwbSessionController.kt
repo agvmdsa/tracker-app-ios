@@ -13,10 +13,10 @@ import androidx.core.uwb.UwbManager
 import br.org.cesar.blueguide.domain.uwb.UwbHandshakePayload
 import br.org.cesar.blueguide.domain.uwb.UwbRole
 import br.org.cesar.blueguide.domain.uwb.UwbSessionController
-import java.security.SecureRandom
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import java.security.SecureRandom
 
 /**
  * [UwbSessionController] over `androidx.core.uwb` (Jetpack UWB) 1.0.0 — the counterpart of

@@ -3,6 +3,7 @@ package br.org.cesar.blueguide.presentation.devicelist
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedTextField
@@ -15,7 +16,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -48,6 +48,7 @@ fun AnchorEditorDialog(
     // A comma or a dot: a Portuguese keyboard types "2,5".
     val x = DecimalInput.parse(xText)
     val y = DecimalInput.parse(yText)
+
     /** Empty means "not entered"; anything else has to be a number. */
     val heightValid = heightText.isBlank() || DecimalInput.parse(heightText) != null
     val canSave = x != null && y != null && heightValid
@@ -96,7 +97,11 @@ fun AnchorEditorDialog(
         },
         confirmButton = {
             Button(
-                onClick = { if (x != null && y != null && heightValid) onSave(label.ifEmpty { null }, Point2D(x, y), DecimalInput.parse(heightText)) },
+                onClick = {
+                    if (x != null && y != null && heightValid) {
+                        onSave(label.ifEmpty { null }, Point2D(x, y), DecimalInput.parse(heightText))
+                    }
+                },
                 enabled = canSave
             ) { Text(stringResource(R.string.anchor_editor_save)) }
         },

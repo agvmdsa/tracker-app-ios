@@ -27,7 +27,9 @@ object DecimalInput {
             !body.all { it in '0'..'9' || it == '.' || it == ',' } ||
             body.none { it in '0'..'9' } ||
             body.count { it == '.' || it == ',' } > 1
-        ) return null
+        ) {
+            return null
+        }
         return body.replace(',', '.').toDoubleOrNull()?.let { sign * it }
     }
 

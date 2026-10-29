@@ -89,9 +89,11 @@ fun PositionMap(
     val secondary = MaterialTheme.colorScheme.onSurfaceVariant
     val outline = MaterialTheme.colorScheme.surface
     val measurer = rememberTextMeasurer()
-    val description = "Mapa com ${anchors.size} beacons" + (fix?.let {
-        String.format(Locale.ROOT, ", celular estimado em x %.1f, y %.1f metros.", it.position.x, it.position.y)
-    } ?: ", ainda sem a posição do celular.")
+    val description = "Mapa com ${anchors.size} beacons" + (
+        fix?.let {
+            String.format(Locale.ROOT, ", celular estimado em x %.1f, y %.1f metros.", it.position.x, it.position.y)
+        } ?: ", ainda sem a posição do celular."
+        )
 
     Box(
         modifier
@@ -128,7 +130,18 @@ fun PositionMap(
                 drawCircle(phoneColor.copy(alpha = 0.5f), radius, center, style = Stroke(width = 1.dp.toPx()))
             }
             anchors.forEach { anchor ->
-                drawBeacon(anchor, ranges.firstOrNull { it.anchor.id == anchor.id }, projection, beaconColor, outline, ink, secondary, measurer)
+                drawBeacon(
+                    anchor,
+                    ranges.firstOrNull {
+                        it.anchor.id == anchor.id
+                    },
+                    projection,
+                    beaconColor,
+                    outline,
+                    ink,
+                    secondary,
+                    measurer
+                )
             }
             if (phone != null) {
                 val center = projection.offset(phone)
@@ -161,10 +174,20 @@ private fun DrawScope.drawGrid(projection: MapProjection, measurer: TextMeasurer
     val style = TextStyle(fontSize = 10.sp, color = color)
 
     for (x in xs) {
-        drawLine(line, projection.offset(Point2D(x, projection.visibleY.start)), projection.offset(Point2D(x, projection.visibleY.endInclusive)), 1.dp.toPx())
+        drawLine(
+            line,
+            projection.offset(Point2D(x, projection.visibleY.start)),
+            projection.offset(Point2D(x, projection.visibleY.endInclusive)),
+            1.dp.toPx()
+        )
     }
     for (y in ys) {
-        drawLine(line, projection.offset(Point2D(projection.visibleX.start, y)), projection.offset(Point2D(projection.visibleX.endInclusive, y)), 1.dp.toPx())
+        drawLine(
+            line,
+            projection.offset(Point2D(projection.visibleX.start, y)),
+            projection.offset(Point2D(projection.visibleX.endInclusive, y)),
+            1.dp.toPx()
+        )
     }
     for (x in xs) {
         val at = projection.offset(Point2D(x, 0.0)).x
@@ -204,9 +227,22 @@ private fun DrawScope.drawBeacon(
     if (range != null) {
         val below = at.y <= size.height * 0.6f
         val distanceAt = Offset(at.x, at.y + (if (below) 1 else -1) * 31.dp.toPx() - 6.dp.toPx())
-        drawCentered(measurer, String.format(Locale.ROOT, "%.1f m", range.distanceMeters), TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = ink), distanceAt)
+        drawCentered(
+            measurer,
+            String.format(Locale.ROOT, "%.1f m", range.distanceMeters),
+            TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = ink),
+            distanceAt
+        )
         range.rssi?.let { rssi ->
-            drawCentered(measurer, String.format(Locale.ROOT, "%.0f dBm", rssi), TextStyle(fontSize = 10.sp, color = secondary), Offset(distanceAt.x, distanceAt.y + 13.dp.toPx()))
+            drawCentered(
+                measurer,
+                String.format(Locale.ROOT, "%.0f dBm", rssi),
+                TextStyle(fontSize = 10.sp, color = secondary),
+                Offset(
+                    distanceAt.x,
+                    distanceAt.y + 13.dp.toPx()
+                )
+            )
         }
     }
 }

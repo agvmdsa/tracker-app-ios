@@ -4,13 +4,6 @@ import br.org.cesar.blueguide.domain.ble.BleScanner
 import br.org.cesar.blueguide.domain.entity.DeviceId
 import br.org.cesar.blueguide.domain.entity.DeviceSighting
 import br.org.cesar.blueguide.domain.network.FingerprintUploading
-import java.io.BufferedWriter
-import java.io.File
-import java.io.FileWriter
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -24,6 +17,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.io.BufferedWriter
+import java.io.File
+import java.io.FileWriter
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 /** A recording in progress; null when not recording. Counterpart of the iOS app's
  *  `FingerprintRecorder.ActiveRecording`. */

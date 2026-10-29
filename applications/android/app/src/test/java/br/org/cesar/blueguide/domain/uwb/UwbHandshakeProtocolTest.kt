@@ -1,8 +1,8 @@
 package br.org.cesar.blueguide.domain.uwb
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class UwbHandshakeProtocolTest {

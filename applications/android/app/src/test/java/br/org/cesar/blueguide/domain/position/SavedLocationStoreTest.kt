@@ -1,9 +1,9 @@
 package br.org.cesar.blueguide.domain.position
 
-import java.util.UUID
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.UUID
 import kotlin.math.PI
 
 class SavedLocationStoreTest {
@@ -11,7 +11,9 @@ class SavedLocationStoreTest {
     private class MemoryRepository : SavedLocationRepository {
         var saved: List<SavedLocation> = emptyList()
         override fun load() = saved
-        override fun save(locations: List<SavedLocation>) { saved = locations }
+        override fun save(locations: List<SavedLocation>) {
+            saved = locations
+        }
     }
 
     @Test

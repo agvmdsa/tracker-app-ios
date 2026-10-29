@@ -30,8 +30,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import br.org.cesar.blueguide.domain.position.DecimalInput
 import br.org.cesar.blueguide.R
+import br.org.cesar.blueguide.domain.position.DecimalInput
 import br.org.cesar.blueguide.domain.position.FingerprintLabel
 import br.org.cesar.blueguide.domain.position.FingerprintRecorder
 import br.org.cesar.blueguide.domain.position.FingerprintRecorderState
@@ -71,24 +71,32 @@ fun FingerprintCollectorScreen(
         item {
             Column(Modifier.padding(16.dp)) {
                 OutlinedTextField(
-                    value = session, onValueChange = { session = it }, enabled = !state.isRecording,
+                    value = session,
+                    onValueChange = { session = it },
+                    enabled = !state.isRecording,
                     label = { Text(stringResource(R.string.fingerprint_session)) },
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
-                    value = point, onValueChange = { point = it }, enabled = !state.isRecording,
+                    value = point,
+                    onValueChange = { point = it },
+                    enabled = !state.isRecording,
                     label = { Text(stringResource(R.string.fingerprint_point)) },
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
                 )
                 Row(Modifier.padding(top = 8.dp)) {
                     OutlinedTextField(
-                        value = xText, onValueChange = { xText = it }, enabled = !state.isRecording,
+                        value = xText,
+                        onValueChange = { xText = it },
+                        enabled = !state.isRecording,
                         label = { Text(stringResource(R.string.fingerprint_x)) },
                         modifier = Modifier.weight(1f)
                     )
                     Spacer(Modifier.width(8.dp))
                     OutlinedTextField(
-                        value = yText, onValueChange = { yText = it }, enabled = !state.isRecording,
+                        value = yText,
+                        onValueChange = { yText = it },
+                        enabled = !state.isRecording,
                         label = { Text(stringResource(R.string.fingerprint_y)) },
                         modifier = Modifier.weight(1f)
                     )
@@ -183,7 +191,9 @@ fun FingerprintCollectorScreen(
                 ListItem(
                     headlineContent = { Text(recording.name) },
                     // A CSV without its JSON was cut before the time was up: leave it out of the dataset.
-                    supportingContent = if (complete) null else {
+                    supportingContent = if (complete) {
+                        null
+                    } else {
                         { Text(stringResource(R.string.fingerprint_incomplete), color = MaterialTheme.colorScheme.error) }
                     },
                     trailingContent = {

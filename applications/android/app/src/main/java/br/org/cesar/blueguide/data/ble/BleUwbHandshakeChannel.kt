@@ -26,9 +26,9 @@ import android.os.Handler
 import android.os.Looper
 import android.os.ParcelUuid
 import androidx.core.content.ContextCompat
+import br.org.cesar.blueguide.domain.uwb.HandshakeChannel
 import br.org.cesar.blueguide.domain.uwb.HandshakeState
 import br.org.cesar.blueguide.domain.uwb.UwbHandshakeProtocol
-import br.org.cesar.blueguide.domain.uwb.HandshakeChannel
 
 /**
  * [HandshakeChannel] over BLE GATT — the counterpart of the iOS app's `BLEHandshake`, adapted

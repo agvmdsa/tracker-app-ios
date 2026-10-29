@@ -1,8 +1,13 @@
 package br.org.cesar.blueguide.presentation.devicelist
 
+import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -10,55 +15,50 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.activity.compose.BackHandler
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.sp
-import br.org.cesar.blueguide.domain.position.MotionLimit
-import br.org.cesar.blueguide.domain.position.ObserverFix
-import br.org.cesar.blueguide.domain.position.SavedLocation
-import java.util.Locale
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import br.org.cesar.blueguide.R
 import br.org.cesar.blueguide.domain.ble.BleAdvertiseException
 import br.org.cesar.blueguide.domain.ble.BroadcastStatus
 import br.org.cesar.blueguide.domain.entity.DeviceId
 import br.org.cesar.blueguide.domain.entity.DeviceSighting
+import br.org.cesar.blueguide.domain.position.MotionLimit
+import br.org.cesar.blueguide.domain.position.ObserverFix
+import br.org.cesar.blueguide.domain.position.SavedLocation
+import java.util.Locale
 
 @Composable
 fun DeviceListScreen(
@@ -75,7 +75,16 @@ fun DeviceListScreen(
     when (state.mode) {
         AppMode.OBSERVER ->
             if (state.scanGranted) {
-                ObserverContent(state, modifier, onDeviceClick, onCenterRssiChange, onTouchRssiChange, onSpeedLimitChange, onSaveLocation, onRemoveLocation)
+                ObserverContent(
+                    state,
+                    modifier,
+                    onDeviceClick,
+                    onCenterRssiChange,
+                    onTouchRssiChange,
+                    onSpeedLimitChange,
+                    onSaveLocation,
+                    onRemoveLocation
+                )
             } else {
                 CenteredMessage(stringResource(R.string.scan_permission_required), modifier)
             }
@@ -155,7 +164,9 @@ private fun ObserverContent(
 
         item { SectionHeader("Locais salvos") }
         if (state.savedLocations.isEmpty()) {
-            item { Secondary("Nenhum ainda — ache sua posição e salve, por exemplo, onde estacionou.", Modifier.padding(horizontal = 16.dp)) }
+            item {
+                Secondary("Nenhum ainda — ache sua posição e salve, por exemplo, onde estacionou.", Modifier.padding(horizontal = 16.dp))
+            }
         }
         items(state.savedLocations, key = { "location-" + it.id }) { location ->
             ListItem(
@@ -184,7 +195,12 @@ private fun ObserverContent(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(anchor.label, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.width(8.dp))
-                        Text(anchor.id.value, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            anchor.id.value,
+                            fontFamily = FontFamily.Monospace,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 },
                 trailingContent = { Text(anchor.positionDescription, color = MaterialTheme.colorScheme.onSurfaceVariant) }
@@ -260,8 +276,11 @@ private fun CalibrationSection(
         val model = String.format(Locale.ROOT, "%.0f dBm a 1 m, expoente %.1f", calibration.referenceRssi, calibration.exponent)
             .replace('.', ',')
         Text(
-            if (calibration.usesTouchRssi) "Modelo: $model."
-            else "O RSSI encostado precisa ser mais forte que o do centro (e coerente com ele); usando só o centro. Modelo: $model.",
+            if (calibration.usesTouchRssi) {
+                "Modelo: $model."
+            } else {
+                "O RSSI encostado precisa ser mais forte que o do centro (e coerente com ele); usando só o centro. Modelo: $model."
+            },
             style = MaterialTheme.typography.bodySmall,
             color = if (calibration.usesTouchRssi) MaterialTheme.colorScheme.onSurfaceVariant else MapPalette.beacon()
         )

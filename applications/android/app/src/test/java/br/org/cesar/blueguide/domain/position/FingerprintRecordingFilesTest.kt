@@ -1,11 +1,11 @@
 package br.org.cesar.blueguide.domain.position
 
-import java.io.File
-import java.nio.file.Files
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
+import java.nio.file.Files
 
 /** Which files make up a recording, for exporting it and telling a cut one apart. */
 class FingerprintRecordingFilesTest {

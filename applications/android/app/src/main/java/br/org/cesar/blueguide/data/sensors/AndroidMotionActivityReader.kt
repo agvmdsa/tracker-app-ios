@@ -51,7 +51,9 @@ class AndroidMotionActivityReader(private val context: Context) : MotionActivity
         // PendingIntent carrying extras: nothing outside this app can intercept it.
         val intent = Intent(ACTION).setPackage(context.packageName)
         val newPendingIntent = PendingIntent.getBroadcast(
-            context, REQUEST_CODE, intent,
+            context,
+            REQUEST_CODE,
+            intent,
             PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
         pendingIntent = newPendingIntent

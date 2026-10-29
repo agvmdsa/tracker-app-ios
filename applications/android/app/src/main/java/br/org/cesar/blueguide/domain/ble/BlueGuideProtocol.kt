@@ -56,8 +56,11 @@ object BlueGuideProtocol {
      * from before the id existed looks like. Callers fall back to the BLE address.
      */
     fun idFromBytes(bytes: ByteArray?): DeviceId? =
-        if (bytes == null || bytes.size < ID_SIZE_BYTES) null
-        else DeviceId.ofBytes(bytes.copyOf(ID_SIZE_BYTES))
+        if (bytes == null || bytes.size < ID_SIZE_BYTES) {
+            null
+        } else {
+            DeviceId.ofBytes(bytes.copyOf(ID_SIZE_BYTES))
+        }
 
     /**
      * The id an advertisement of this protocol carries, by the same rules as the iOS app's

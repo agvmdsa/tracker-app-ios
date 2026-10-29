@@ -16,10 +16,10 @@ import br.org.cesar.blueguide.domain.position.AnchorStore
 import br.org.cesar.blueguide.domain.position.FingerprintLabel
 import br.org.cesar.blueguide.domain.position.FingerprintRecorder
 import br.org.cesar.blueguide.domain.position.FingerprintRecorderState
-import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import java.io.File
 
 /**
  * Owns the [FingerprintRecorder] at ViewModel scope — the fix for a recording in progress

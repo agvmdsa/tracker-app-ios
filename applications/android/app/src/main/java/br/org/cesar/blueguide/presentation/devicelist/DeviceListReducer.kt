@@ -74,8 +74,11 @@ object DeviceListReducer {
                 }
 
             is DeviceListIntent.BroadcastStatusChanged ->
-                if (state.mode != AppMode.BROADCAST) state
-                else state.copy(broadcastStatus = intent.status)
+                if (state.mode != AppMode.BROADCAST) {
+                    state
+                } else {
+                    state.copy(broadcastStatus = intent.status)
+                }
 
             is DeviceListIntent.LocalDeviceIdLoaded -> state.copy(localDeviceId = intent.id)
 

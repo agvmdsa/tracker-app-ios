@@ -13,10 +13,8 @@ import br.org.cesar.blueguide.domain.network.PositioningReport
 import br.org.cesar.blueguide.domain.network.PositioningReporting
 import br.org.cesar.blueguide.domain.position.AnchorStore
 import br.org.cesar.blueguide.domain.position.CalibrationRepository
-import br.org.cesar.blueguide.domain.position.SavedLocationStore
 import br.org.cesar.blueguide.domain.position.Point2D
-import java.time.Instant
-import kotlin.math.roundToInt
+import br.org.cesar.blueguide.domain.position.SavedLocationStore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -30,6 +28,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.Instant
+import kotlin.math.roundToInt
 
 class DeviceListViewModel(
     private val scanner: BleScanner,
@@ -45,7 +45,7 @@ class DeviceListViewModel(
     /** Uploads sightings/fixes to the positioning API while observing. Optional, same as the
      *  iOS app's `PositioningEngine` reporter — null just means "don't upload". */
     private val reporter: PositioningReporting? = null
-): ViewModel() {
+) : ViewModel() {
 
     private val _state = MutableStateFlow(DeviceListState())
     val state: StateFlow<DeviceListState> = _state.asStateFlow()

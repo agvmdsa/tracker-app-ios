@@ -10,6 +10,7 @@ interface UwbSessionController {
     val distance: Float?
     val azimuth: Float?
     val elevation: Float?
+
     /** True once a session was ranging but the signal is temporarily blocked/lost — same
      *  "Searching for signal..." case the iOS app's `isSignalLost` covers. */
     val isSignalLost: Boolean
@@ -17,6 +18,7 @@ interface UwbSessionController {
 
     /** Called when the peer ended its session, so the owner can look for it again. */
     var onPeerEnded: (() -> Unit)?
+
     /** Called whenever [distance]/[azimuth]/[elevation]/[isSignalLost] change, so the owner
      *  doesn't have to poll — the counterpart of the iOS app's `apply(distance:direction:)`
      *  being driven by `NISessionDelegate` callbacks. */

@@ -2,10 +2,10 @@ package br.org.cesar.blueguide.contract
 
 import br.org.cesar.blueguide.domain.ble.BlueGuideProtocol
 import br.org.cesar.blueguide.domain.entity.DeviceId
-import java.util.UUID
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import java.util.UUID
 
 /**
  * The advertisement every platform recognises: the same values as the iOS app's

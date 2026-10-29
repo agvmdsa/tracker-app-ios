@@ -8,9 +8,9 @@ import br.org.cesar.blueguide.domain.position.AnchorLayoutCheck
 import br.org.cesar.blueguide.domain.position.AnchorRange
 import br.org.cesar.blueguide.domain.position.MotionLimit
 import br.org.cesar.blueguide.domain.position.ObserverFix
-import br.org.cesar.blueguide.domain.position.Point2D
 import br.org.cesar.blueguide.domain.position.PathLossCalibration
 import br.org.cesar.blueguide.domain.position.PathLossModel
+import br.org.cesar.blueguide.domain.position.Point2D
 import br.org.cesar.blueguide.domain.position.RssiWindow
 import br.org.cesar.blueguide.domain.position.SavedLocation
 

@@ -52,6 +52,8 @@ import br.org.cesar.blueguide.domain.position.Anchor
 import br.org.cesar.blueguide.domain.position.AnchorStore
 import br.org.cesar.blueguide.domain.position.Point2D
 import br.org.cesar.blueguide.domain.position.SavedLocationStore
+import br.org.cesar.blueguide.presentation.ar.ArPositionScreen
+import br.org.cesar.blueguide.presentation.ar.ArPositionViewModel
 import br.org.cesar.blueguide.presentation.bluetoothpermission.rememberPermissionGranted
 import br.org.cesar.blueguide.presentation.devicelist.AnchorEditorDialog
 import br.org.cesar.blueguide.presentation.devicelist.AppMode
@@ -60,8 +62,6 @@ import br.org.cesar.blueguide.presentation.devicelist.DeviceListScreen
 import br.org.cesar.blueguide.presentation.devicelist.DeviceListState
 import br.org.cesar.blueguide.presentation.devicelist.DeviceListViewModel
 import br.org.cesar.blueguide.presentation.devicelist.ModeSwitcher
-import br.org.cesar.blueguide.presentation.ar.ArPositionScreen
-import br.org.cesar.blueguide.presentation.ar.ArPositionViewModel
 import br.org.cesar.blueguide.presentation.find.FindDeviceScreen
 import br.org.cesar.blueguide.presentation.find.FindDeviceViewModel
 import br.org.cesar.blueguide.presentation.fingerprint.FingerprintCollectorScreen
@@ -351,11 +351,17 @@ private fun ObserverModePreview() {
                 scanGranted = true,
                 devicesByKey = ids.associate { (id, rssi) ->
                     id to DeviceSighting(
-                        BleDevice("A0:11:22:33:44:55", "Phone $id", DeviceId(id)), rssi, 0L
+                        BleDevice("A0:11:22:33:44:55", "Phone $id", DeviceId(id)),
+                        rssi,
+                        0L
                     )
-                } + ("B1:66:77:88:99:AA" to DeviceSighting(
-                    BleDevice("B1:66:77:88:99:AA", null), -83, 0L
-                )),
+                } + (
+                    "B1:66:77:88:99:AA" to DeviceSighting(
+                        BleDevice("B1:66:77:88:99:AA", null),
+                        -83,
+                        0L
+                    )
+                    ),
                 anchors = anchors
             )
         )

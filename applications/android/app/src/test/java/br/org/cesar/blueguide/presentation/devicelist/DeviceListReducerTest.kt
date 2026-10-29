@@ -6,12 +6,12 @@ import br.org.cesar.blueguide.domain.entity.DeviceSighting
 import br.org.cesar.blueguide.domain.position.Anchor
 import br.org.cesar.blueguide.domain.position.PathLossModel
 import br.org.cesar.blueguide.domain.position.Point2D
-import kotlin.math.roundToInt
-import kotlin.math.sqrt
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlin.math.roundToInt
+import kotlin.math.sqrt
 
 /**
  * The screen ranges from the median of every advertisement heard in the last few seconds, once
@@ -28,7 +28,10 @@ class DeviceListReducerTest {
     }
 
     private fun DeviceListState.hear(index: Int, rssi: Int, atMs: Long, id: DeviceId = ids[index]): DeviceListState =
-        DeviceListReducer.reduce(this, DeviceListIntent.DeviceObserved(DeviceSighting(BleDevice("AA:BB:CC:DD:EE:0$index", id.value, id), rssi, atMs)))
+        DeviceListReducer.reduce(
+            this,
+            DeviceListIntent.DeviceObserved(DeviceSighting(BleDevice("AA:BB:CC:DD:EE:0$index", id.value, id), rssi, atMs))
+        )
 
     private fun DeviceListState.refresh(nowMs: Long): DeviceListState =
         DeviceListReducer.reduce(this, DeviceListIntent.Refreshed(nowMs))
@@ -56,7 +59,11 @@ class DeviceListReducerTest {
     fun `refresh locates the phone from three anchors`() {
         val anchors = listOf(Point2D(0.0, 0.0), Point2D(6.0, 0.0), Point2D(3.0, 5.0))
         var state = observing(anchors)
-        val calibration = PathLossModel.calibration(state.centerRssi, requireNotNull(PathLossModel.centerDistanceMeters(anchors)), state.touchRssi)
+        val calibration = PathLossModel.calibration(
+            state.centerRssi,
+            requireNotNull(PathLossModel.centerDistanceMeters(anchors)),
+            state.touchRssi
+        )
         val phone = Point2D(2.0, 2.0)
         anchors.forEachIndexed { index, anchor ->
             val rssi = calibration.rssi(atDistance = anchor.distanceTo(phone))
@@ -196,7 +203,11 @@ class DeviceListReducerTest {
 
         state = DeviceListReducer.reduce(state, DeviceListIntent.CenterRssiChanged(-71.0))
 
-        assertEquals(before.distanceTo(Point2D(1.25, 1.25)), requireNotNull(state.observerFix).position.distanceTo(Point2D(1.25, 1.25)), 1e-6)
+        assertEquals(
+            before.distanceTo(Point2D(1.25, 1.25)),
+            requireNotNull(state.observerFix).position.distanceTo(Point2D(1.25, 1.25)),
+            1e-6
+        )
     }
 
     /** Touching one beacon and taking what the phone hears now: the strongest anchor's median. */

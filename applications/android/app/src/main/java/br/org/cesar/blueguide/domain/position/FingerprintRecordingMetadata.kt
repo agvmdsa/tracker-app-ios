@@ -66,6 +66,7 @@ data class FingerprintRecordingMetadata(
 
     companion object {
         const val CURRENT_SCHEMA_VERSION = 1
+
         /** `encodeDefaults`: [schemaVersion] has a default, and without this it would be left
          *  out of the file, unlike the iOS app's, which always writes `schema_version`. */
         private val json = Json {

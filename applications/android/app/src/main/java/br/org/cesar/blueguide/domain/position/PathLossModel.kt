@@ -123,8 +123,11 @@ class RssiWindow(
         val recent = samples(nowMs - durationMs).sorted()
         if (recent.isEmpty()) return null
         val middle = recent.size / 2
-        return if (recent.size % 2 == 1) recent[middle].toDouble()
-        else (recent[middle - 1] + recent[middle]) / 2.0
+        return if (recent.size % 2 == 1) {
+            recent[middle].toDouble()
+        } else {
+            (recent[middle - 1] + recent[middle]) / 2.0
+        }
     }
 
     /** The RSSIs heard from [sinceMs] on, oldest first. */
