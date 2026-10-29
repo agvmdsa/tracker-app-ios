@@ -287,16 +287,25 @@ no aparelho e o CI no GitHub, que roda depois do push.
   mesmos números, mais o estimador plugável, `reset` e troca de âncoras; os do ViewModel conferem
   o recálculo na hora e o esquecimento (os dois pegam a falha quando a linha some do ViewModel).
   **Diferença de antes:** trocar as âncoras também recalcula na hora (antes só a calibração).
-- [ ] **Replay** — `PositioningReplay`: as leituras gravadas passam pelo mesmo motor, no mesmo
-  ritmo de 1 s do app. Teste: o ciclo do ViewModel e o replay dão as mesmas posições para as
-  mesmas leituras.
+- [x] ~~**Replay**~~ — feito: `PositioningReplay.replay(leituras, setup, estimador)` passa as leituras
+  gravadas (`RecordedSighting`: `beacon`, `rssi`, `t_ms` de cada linha) pelo mesmo motor, com um
+  refresh a cada 1 s desde o início, cada um depois das leituras ouvidas até ele. As leituras vão
+  na ordem das linhas (o `t_ms` pode voltar alguns ms, porque o scan entrega em rajadas); uma
+  leitura com data anterior a um refresh, mas que chegou depois dele, entra no seguinte, como
+  aconteceria ao vivo. Teste no ViewModel: 8 s de leituras entregues ao vivo e passadas pelo replay
+  dão as mesmas distâncias e as mesmas posições a cada segundo, com o limite de velocidade fazendo
+  diferença. O teste falha se o replay adiantar o refresh em meio segundo, ou se registrar leituras
+  até 200 ms depois dele.
 
 Fora da fase 2: o programa que lê os `.csv`/`.json` gravados e escreve a posição e o erro de
 cada segundo (o dataset para o ML). Fica para a fase 3, junto com o formato das gravações e a
 calibração nos metadados — sem ela, cada replay teria que receber a calibração à mão.
 
 Pronto quando: `:core:positioning` não depende de Android; o ViewModel não calcula posição; trocar
-o estimador é trocar uma ligação do Hilt; o replay reproduz o app; testes e CI passando.
+o estimador é trocar uma ligação do Hilt; o replay reproduz o app; testes e CI passando. **Fase 2
+concluída** (151 testes JVM: 94 no app, 57 em `:core:positioning`; lint e build passando
+localmente); falta rodar no aparelho (a posição na tela deve se comportar como antes) e o CI no
+GitHub.
 
 ## ESP32 / Embarcados (`esp32-esp8266`)
 

@@ -20,6 +20,8 @@ import br.org.cesar.blueguide.core.network.PositioningReport
 import br.org.cesar.blueguide.core.network.PositioningReporting
 import br.org.cesar.blueguide.core.positioning.Multilateration
 import br.org.cesar.blueguide.core.positioning.PathLossModel
+import br.org.cesar.blueguide.core.positioning.PositioningReplay
+import br.org.cesar.blueguide.core.positioning.RecordedSighting
 import br.org.cesar.blueguide.core.system.DeviceInfo
 import br.org.cesar.blueguide.core.system.MonotonicClock
 import br.org.cesar.blueguide.feature.positioning.domain.AddAnchorUseCase
@@ -43,6 +45,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -230,6 +233,51 @@ class DeviceListViewModelTest {
 
         assertTrue("the readings were still within the window", vm.state.value.anchorRanges.isEmpty())
         assertNull(vm.state.value.observerFix)
+
+        vm.viewModelScope.cancel()
+    }
+
+    /** The offline replay is only worth anything if it is what the app showed: the same
+     *  advertisements, heard live by the screen and replayed from a recording, give the same
+     *  ranges and the same positions every second — speed limit included. */
+    @Test
+    fun `replaying what was heard gives what the screen showed`() = runTest(dispatcher) {
+        val scanner = ChannelScanner()
+        val reporter = RecordingReporter()
+        val startMs = 50_000L
+        var nowMs = startMs
+        val vm = viewModel(scanner = scanner, reporter = reporter, clock = { nowMs })
+        vm.dispatch(DeviceListIntent.PermissionsChanged(scanGranted = true, advertiseGranted = false))
+        runCurrent() // observing from startMs: the first refresh is a second later
+
+        // A walk past the anchors for 8 s: each one heard at its own pace, louder then quieter.
+        val heard = (0 until 8_000 step 70).flatMap { t ->
+            anchors.mapIndexedNotNull { index, anchor ->
+                if ((t / 70) % (index + 2) == 0) return@mapIndexedNotNull null
+                RecordedSighting(anchor.id, rssi = -45 - (t / 100 + 17 * index) % 35, atMs = startMs + t + index * 13L)
+            }
+        }.sortedBy { it.atMs }
+        for (second in 1..8) {
+            val refreshMs = startMs + second * 1_000L
+            heard.filter { it.atMs in (refreshMs - 1_000 + 1)..refreshMs }.forEach { scanner.deliver(it.beacon, it.rssi, it.atMs) }
+            runCurrent()
+            nowMs = refreshMs
+            advanceTimeBy(1_000)
+            runCurrent()
+        }
+
+        val replayed = PositioningReplay.replay(heard, vm.state.value.positioningSetup, startMs = startMs, endMs = startMs + 8_000)
+
+        assertEquals(8, replayed.size)
+        assertEquals(
+            replayed.map { update -> update.ranges.map { it.distanceMeters } },
+            reporter.sightings.map { reports -> reports.map { it.distanceMeters } }
+        )
+        val fixes = replayed.mapNotNull { it.fix }
+        assertTrue("the walk is placed most seconds", fixes.size >= 6)
+        val unlimited = PositioningReplay.replay(heard, vm.state.value.positioningSetup.copy(maxSpeedKmh = null), startMs = startMs)
+        assertNotEquals("the speed limit holds the phone back on this walk", unlimited.mapNotNull { it.fix }, fixes)
+        assertEquals(fixes.map { it.position.x to it.position.y }, reporter.fixes.map { it.x to it.y })
 
         vm.viewModelScope.cancel()
     }

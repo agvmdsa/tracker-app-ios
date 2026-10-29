@@ -45,8 +45,8 @@ data class PositioningUpdate(
 /**
  * Where the phone is, from every advertisement it hears — the counterpart of the iOS app's
  * `PositioningEngine`, without the scanner and the timer: whoever owns it [record]s the sightings
- * and [refresh]es it once a second. The app does that live, and a replay can do it over a
- * recording, placing the phone the same way.
+ * and [refresh]es it once a second. The app does that live and [PositioningReplay] over a
+ * recording, so both place the phone the same way.
  *
  * Each anchor's range comes from the median RSSI of its last [RSSI_WINDOW_MS], the position from
  * the [PositionEstimator], and the position shown moves towards that one no faster than
