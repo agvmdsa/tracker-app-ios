@@ -93,6 +93,10 @@ make replay ARGS="--center-rssi -68 --touch-rssi -36 --no-speed-limit ~/Download
 make replay ARGS="--help"
 ```
 
+`--engine`, repeated, runs each positioning engine on the same recordings and adds an `engine`
+column and a summary per engine: how a new engine is compared with the app's
+(`core/positioning/README.md`).
+
 ## Features and parity with the iOS app
 
 | Feature | iOS | Android | Notes |

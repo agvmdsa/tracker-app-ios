@@ -4,6 +4,7 @@ import br.org.cesar.blueguide.core.dataset.FingerprintCsv
 import br.org.cesar.blueguide.core.dataset.FingerprintCsvException
 import br.org.cesar.blueguide.core.dataset.FingerprintRecordingMetadata
 import br.org.cesar.blueguide.core.model.Point2D
+import br.org.cesar.blueguide.core.positioning.PositioningEngine
 import br.org.cesar.blueguide.core.positioning.PositioningReplay
 import br.org.cesar.blueguide.core.positioning.PositioningSetup
 import br.org.cesar.blueguide.core.positioning.PositioningUpdate
@@ -61,18 +62,23 @@ data class CalibrationOverride(
     )
 }
 
-/** One second of a replayed recording. */
-class ReplayedSecond(val recording: Recording, val update: PositioningUpdate) {
-    /** How far the position the app would have shown was from where the phone stood; null
+/** One second of a recording replayed by the engine named [engine]. */
+class ReplayedSecond(val recording: Recording, val engine: String, val update: PositioningUpdate) {
+    /** How far the position the engine would have shown was from where the phone stood; null
      *  without a fix. */
     val errorMeters: Double? get() = update.fix?.position?.distanceTo(recording.truth)
 }
 
-/** [recording] through the app's positioning engine with [setup]: a refresh every second from the
- *  start of the recording to its end. */
-fun replay(recording: Recording, setup: PositioningSetup): List<ReplayedSecond> =
-    PositioningReplay.replay(recording.sightings(), setup, startMs = recording.metadata.startedTMs, endMs = recording.metadata.endedTMs)
-        .map { ReplayedSecond(recording, it) }
+/** [recording] through [engine], named [name], with [setup]: a refresh every second from the start
+ *  of the recording to its end. */
+fun replay(recording: Recording, setup: PositioningSetup, name: String, engine: PositioningEngine): List<ReplayedSecond> =
+    PositioningReplay.replay(
+        recording.sightings(),
+        setup,
+        engine,
+        startMs = recording.metadata.startedTMs,
+        endMs = recording.metadata.endedTMs
+    ).map { ReplayedSecond(recording, name, it) }
 
 /** The errors of the seconds with a fix. The worst case is [max]; [p95] is the error 95% of
  *  them stay within (nearest rank). */

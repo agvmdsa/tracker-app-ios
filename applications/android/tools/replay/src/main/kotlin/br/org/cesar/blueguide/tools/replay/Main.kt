@@ -1,5 +1,6 @@
 package br.org.cesar.blueguide.tools.replay
 
+import br.org.cesar.blueguide.core.positioning.PositioningEngine
 import br.org.cesar.blueguide.core.positioning.PositioningSetup
 import java.io.File
 import java.util.Locale
@@ -33,16 +34,24 @@ object ReplayCommand {
         |  --touch-rssi <dBm>      usa este "RSSI encostado" em vez do da gravação
         |  --max-speed-kmh <km/h>  usa este limite de velocidade em vez do da gravação
         |  --no-speed-limit        sem limite de velocidade
+        |  --engine <nome>         recalcula com este motor de posicionamento; repetido, compara os
+        |                          motores nas mesmas gravações (padrão: ${Engines.APP}, o do app)
         |  --out <arquivo>         escreve o CSV neste arquivo (senão, na saída padrão)
         |
         |O resumo do erro de cada gravação sai na saída de erro.
     """.trimMargin()
 
-    private class Arguments(val paths: List<File>, val override: CalibrationOverride, val out: File?)
+    private class Arguments(val paths: List<File>, val override: CalibrationOverride, val out: File?, val engines: List<String>)
 
-    fun run(args: List<String>, stdout: Appendable, stderr: Appendable): Int {
+    /** [engines]: the ones `--engine` can name; a test passes its own. */
+    fun run(
+        args: List<String>,
+        stdout: Appendable,
+        stderr: Appendable,
+        engines: Map<String, () -> PositioningEngine> = Engines.BY_NAME
+    ): Int {
         val arguments = try {
-            parse(args)
+            parse(args, engines)
         } catch (e: IllegalArgumentException) {
             stderr.appendLine(e.message).appendLine().appendLine(USAGE)
             return USAGE_ERROR
@@ -75,25 +84,34 @@ object ReplayCommand {
         }
 
         val beacons = recordings.flatMap { it.metadata.anchors.map { anchor -> anchor.id } }.distinct().sortedBy { it.value }
+        val comparing = arguments.engines.size > 1
+        fun label(name: String, engine: String) = if (comparing) "$name [$engine]" else name
         val all = mutableListOf<ReplayedSecond>()
         val write: (Appendable) -> Unit = { out ->
             out.appendLine(ReplayTable.header(beacons))
             for (recording in recordings) {
-                val seconds = try {
-                    replay(recording, setupFor(recording, arguments.override, stderr))
-                } catch (e: IllegalArgumentException) {
-                    stderr.appendLine(e.message)
-                    status = FAILED
-                    continue
+                val setup = setupFor(recording, arguments.override, stderr)
+                for (engine in arguments.engines) {
+                    val seconds = try {
+                        replay(recording, setup, engine, engines.getValue(engine)())
+                    } catch (e: IllegalArgumentException) {
+                        stderr.appendLine(e.message)
+                        status = FAILED
+                        break
+                    }
+                    seconds.forEach { out.appendLine(ReplayTable.line(it, beacons)) }
+                    stderr.appendLine("${label(recording.name, engine)}: ${describe(ErrorSummary.of(seconds))}")
+                    all += seconds
                 }
-                seconds.forEach { out.appendLine(ReplayTable.line(it, beacons)) }
-                stderr.appendLine("${recording.name}: ${describe(ErrorSummary.of(seconds))}")
-                all += seconds
             }
         }
         val out = arguments.out
         if (out == null) write(stdout) else out.bufferedWriter().use(write)
-        if (recordings.size > 1) stderr.appendLine("Todas: ${describe(ErrorSummary.of(all))}")
+        if (recordings.size > 1 || comparing) {
+            for (engine in arguments.engines) {
+                stderr.appendLine("${label("Todas", engine)}: ${describe(ErrorSummary.of(all.filter { it.engine == engine }))}")
+            }
+        }
         return status
     }
 
@@ -113,10 +131,11 @@ object ReplayCommand {
     }
 
     /** Null for `--help`. */
-    private fun parse(args: List<String>): Arguments? {
+    private fun parse(args: List<String>, known: Map<String, () -> PositioningEngine>): Arguments? {
         val paths = mutableListOf<File>()
         var override = CalibrationOverride()
         var out: File? = null
+        val engines = mutableListOf<String>()
         val remaining = ArrayDeque(args)
         fun value(option: String): String = remaining.removeFirstOrNull() ?: throw IllegalArgumentException("$option precisa de um valor.")
         fun number(option: String): Double = value(option).let { text ->
@@ -133,11 +152,14 @@ object ReplayCommand {
                         override.copy(maxSpeedKmh = number(arg).also { require(it > 0) { "$arg precisa ser maior que zero." } })
                 "--no-speed-limit" -> override = override.copy(noSpeedLimit = true)
                 "--out" -> out = File(value(arg))
+                "--engine" -> engines += value(arg).also { name ->
+                    require(name in known) { "Motor desconhecido: $name (há: ${known.keys.joinToString()})." }
+                }
                 else -> if (arg.startsWith("--")) throw IllegalArgumentException("Opção desconhecida: $arg") else paths += File(arg)
             }
         }
         require(paths.isNotEmpty()) { "Diga quais gravações recalcular." }
-        return Arguments(paths, override, out)
+        return Arguments(paths, override, out, engines.distinct().ifEmpty { listOf(Engines.APP) })
     }
 
     /** A folder's recordings, by name (so by date); a file as given. */

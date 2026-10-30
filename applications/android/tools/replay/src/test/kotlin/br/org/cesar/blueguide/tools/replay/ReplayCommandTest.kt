@@ -9,7 +9,10 @@ import br.org.cesar.blueguide.core.dataset.FingerprintRecordingMetadata.Position
 import br.org.cesar.blueguide.core.model.Anchor
 import br.org.cesar.blueguide.core.model.DeviceId
 import br.org.cesar.blueguide.core.model.Point2D
+import br.org.cesar.blueguide.core.positioning.ObserverFix
+import br.org.cesar.blueguide.core.positioning.PositioningEngine
 import br.org.cesar.blueguide.core.positioning.PositioningSetup
+import br.org.cesar.blueguide.core.positioning.PositioningUpdate
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -18,6 +21,15 @@ import org.junit.Test
 import java.io.File
 import java.nio.file.Files
 import java.time.Instant
+
+/** An engine that always says the phone is at the origin. */
+private class AtTheOrigin : PositioningEngine {
+    override var setup = PositioningSetup()
+    override fun record(beacon: DeviceId, rssi: Int, atMs: Long) = Unit
+    override fun refresh(nowMs: Long) = PositioningUpdate(nowMs, emptyList(), ObserverFix(emptyList(), Point2D(0.0, 0.0), 0.0), emptyMap())
+    override fun rangeAgain(): PositioningUpdate? = null
+    override fun reset() = Unit
+}
 
 /** Recordings as the app writes them, replayed from the command line. */
 class ReplayCommandTest {
@@ -91,10 +103,10 @@ class ReplayCommandTest {
         val rows: List<Map<String, String>> get() = out.drop(1).map { header.zip(it.split(",")).toMap() }
     }
 
-    private fun run(vararg args: String): Run {
+    private fun run(vararg args: String, engines: Map<String, () -> PositioningEngine> = Engines.BY_NAME): Run {
         val out = StringBuilder()
         val err = StringBuilder()
-        val status = ReplayCommand.run(args.toList(), out, err)
+        val status = ReplayCommand.run(args.toList(), out, err, engines)
         return Run(status, out.lines().filter { it.isNotEmpty() }, err.toString())
     }
 
@@ -185,11 +197,27 @@ class ReplayCommandTest {
         assertEquals(6, target.readLines().size)
     }
 
+    /** What a rewrite is judged by: the app's engine and the new one, on the same recordings. */
+    @Test
+    fun `engines are compared on the same recordings`() {
+        val engines = mapOf(Engines.APP to Engines.BY_NAME.getValue(Engines.APP), "origin" to { AtTheOrigin() })
+
+        val result = run("--engine", Engines.APP, "--engine", "origin", recording("20261030-100000_S1_P1").path, engines = engines)
+
+        assertEquals(ReplayCommand.OK, result.status)
+        assertEquals(listOf(Engines.APP, "origin"), result.rows.map { it["engine"] }.distinct())
+        assertTrue(result.rows.filter { it["engine"] == Engines.APP }.all { it["error_m"] == "0.000" })
+        assertTrue(result.rows.filter { it["engine"] == "origin" }.all { it["error_m"] == "1.768" })
+        assertTrue(result.err, result.err.contains("20261030-100000_S1_P1 [origin]: 5 s, posição em 5; erro médio 1,77 m"))
+        assertTrue(result.err, result.err.contains("Todas [${Engines.APP}]: 5 s, posição em 5; erro médio 0,00 m"))
+    }
+
     @Test
     fun `wrong arguments show how to use it`() {
         assertEquals(ReplayCommand.USAGE_ERROR, run().status)
         assertEquals(ReplayCommand.USAGE_ERROR, run("--center-rssi", "strong", "a.csv").status)
         assertEquals(ReplayCommand.USAGE_ERROR, run("--colour", "a.csv").status)
+        assertEquals(ReplayCommand.USAGE_ERROR, run("--engine", "nope", "a.csv").status)
         assertEquals(ReplayCommand.USAGE_ERROR, run(File(directory, "missing.csv").path).status)
         val help = run("--help")
         assertEquals(ReplayCommand.OK, help.status)

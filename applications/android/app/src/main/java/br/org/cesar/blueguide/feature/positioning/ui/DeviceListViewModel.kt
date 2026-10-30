@@ -14,7 +14,6 @@ import br.org.cesar.blueguide.core.model.Point2D
 import br.org.cesar.blueguide.core.network.ObserverFixReport
 import br.org.cesar.blueguide.core.network.PositioningReport
 import br.org.cesar.blueguide.core.network.PositioningReporting
-import br.org.cesar.blueguide.core.positioning.PositionEstimator
 import br.org.cesar.blueguide.core.positioning.PositioningEngine
 import br.org.cesar.blueguide.core.positioning.PositioningUpdate
 import br.org.cesar.blueguide.core.system.DeviceInfo
@@ -56,17 +55,15 @@ class DeviceListViewModel @Inject constructor(
     private val clock: MonotonicClock,
     /** Uploads sightings/fixes to the positioning API while observing. */
     private val reporter: PositioningReporting,
-    /** How the phone is placed from the ranges; see `PositioningModule`. */
-    estimator: PositionEstimator,
+    /** Where the phone is, from what the scan hears; see `PositioningModule`. This screen's own:
+     *  it holds the readings of the session being observed. Only touched from the main thread —
+     *  the sightings, the 1 s loop and the setup below are all collected on viewModelScope. */
+    private val engine: PositioningEngine,
     @IoDispatcher private val io: CoroutineDispatcher
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(DeviceListState())
     val state: StateFlow<DeviceListState> = _state.asStateFlow()
-
-    /** Only touched from the main thread: the sightings, the 1 s loop and the setup below are
-     *  all collected on viewModelScope. */
-    private val engine = PositioningEngine(estimator)
 
     init {
         viewModelScope.launch {

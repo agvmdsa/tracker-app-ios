@@ -391,9 +391,16 @@ provar que a versão nova é melhor. Sem mudar o comportamento.
   (`centerRssiOrDefault` etc. e `positioningSetup(anchors)`, em `CalibrationSettings`), a mesma
   conversão que as gravações usam. Saíram os quatro campos copiados e o teste que garantia que as
   duas conversões davam o mesmo resultado (agora só existe uma, testada em `CalibrationSettingsTest`).
-- [ ] **Motor atrás de uma interface** — `PositioningEngine` vira o contrato (leituras entram, uma
-  atualização sai por segundo) e o motor atual uma implementação, para rodar o antigo e o novo lado a
-  lado: no app, trocando a ligação do Hilt; no replay, com `--engine`.
+- [x] ~~**Motor atrás de uma interface**~~ — feito: `PositioningEngine` é o contrato (`record`,
+  `refresh` uma vez por segundo, `rangeAgain`, `reset`, `setup`), e o motor atual é
+  `PathLossPositioningEngine` (o histórico dele até aqui está em `PositioningEngine.kt`, cujo caminho a
+  interface herdou: o Git não vê como renomeação). O
+  ViewModel recebe o motor injetado; `di/PositioningModule` tem as duas linhas de troca (o motor
+  inteiro, ou só o estimador dentro do motor do app). `PositioningReplay` recebe qualquer motor.
+  No programa de replay, `--engine <nome>` (repetido, compara: uma coluna `engine` e um resumo por
+  motor), com os motores registrados em `tools/replay/.../Engines.kt`. O README do módulo diz como
+  plugar um motor novo. Os metadados das gravações continuam descrevendo o motor do app (a janela
+  de RSSI é dele).
 - [ ] **Cenários separados da implementação** — uma suíte com o que qualquer motor deve cumprir
   (simetria, encostar num beacon, ordem das leituras, limite de velocidade...), rodada contra a
   interface; os testes de como o motor atual funciona ficam com ele e podem ser apagados na

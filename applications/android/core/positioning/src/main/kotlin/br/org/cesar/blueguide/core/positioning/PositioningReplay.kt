@@ -22,15 +22,19 @@ object PositioningReplay {
      * bursts, so `t_ms` can step back a little. A refresh happens before the first sighting heard
      * after it; one heard later that is dated earlier counts from the next refresh on, as it
      * would have live.
+     *
+     * [engine] is reset and given [setup] first, so the same one can replay one recording after
+     * another; to compare engines, replay the same sightings with each.
      */
     fun replay(
         sightings: List<RecordedSighting>,
         setup: PositioningSetup,
-        estimator: PositionEstimator = Multilateration,
+        engine: PositioningEngine = PathLossPositioningEngine(),
         startMs: Long = sightings.firstOrNull()?.atMs ?: 0L,
         endMs: Long = sightings.maxOfOrNull { it.atMs } ?: startMs
     ): List<PositioningUpdate> {
-        val engine = PositioningEngine(estimator, setup)
+        engine.reset()
+        engine.setup = setup
         val updates = mutableListOf<PositioningUpdate>()
         var nextRefreshMs = startMs + PositioningEngine.REFRESH_INTERVAL_MS
         for (sighting in sightings) {

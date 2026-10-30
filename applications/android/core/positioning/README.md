@@ -4,14 +4,27 @@ Where the phone is, from what it hears: pure Kotlin/JVM, no Android. The app run
 (`DeviceListViewModel`) and `PositioningReplay` runs it over recordings (`make android-replay`),
 so both place the phone with the same code.
 
-## The pipeline, in reading order
+## Contract and implementation
 
-Every advertisement goes in; once a second a position comes out.
+`PositioningEngine.kt` is what the rest of the app depends on: every advertisement goes in
+(`record`), once a second a `PositioningUpdate` comes out (`refresh`), configured by a
+`PositioningSetup` (the anchors and the calibration on screen). `PositionEstimator.kt` is the
+contract of one step inside the app's engine. Everything else here is how the app's engine,
+`PathLossPositioningEngine`, works, and can be rewritten.
+
+Trying another engine:
+
+1. Implement `PositioningEngine`.
+2. Add it to `tools/replay`'s `Engines` and compare it with the app's on the same recordings:
+   `make android-replay ARGS="--engine path-loss --engine <yours> <recordings>"`.
+3. To run it in the app, change the one line in the app's `di/PositioningModule`.
+
+## The app's engine, in reading order
 
 | Step | What happens | File |
 |---|---|---|
-| 1. Record | Each anchor's advertisements are kept for the last 3 s (at most 120); other beacons are ignored. | `PositioningEngine.record`, `RssiWindow.kt` |
-| 2. Median | Once a second, each anchor heard within the window gets the median of its RSSIs. | `PositioningEngine.refresh`, `RssiWindow.median` |
+| 1. Record | Each anchor's advertisements are kept for the last 3 s (at most 120); other beacons are ignored. | `PathLossPositioningEngine.record`, `RssiWindow.kt` |
+| 2. Median | Once a second, each anchor heard within the window gets the median of its RSSIs. | `PathLossPositioningEngine.refresh`, `RssiWindow.median` |
 | 3. Distance | The median becomes a distance by the log-distance model, `rssi = A - 10·n·log10(d)`, calibrated from "RSSI no centro" (the anchors' mean distance to their middle) and "RSSI encostado" (0.1 m). | `PathLossModel.kt`, `PositioningSetup.calibration` |
 | 4. Position | The estimator places the phone from the distances. | `PositionEstimator.kt` |
 | 4a. | Linear start: the first anchor's circle subtracted from the others; none when the anchors are in a line. | `Multilateration.linearSolution` |
@@ -31,11 +44,12 @@ per anchor, how many advertisements arrived since the last refresh and their spr
 - Held by the nearest (4c) uses the touching distance of the path loss model
   (`PathLossModel.TOUCH_DISTANCE_METERS`).
 - Outside this module: the API (`POST /sightings`) gets each anchor's distance, the map draws a
-  circle of it, and each recording's metadata keeps the calibration's inputs (`schema_version` 2).
-  The iOS app has the same pipeline in Swift, kept equal by the same test cases.
+  circle of it, and each recording's metadata keeps the calibration's inputs and the app engine's
+  RSSI window (`schema_version` 2). The iOS app has the same pipeline in Swift, kept equal by the
+  same test cases.
 
 ## Tests
 
 One test file per source file. `MultilaterationTest`, `PathLossModelTest`, `RssiWindowTest` and
-`MotionLimitTest` test how each step works; `PositioningEngineTest` the steps together;
+`MotionLimitTest` test how each step works; `PathLossPositioningEngineTest` the steps together;
 `PositioningReplayTest` the replay's timing.

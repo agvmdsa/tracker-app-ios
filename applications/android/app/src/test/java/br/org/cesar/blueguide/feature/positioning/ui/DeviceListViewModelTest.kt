@@ -18,8 +18,8 @@ import br.org.cesar.blueguide.core.model.Point2D
 import br.org.cesar.blueguide.core.network.ObserverFixReport
 import br.org.cesar.blueguide.core.network.PositioningReport
 import br.org.cesar.blueguide.core.network.PositioningReporting
-import br.org.cesar.blueguide.core.positioning.Multilateration
 import br.org.cesar.blueguide.core.positioning.PathLossModel
+import br.org.cesar.blueguide.core.positioning.PathLossPositioningEngine
 import br.org.cesar.blueguide.core.positioning.PositioningReplay
 import br.org.cesar.blueguide.core.positioning.RecordedSighting
 import br.org.cesar.blueguide.core.system.DeviceInfo
@@ -135,7 +135,7 @@ class DeviceListViewModelTest {
         deviceInfo = DeviceInfo(model = "Pixel 9", systemVersion = "15"),
         clock = clock,
         reporter = reporter,
-        estimator = Multilateration,
+        engine = PathLossPositioningEngine(),
         io = dispatcher
     )
 

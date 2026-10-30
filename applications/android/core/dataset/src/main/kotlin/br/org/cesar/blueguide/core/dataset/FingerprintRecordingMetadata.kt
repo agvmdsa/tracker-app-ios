@@ -4,6 +4,7 @@ import br.org.cesar.blueguide.core.model.Anchor
 import br.org.cesar.blueguide.core.model.DeviceId
 import br.org.cesar.blueguide.core.model.DeviceMotionSample
 import br.org.cesar.blueguide.core.model.Point2D
+import br.org.cesar.blueguide.core.positioning.PathLossPositioningEngine
 import br.org.cesar.blueguide.core.positioning.PositioningEngine
 import br.org.cesar.blueguide.core.positioning.PositioningSetup
 import kotlinx.serialization.SerialName
@@ -98,7 +99,8 @@ data class FingerprintRecordingMetadata(
         @SerialName("path_loss_exponent") val pathLossExponent: Double,
         /** False when the touching RSSI was ignored and the center alone calibrated. */
         @SerialName("uses_touch_rssi") val usesTouchRssi: Boolean,
-        /** The engine's RSSI window and refresh interval, in case they change later. */
+        /** The app engine's RSSI window ([PathLossPositioningEngine]) and refresh interval, in case
+         *  they change later. */
         @SerialName("rssi_window_ms") val rssiWindowMs: Long,
         @SerialName("refresh_interval_ms") val refreshIntervalMs: Long
     ) {
@@ -110,7 +112,7 @@ data class FingerprintRecordingMetadata(
                 referenceRssi = setup.calibration.referenceRssi,
                 pathLossExponent = setup.calibration.exponent,
                 usesTouchRssi = setup.calibration.usesTouchRssi,
-                rssiWindowMs = PositioningEngine.RSSI_WINDOW_MS,
+                rssiWindowMs = PathLossPositioningEngine.RSSI_WINDOW_MS,
                 refreshIntervalMs = PositioningEngine.REFRESH_INTERVAL_MS
             )
         }

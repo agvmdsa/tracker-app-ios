@@ -14,7 +14,7 @@ import kotlin.math.sqrt
  * The phone is ranged from the median of every advertisement heard in the last few seconds, once
  * per refresh, like the iOS app's `PositioningEngine` — not from the last packet it happened to read.
  */
-class PositioningEngineTest {
+class PathLossPositioningEngineTest {
 
     private val square = listOf(Point2D(0.0, 0.0), Point2D(2.5, 0.0), Point2D(2.5, 2.5), Point2D(0.0, 2.5))
     private val ids = listOf("9F3C1A02", "3F8A1C04", "1A2B3C4D", "B7E2F910").map(::DeviceId)
@@ -26,7 +26,7 @@ class PositioningEngineTest {
         positions: List<Point2D>,
         estimator: PositionEstimator = Multilateration,
         setup: (PositioningSetup) -> PositioningSetup = { it }
-    ) = PositioningEngine(estimator, setup(PositioningSetup(anchorsAt(positions))))
+    ) = PathLossPositioningEngine(estimator, setup(PositioningSetup(anchorsAt(positions))))
 
     private fun PositioningEngine.hear(index: Int, rssi: Int, atMs: Long, times: Int = 1) =
         repeat(times) { record(ids[index], rssi, atMs) }
