@@ -27,12 +27,12 @@ val ktlintRules = mapOf(
 
 spotless {
     kotlin {
-        target("app/src/**/*.kt", "core/*/src/**/*.kt")
+        target("app/src/**/*.kt", "core/*/src/**/*.kt", "tools/*/src/**/*.kt")
         targetExclude("**/Secrets.kt") // gitignored, copied from its .example
         ktlint().editorConfigOverride(ktlintRules)
     }
     kotlinGradle {
-        target("*.gradle.kts", "app/*.gradle.kts", "core/*/*.gradle.kts")
+        target("*.gradle.kts", "app/*.gradle.kts", "core/*/*.gradle.kts", "tools/*/*.gradle.kts")
         ktlint().editorConfigOverride(ktlintRules)
     }
 }

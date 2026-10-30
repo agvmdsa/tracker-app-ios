@@ -41,34 +41,56 @@ From the repository root the same is `make android` (and `make android-setup`, `
 
 ## Structure
 
-Same `domain`/`data`/`presentation` split throughout: `domain` is plain Kotlin (no Android or
-third-party-library imports), testable on the host JVM; `data` holds the real Android/library
-implementations of `domain` interfaces; `presentation` is Compose UI plus the `ViewModel`s that
-keep each tab's state alive across configuration changes.
+Pragmatic Clean Architecture, organised by feature: plain Kotlin wherever it can be, Android
+only at the edges. The positioning and the recordings' format are pure Kotlin/JVM modules, so
+the build itself keeps the framework out of them, and the same code runs on a computer:
 
 ```
+core/model/        Point2D, DeviceId, Anchor, BleDevice, DeviceSighting, the sensor samples
+core/positioning/  PathLossModel, RssiWindow, Multilateration, PositionEstimator,
+                   PositioningEngine, PositioningReplay
+core/dataset/      FingerprintRecord, FingerprintCsv, FingerprintRecordingMetadata
+tools/replay/      command-line replay of fingerprint recordings (below)
+app/               the Android app:
+
 app/src/main/java/br/org/cesar/blueguide/
-  domain/
-    ble/          BLE advertising/scanning protocol (BlueGuideProtocol), shared with the iOS app
-    entity/       DeviceId, BleDevice, DeviceSighting
-    position/     Multilateration, PathLossModel, AnchorStore, FingerprintRecorder, sensor interfaces
-    network/      PositioningReporting / FingerprintUploading interfaces
-    uwb/          HandshakeChannel, UwbSessionController, UwbProximityTracker, UwbHandshakePayload
-    ar/           ArPositionTracking
-  data/
-    ble/          AndroidBleAdvertiser, AndroidBleScanner, SharedPrefsLocalDeviceIdProvider,
-                  BleUwbHandshakeChannel (GATT handshake for the UWB pairing)
-    network/      PositioningApiClient (Ktor)
-    positioning/  SharedPrefsAnchorRepository
-    sensors/      AndroidOrientationReader, AndroidAltitudeReader, AndroidMotionActivityReader
-    uwb/          AndroidUwbSessionController (androidx.core.uwb)
-    ar/           AndroidArPositionTracker (ARCore)
-  presentation/
-    devicelist/   Positioning tab (Observer/Broadcast modes, the 2D map, anchor editor)
-    fingerprint/  Fingerprint tab (FingerprintViewModel + FingerprintCollectorScreen)
-    find/         Find tab (FindDeviceViewModel + FindDeviceScreen) — UWB "find this phone"
-    ar/           AR tab (ArPositionViewModel + ArPositionScreen)
-  MainActivity.kt NavHost wiring all four tabs together
+  core/
+    ble/           BlueGuideProtocol, BleScanner/BleAdvertiser, SharedBleScanner;
+                   android/ the BluetoothLeScanner/Advertiser implementations
+    sensors/       DeviceMotionReading, AltitudeReading, MotionActivityReading;
+                   android/ the SensorManager and Play Services readers
+    data/          AnchorStore, CalibrationStore, PersistedValue; prefs/ SharedPreferences
+    network/       PositioningReporting, FingerprintUploading; http/ PositioningApiClient (Ktor)
+    system/        MonotonicClock, DeviceInfo
+    ui/            theme, DecimalInput, BlePermission
+  feature/         one package per tab, each with ui/, domain/ and data/ as it needs:
+    positioning/   Observer/Broadcast, the map, the anchor editor, saved locations
+    fingerprint/   FingerprintRecorder and the collector screen
+    find/          UWB "find this phone"
+    ar/            ARCore position tracking
+  di/              Hilt modules (the composition root); PositioningModule picks the estimator
+  MainActivity.kt  the NavHost with the four tabs
+```
+
+`core` never imports `feature`, and no feature imports another. The refactoring that led here,
+and what is still to do, is in the repository root's `list.md`.
+
+## Replaying recordings
+
+`make replay ARGS="<recording.csv | folder>..."` runs fingerprint recordings (the `.csv` with its
+`.json`, as exported from the Fingerprint tab) through the app's positioning engine and writes a
+CSV with one row per second: where the app would have placed the phone (`x`, `y`), where it
+stood (`true_x`, `true_y`), the error, and each anchor's median RSSI and distance. The summary of
+each recording's error (mean, p95, maximum) goes to the standard error.
+
+It uses the calibration kept in each recording (metadata `schema_version` 2). Recordings made
+before that kept none and are replayed with the app's defaults, with a warning; the options set
+another calibration to try on any recording:
+
+```bash
+make replay ARGS="--out replay.csv ~/Downloads/recordings"
+make replay ARGS="--center-rssi -68 --touch-rssi -36 --no-speed-limit ~/Downloads/recordings"
+make replay ARGS="--help"
 ```
 
 ## Features and parity with the iOS app
@@ -90,9 +112,6 @@ app/src/main/java/br/org/cesar/blueguide/
   (role/id comparison, OOB payload encoding, orchestration) covered by JVM unit tests, but
   actually ranging two phones or tracking a camera pose needs hardware (a UWB chip; a
   camera + ARCore-supported device) this development environment doesn't have.
-- **The Fingerprint tab's `AnchorStore` doesn't see anchors added on the Positioning tab** until
-  the app is relaunched or the tab is revisited (each tab keeps its own `AnchorStore` instance,
-  refreshed from disk on entry — see `FingerprintViewModel.refreshAnchors`).
 - **No AR anchor capture** — the iOS app's "Medir com AR" (walking to each anchor and marking it
   with ARKit) isn't replicated; only the position tracker itself (`ArPositionTracking`) is.
 - **Only the Observer screen is in Portuguese**, like the iOS app; the tab names and the other

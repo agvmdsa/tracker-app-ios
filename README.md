@@ -49,6 +49,7 @@ service) in those files.
 | `make android-test` | Android unit tests on the JVM, no phone needed |
 | `make android-devices` | Lists connected phones and whether they authorised this computer |
 | `make android-logs` | Shows the log of the app running on the phone (Ctrl+C quits) |
+| `make android-replay ARGS="<folder or .csv>"` | Replays fingerprint recordings on the computer: position and error each second (`ARGS=--help`; see `applications/android/README.md`) |
 | `make ios` | Builds the iOS app, installs it on the iPhone connected to the Mac and opens it |
 | `make ios-build` | Builds the signed iOS app only |
 | `make ios-test` | iOS unit tests on the simulator |

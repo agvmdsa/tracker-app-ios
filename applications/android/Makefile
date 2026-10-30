@@ -26,7 +26,7 @@ export ANDROID_SERIAL := $(DEVICE)
 endif
 
 .DEFAULT_GOAL := help
-.PHONY: help setup devices test lint build install run logs uninstall clean check-sdk check-adb check-device
+.PHONY: help setup devices test lint build install run logs uninstall clean replay replay-tool check-sdk check-adb check-device
 
 help: ## Lista os alvos
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*## / {printf "  make %-10s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -79,7 +79,7 @@ devices: check-adb ## Lista os celulares ligados (e se autorizaram o PC)
 	@"$(ADB)" devices -l
 
 test: local.properties $(SECRETS) ## Testes na JVM (sem celular)
-	$(GRADLE) testDebugUnitTest :core:model:test :core:positioning:test :core:dataset:test
+	$(GRADLE) testDebugUnitTest :core:model:test :core:positioning:test :core:dataset:test :tools:replay:test
 
 lint: local.properties $(SECRETS) ## Lint do Android
 	$(GRADLE) lintDebug
@@ -101,6 +101,13 @@ logs: check-device ## Mostra o log do app aberto no celular (Ctrl+C sai)
 
 uninstall: check-device ## Remove o app do celular (apaga as ancoras e a calibracao salvas nele)
 	"$(ADB)" uninstall $(PACKAGE)
+
+# Os caminhos de ARGS valem a partir desta pasta (applications/android), ou absolutos.
+replay: replay-tool ## Recalcula gravacoes de fingerprint no computador (ARGS="pasta ou .csv"; ARGS=--help)
+	@tools/replay/build/install/replay/bin/replay $(ARGS)
+
+replay-tool: local.properties
+	@$(GRADLE) -q :tools:replay:installDist
 
 clean: local.properties ## Apaga a saida da compilacao
 	$(GRADLE) clean

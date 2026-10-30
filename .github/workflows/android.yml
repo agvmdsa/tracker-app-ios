@@ -38,9 +38,9 @@ jobs:
       - name: Secrets.kt from its example
         run: cp app/src/main/java/br/org/cesar/blueguide/core/network/http/Secrets.kt.example app/src/main/java/br/org/cesar/blueguide/core/network/http/Secrets.kt
 
-      # testDebugUnitTest is the app's; the pure Kotlin modules have a plain `test`, listed here.
+      # testDebugUnitTest is the app's; the pure Kotlin modules and the tools have a plain `test`, listed here.
       - name: Formatting, lint, unit tests and debug build
-        run: ./gradlew --console=plain spotlessCheck lintDebug testDebugUnitTest :core:model:test :core:positioning:test :core:dataset:test assembleDebug
+        run: ./gradlew --console=plain spotlessCheck lintDebug testDebugUnitTest :core:model:test :core:positioning:test :core:dataset:test :tools:replay:test assembleDebug
 
       - name: Reports
         if: failure()

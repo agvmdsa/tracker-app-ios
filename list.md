@@ -333,10 +333,19 @@ GitHub.
   do disco e sobrevive ao app ser fechado, com nova tentativa sem rede ou com erro do servidor. A
   API não descarta linhas repetidas, então o trabalho anota quantas linhas já foram aceitas e uma
   nova tentativa continua dali. A lista mostra se cada gravação foi enviada.
-- [ ] **Programa de replay** — lê as gravações (`.csv` + `.json`), passa pelo `PositioningReplay`
-  com a calibração dos metadados (ou a passada à mão, para gravações da versão 1) e escreve, para
-  cada segundo, a posição calculada, a verdadeira, o erro e o que cada âncora ouviu: o dataset do
-  ML.
+- [x] ~~**Programa de replay**~~ — feito (antes do armazenamento e do upload: só depende dos
+  módulos puros e é o que a pesquisa precisa primeiro): `:tools:replay`, rodado com
+  `make android-replay ARGS="<pasta ou .csv>"` na raiz (ou `make replay` em `applications/android`).
+  Lê as gravações (`.csv` + `.json`; um `.csv` sem `.json` foi interrompido e fica de fora, como no
+  app), passa cada uma pelo `PositioningReplay` do início ao fim dela e escreve um CSV com uma linha
+  por segundo: `recording, session, point, true_x, true_y, t_ms, elapsed_ms, x, y, error_m,
+  uncertainty_m, anchors_ranged` e, para cada beacon, `rssi_<id>` (mediana) e `distance_<id>`. Na
+  saída de erro, o resumo de cada gravação (segundos, com posição, erro médio, p95, máximo) e de
+  todas. Usa a calibração guardada na gravação; `--center-rssi`, `--touch-rssi`,
+  `--max-speed-kmh` e `--no-speed-limit` trocam por outra (para testar calibrações, ou dar uma
+  às gravações da versão 1, que sem isso usam os padrões do app com um aviso). Lê uma gravação
+  por vez, então uma pasta grande não enche a memória. README do Android atualizado: a seção
+  da estrutura ainda descrevia os pacotes de antes da fase 1.
 
 Pronto quando: o domínio da gravação não conhece CSV, JSON nem arquivos; o upload sobrevive ao app
 fechado sem duplicar linhas; uma gravação nova pode ser reprocessada exatamente como o app

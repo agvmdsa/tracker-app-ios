@@ -8,7 +8,7 @@ ANDROID_MAKE = "$(MAKE)" --no-print-directory -C applications/android $(if $(DEV
 IOS_MAKE = "$(MAKE)" --no-print-directory -C applications/ios $(if $(DEVICE),DEVICE="$(DEVICE)",) $(if $(TEAM),TEAM=$(TEAM),) $(if $(BUNDLE_ID),BUNDLE_ID=$(BUNDLE_ID),)
 
 .DEFAULT_GOAL := help
-.PHONY: help android android-setup android-build android-test android-devices android-logs ios ios-build ios-test ios-devices ios-sim ios-open
+.PHONY: help android android-setup android-build android-test android-devices android-logs android-replay ios ios-build ios-test ios-devices ios-sim ios-open
 
 help: ## Lista os alvos
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*## / {printf "  make %-16s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -34,6 +34,11 @@ android-devices: ## Lista os celulares ligados e se autorizaram o PC
 
 android-logs: ## Log do app aberto no celular (Ctrl+C sai)
 	@$(ANDROID_MAKE) logs
+
+# Roda daqui, nao de applications/android, para os caminhos relativos de ARGS valerem a partir da raiz.
+android-replay: ## Recalcula gravacoes de fingerprint no computador (ARGS="pasta ou .csv"; ARGS=--help)
+	@$(ANDROID_MAKE) replay-tool
+	@applications/android/tools/replay/build/install/replay/bin/replay $(ARGS)
 
 ios: ## Compila, instala e abre o app iOS no iPhone ligado ao Mac
 	@$(IOS_MAKE) run

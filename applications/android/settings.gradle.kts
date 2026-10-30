@@ -29,3 +29,6 @@ include(":app")
 include(":core:model")
 include(":core:positioning")
 include(":core:dataset")
+
+// Command-line tools for the recordings, run on a computer.
+include(":tools:replay")
