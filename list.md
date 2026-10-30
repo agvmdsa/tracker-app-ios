@@ -386,8 +386,11 @@ provar que a versão nova é melhor. Sem mudar o comportamento.
   de `PositioningTest` e `CalibratedPositioningTest`; dois testes que estavam repetidos nos dois
   ficaram uma vez só. `core/positioning/README.md`: o pipeline em ordem de leitura, com o arquivo
   de cada etapa, e os acoplamentos que não aparecem nos tipos.
-- [ ] **Calibração num lugar só** — o estado da tela guarda as configurações salvas e usa a mesma
-  conversão para o setup que as gravações (hoje copia os campos e converte por outro caminho).
+- [x] ~~**Calibração num lugar só**~~ — feito: o `DeviceListState` guarda as `CalibrationSettings`
+  como foram salvas, e os valores que a tela mostra e o setup do motor saem delas
+  (`centerRssiOrDefault` etc. e `positioningSetup(anchors)`, em `CalibrationSettings`), a mesma
+  conversão que as gravações usam. Saíram os quatro campos copiados e o teste que garantia que as
+  duas conversões davam o mesmo resultado (agora só existe uma, testada em `CalibrationSettingsTest`).
 - [ ] **Motor atrás de uma interface** — `PositioningEngine` vira o contrato (leituras entram, uma
   atualização sai por segundo) e o motor atual uma implementação, para rodar o antigo e o novo lado a
   lado: no app, trocando a ligação do Hilt; no replay, com `--engine`.

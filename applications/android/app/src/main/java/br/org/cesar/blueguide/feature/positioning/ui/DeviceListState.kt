@@ -2,11 +2,11 @@ package br.org.cesar.blueguide.feature.positioning.ui
 
 import br.org.cesar.blueguide.core.ble.BroadcastStatus
 import br.org.cesar.blueguide.core.data.AnchorLayoutCheck
+import br.org.cesar.blueguide.core.data.CalibrationSettings
 import br.org.cesar.blueguide.core.model.Anchor
 import br.org.cesar.blueguide.core.model.DeviceId
 import br.org.cesar.blueguide.core.model.DeviceSighting
 import br.org.cesar.blueguide.core.positioning.AnchorRange
-import br.org.cesar.blueguide.core.positioning.MotionLimit
 import br.org.cesar.blueguide.core.positioning.ObserverFix
 import br.org.cesar.blueguide.core.positioning.PathLossCalibration
 import br.org.cesar.blueguide.core.positioning.PathLossModel
@@ -17,15 +17,9 @@ data class DeviceListState(
     val mode: AppMode = AppMode.OBSERVER,
     /** Keyed by [br.org.cesar.blueguide.core.model.BleDevice.key], not by address. */
     val devicesByKey: Map<String, DeviceSighting> = emptyMap(),
-    /** The RSSI heard from the anchors standing in their middle ("RSSI no centro"). It
-     *  calibrates the model: it is read as the anchors' mean distance to their middle. */
-    val centerRssi: Double = PathLossModel.DEFAULT_CENTER_RSSI,
-    /** The RSSI heard touching a beacon ("RSSI encostado"), read as
-     *  [PathLossModel.TOUCH_DISTANCE_METERS]. With the center's it fixes the exponent too. */
-    val touchRssi: Double = PathLossModel.DEFAULT_TOUCH_RSSI,
-    /** "Limitar pela velocidade": the position shown moves at most [maxSpeedKmh] towards each fix. */
-    val isSpeedLimited: Boolean = true,
-    val maxSpeedKmh: Double = MotionLimit.DEFAULT_MAX_SPEED_KMH,
+    /** The calibration as saved (`CalibrationStore`): "RSSI no centro", "RSSI encostado" and the
+     *  speed limit. */
+    val calibrationSettings: CalibrationSettings = CalibrationSettings(),
     /** The ranges of the last refresh, one per anchor heard within the window. */
     val anchorRanges: List<AnchorRange> = emptyList(),
     /** The observer's own position from [anchorRanges], null until three anchors are ranged. */
@@ -50,12 +44,22 @@ data class DeviceListState(
             return devicesByKey.values.filter { it.device.id != null && it.device.id !in configured }.sortedByDescending { it.rssi }
         }
 
-    val speedLimitKmh: Double?
-        get() = if (isSpeedLimited) maxSpeedKmh else null
+    /** The RSSI heard from the anchors standing in their middle. It calibrates the model: it is
+     *  read as the anchors' mean distance to their middle. */
+    val centerRssi: Double get() = calibrationSettings.centerRssiOrDefault
+
+    /** The RSSI heard touching a beacon, read as [PathLossModel.TOUCH_DISTANCE_METERS]. With the
+     *  center's it fixes the exponent too. */
+    val touchRssi: Double get() = calibrationSettings.touchRssiOrDefault
+
+    /** The position shown moves at most [maxSpeedKmh] towards each fix. */
+    val isSpeedLimited: Boolean get() = calibrationSettings.isSpeedLimitedOrDefault
+
+    val maxSpeedKmh: Double get() = calibrationSettings.maxSpeedKmhOrDefault
 
     /** What the positioning engine ranges and places with: the anchors and calibration shown. */
     val positioningSetup: PositioningSetup
-        get() = PositioningSetup(anchors, centerRssi, touchRssi, speedLimitKmh)
+        get() = calibrationSettings.positioningSetup(anchors)
 
     /** The model the ranges come from, for the anchors configured now. */
     val calibration: PathLossCalibration

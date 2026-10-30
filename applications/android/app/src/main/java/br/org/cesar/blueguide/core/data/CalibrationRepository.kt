@@ -19,12 +19,25 @@ data class CalibrationSettings(
     /** What the limit is set to, kept while it is off; unset means [MotionLimit.DEFAULT_MAX_SPEED_KMH]. */
     val maxSpeedKmh: Double? = null
 ) {
-    /** What the positioning engine ranges [anchors] with under these settings. */
+    /** "RSSI no centro": heard from the anchors standing in their middle, and read as their mean
+     *  distance to it. */
+    val centerRssiOrDefault: Double get() = centerRssi ?: PathLossModel.DEFAULT_CENTER_RSSI
+
+    /** "RSSI encostado": heard touching a beacon, and read as [PathLossModel.TOUCH_DISTANCE_METERS]. */
+    val touchRssiOrDefault: Double get() = touchRssi ?: PathLossModel.DEFAULT_TOUCH_RSSI
+
+    /** "Limitar pela velocidade". */
+    val isSpeedLimitedOrDefault: Boolean get() = isSpeedLimited ?: true
+
+    val maxSpeedKmhOrDefault: Double get() = maxSpeedKmh ?: MotionLimit.DEFAULT_MAX_SPEED_KMH
+
+    /** What the positioning engine ranges [anchors] with under these settings — on the
+     *  Positioning screen and in each fingerprint recording alike. */
     fun positioningSetup(anchors: List<Anchor>) = PositioningSetup(
         anchors,
-        centerRssi = centerRssi ?: PathLossModel.DEFAULT_CENTER_RSSI,
-        touchRssi = touchRssi ?: PathLossModel.DEFAULT_TOUCH_RSSI,
-        maxSpeedKmh = if (isSpeedLimited != false) maxSpeedKmh ?: MotionLimit.DEFAULT_MAX_SPEED_KMH else null
+        centerRssi = centerRssiOrDefault,
+        touchRssi = touchRssiOrDefault,
+        maxSpeedKmh = if (isSpeedLimitedOrDefault) maxSpeedKmhOrDefault else null
     )
 }
 

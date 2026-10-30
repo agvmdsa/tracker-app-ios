@@ -26,7 +26,7 @@ sealed interface DeviceListIntent {
     data class PositioningUpdated(val update: PositioningUpdate) : DeviceListIntent
 
     /** Fired whenever `CalibrationStore`'s settings change — read at startup, or edited on screen.
-     *  An unset field keeps the default. The engine ranges again with them (the ViewModel). */
+     *  The engine ranges again with them (the ViewModel). */
     data class CalibrationChanged(val settings: CalibrationSettings) : DeviceListIntent
 
     /** Fired whenever `SavedLocationStore`'s list changes. */

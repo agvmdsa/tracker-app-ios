@@ -69,11 +69,6 @@ object DeviceListReducer {
                     )
                 }
 
-            is DeviceListIntent.CalibrationChanged -> state.copy(
-                centerRssi = intent.settings.centerRssi ?: state.centerRssi,
-                touchRssi = intent.settings.touchRssi ?: state.touchRssi,
-                isSpeedLimited = intent.settings.isSpeedLimited ?: state.isSpeedLimited,
-                maxSpeedKmh = intent.settings.maxSpeedKmh ?: state.maxSpeedKmh
-            )
+            is DeviceListIntent.CalibrationChanged -> state.copy(calibrationSettings = intent.settings)
         }
 }
