@@ -1,0 +1,41 @@
+# :core:positioning
+
+Where the phone is, from what it hears: pure Kotlin/JVM, no Android. The app runs it live
+(`DeviceListViewModel`) and `PositioningReplay` runs it over recordings (`make android-replay`),
+so both place the phone with the same code.
+
+## The pipeline, in reading order
+
+Every advertisement goes in; once a second a position comes out.
+
+| Step | What happens | File |
+|---|---|---|
+| 1. Record | Each anchor's advertisements are kept for the last 3 s (at most 120); other beacons are ignored. | `PositioningEngine.record`, `RssiWindow.kt` |
+| 2. Median | Once a second, each anchor heard within the window gets the median of its RSSIs. | `PositioningEngine.refresh`, `RssiWindow.median` |
+| 3. Distance | The median becomes a distance by the log-distance model, `rssi = A - 10·n·log10(d)`, calibrated from "RSSI no centro" (the anchors' mean distance to their middle) and "RSSI encostado" (0.1 m). | `PathLossModel.kt`, `PositioningSetup.calibration` |
+| 4. Position | The estimator places the phone from the distances. | `PositionEstimator.kt` |
+| 4a. | Linear start: the first anchor's circle subtracted from the others; none when the anchors are in a line. | `Multilateration.linearSolution` |
+| 4b. | Weighted Gauss-Newton: each reading weighs 1/σ², σ = max(0.1 m, 0.35·d), so near anchors count more. | `Multilateration.refined`, `weight` |
+| 4c. | Held by the nearest: an anchor read within 0.5 m, with the next at more than twice that, keeps the fix within its range less the 0.1 m of touching. | `Multilateration.heldByTheNearest` |
+| 4d. | Uncertainty: the RMS of how far the circles miss the fix. | `Multilateration.solve` |
+| 5. Speed limit | The position shown moves towards the new one by at most the speed times the time since the last. | `MotionLimit.kt` |
+
+`PositioningUpdate` is what a refresh returns: the ranges (step 3), the fix (after step 5) and,
+per anchor, how many advertisements arrived since the last refresh and their spread.
+
+## Couplings that don't show in the types
+
+- The weights (4b) size the RSSI noise with the nominal exponent, 2.0
+  (`Multilateration.RELATIVE_DISTANCE_ERROR`), not the calibrated one. A common scale cancels in
+  weighted least squares, so it only matters around the 0.1 m floor.
+- Held by the nearest (4c) uses the touching distance of the path loss model
+  (`PathLossModel.TOUCH_DISTANCE_METERS`).
+- Outside this module: the API (`POST /sightings`) gets each anchor's distance, the map draws a
+  circle of it, and each recording's metadata keeps the calibration's inputs (`schema_version` 2).
+  The iOS app has the same pipeline in Swift, kept equal by the same test cases.
+
+## Tests
+
+One test file per source file. `MultilaterationTest`, `PathLossModelTest`, `RssiWindowTest` and
+`MotionLimitTest` test how each step works; `PositioningEngineTest` the steps together;
+`PositioningReplayTest` the replay's timing.

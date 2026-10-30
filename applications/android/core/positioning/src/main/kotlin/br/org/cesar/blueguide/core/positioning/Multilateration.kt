@@ -1,34 +1,11 @@
 package br.org.cesar.blueguide.core.positioning
 
-import br.org.cesar.blueguide.core.model.Anchor
 import br.org.cesar.blueguide.core.model.Point2D
 import kotlin.math.abs
 import kotlin.math.hypot
 import kotlin.math.ln
 import kotlin.math.max
 import kotlin.math.sqrt
-
-/** How far one [Anchor] currently looks, by [PathLossModel]. */
-data class AnchorRange(
-    val anchor: Anchor,
-    val distanceMeters: Double,
-    /** The median RSSI (dBm) the distance was computed from, when it came from the radio. Shown
-     *  on the map, because calibrating the path loss model needs the dBm and not only the distance. */
-    val rssi: Double? = null
-)
-
-/**
- * Where the observer came out, plus how much to distrust it.
- *
- * [uncertaintyMeters] is the RMS amount by which the range circles fail to meet at
- * [position]. It measures disagreement between the anchors, not a bias shared by all of
- * them (a mis-calibrated reference RSSI, say): that moves the fix without widening this.
- */
-data class ObserverFix(
-    val readings: List<AnchorRange>,
-    val position: Point2D,
-    val uncertaintyMeters: Double
-)
 
 /**
  * Weighted least squares over every reading — the same solver as the iOS app's

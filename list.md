@@ -374,6 +374,31 @@ calcularia; testes e CI passando. **Fase 3 concluída** (182 testes JVM: 100 no 
 localmente); falta conferir no aparelho (gravação, envio sem rede e com rede, a lista) e o CI no
 GitHub.
 
+#### Preparação para reescrever o cálculo de posição
+
+Antes de ler o cálculo inteiro e reescrever boa parte dele: deixar fácil de ler, de trocar e de
+provar que a versão nova é melhor. Sem mudar o comportamento.
+
+- [x] ~~**Organização para a leitura**~~ — feito: `RssiWindow` em arquivo próprio (estava em
+  `PathLossModel.kt`); `AnchorRange` e `ObserverFix`, usados pelo motor, pela tela e pela API, saíram
+  de `Multilateration.kt` para `PositionEstimator.kt`, ao lado do contrato que os usa. Um teste por
+  arquivo (`MultilaterationTest`, `PathLossModelTest`, `RssiWindowTest`, `MotionLimitTest`), no lugar
+  de `PositioningTest` e `CalibratedPositioningTest`; dois testes que estavam repetidos nos dois
+  ficaram uma vez só. `core/positioning/README.md`: o pipeline em ordem de leitura, com o arquivo
+  de cada etapa, e os acoplamentos que não aparecem nos tipos.
+- [ ] **Calibração num lugar só** — o estado da tela guarda as configurações salvas e usa a mesma
+  conversão para o setup que as gravações (hoje copia os campos e converte por outro caminho).
+- [ ] **Motor atrás de uma interface** — `PositioningEngine` vira o contrato (leituras entram, uma
+  atualização sai por segundo) e o motor atual uma implementação, para rodar o antigo e o novo lado a
+  lado: no app, trocando a ligação do Hilt; no replay, com `--engine`.
+- [ ] **Cenários separados da implementação** — uma suíte com o que qualquer motor deve cumprir
+  (simetria, encostar num beacon, ordem das leituras, limite de velocidade...), rodada contra a
+  interface; os testes de como o motor atual funciona ficam com ele e podem ser apagados na
+  reescrita.
+
+Fora daqui, por decisão: a linha de base com gravações reais (precisa das gravações) e o
+`runCatching` que engole o cancelamento no `DeviceListViewModel`.
+
 ## ESP32 / Embarcados (`esp32-esp8266`)
 
 - [ ] **Usar pelo menos 1-2 sensores/atuadores do kit físico** (LED RGB, sensor ultrassônico,
