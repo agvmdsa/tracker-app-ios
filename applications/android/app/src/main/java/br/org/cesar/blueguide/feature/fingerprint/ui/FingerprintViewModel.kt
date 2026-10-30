@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import br.org.cesar.blueguide.core.ble.BleScanner
 import br.org.cesar.blueguide.core.data.AnchorStore
+import br.org.cesar.blueguide.core.data.CalibrationStore
 import br.org.cesar.blueguide.core.dataset.FingerprintLabel
 import br.org.cesar.blueguide.core.model.DeviceId
 import br.org.cesar.blueguide.core.network.FingerprintUploading
@@ -43,6 +44,7 @@ class FingerprintViewModel @AssistedInject constructor(
     motionActivity: MotionActivityReading,
     uploader: FingerprintUploading,
     private val anchorStore: AnchorStore,
+    private val calibrationStore: CalibrationStore,
     @RecordingsDirectory directory: File,
     deviceInfo: DeviceInfo,
     clock: MonotonicClock,
@@ -60,7 +62,7 @@ class FingerprintViewModel @AssistedInject constructor(
         altimeter = altimeter,
         motionActivity = motionActivity,
         uploader = uploader,
-        anchors = { anchorStore.anchors.value },
+        positioningSetup = { calibrationStore.settings.value.positioningSetup(anchorStore.anchors.value) },
         directory = directory,
         node = DeviceId(nodeId),
         model = deviceInfo.model,
@@ -76,9 +78,12 @@ class FingerprintViewModel @AssistedInject constructor(
 
     init {
         recorder.start()
-        // Usually already read by the Positioning tab; it is the same store, so anchors edited
-        // there show up here at once.
-        viewModelScope.launch { anchorStore.load() }
+        // Usually already read by the Positioning tab; they are the same stores, so anchors and
+        // calibration edited there show up here at once.
+        viewModelScope.launch {
+            anchorStore.load()
+            calibrationStore.load()
+        }
     }
 
     fun startRecording(label: FingerprintLabel, durationSeconds: Double) = recorder.startRecording(label, durationSeconds)

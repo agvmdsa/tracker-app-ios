@@ -1,0 +1,42 @@
+{
+    "schema_version": 1,
+    "platform": "Android",
+    "node": "AABBCCDD",
+    "model": "Pixel 8",
+    "system_version": "Android 15",
+    "session": "S1",
+    "point": "P3",
+    "x": 2.0,
+    "y": 4.5,
+    "csv_file": "20260102-030405_S1_P3.csv",
+    "started_t_ms": 1000,
+    "ended_t_ms": 61000,
+    "started_timestamp_ms": 1767323045678,
+    "ended_timestamp_ms": 1767323105678,
+    "planned_duration_s": 60.0,
+    "records_per_beacon": {
+        "9F3C1A02": 412,
+        "BEAC0001": 398
+    },
+    "scan_api": "scan settings",
+    "orientation_convention": "orientation convention",
+    "orientation_rate_hz": 50.0,
+    "altitude_convention": "altitude convention",
+    "motion_activity_convention": "motion activity convention",
+    "beacons": [
+        {
+            "id": "9F3C1A02",
+            "label": "A",
+            "x": 0.0,
+            "y": 0.0,
+            "height_m": 1.2
+        },
+        {
+            "id": "BEAC0001",
+            "label": "B",
+            "x": 2.5,
+            "y": 0.0,
+            "height_m": null
+        }
+    ]
+}

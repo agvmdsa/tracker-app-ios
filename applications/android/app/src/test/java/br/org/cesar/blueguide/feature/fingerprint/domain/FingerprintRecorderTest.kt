@@ -4,6 +4,7 @@ import br.org.cesar.blueguide.core.ble.BleScanner
 import br.org.cesar.blueguide.core.dataset.FingerprintCsv
 import br.org.cesar.blueguide.core.dataset.FingerprintLabel
 import br.org.cesar.blueguide.core.dataset.FingerprintRecord
+import br.org.cesar.blueguide.core.dataset.FingerprintRecordingMetadata
 import br.org.cesar.blueguide.core.model.AltitudeSample
 import br.org.cesar.blueguide.core.model.Anchor
 import br.org.cesar.blueguide.core.model.BleDevice
@@ -14,6 +15,7 @@ import br.org.cesar.blueguide.core.model.MotionActivitySample
 import br.org.cesar.blueguide.core.model.MotionActivityState
 import br.org.cesar.blueguide.core.model.Point2D
 import br.org.cesar.blueguide.core.network.FingerprintUploading
+import br.org.cesar.blueguide.core.positioning.PositioningSetup
 import br.org.cesar.blueguide.core.sensors.AltitudeReading
 import br.org.cesar.blueguide.core.sensors.DeviceMotionReading
 import br.org.cesar.blueguide.core.sensors.MotionActivityReading
@@ -101,6 +103,7 @@ class FingerprintRecorderTest {
     private lateinit var motionActivity: FakeMotionActivityReading
     private lateinit var uploader: FakeFingerprintUploader
     private var anchors: List<Anchor> = emptyList()
+    private var centerRssi = -70.0
     private var fakeClockMs = 0L
 
     @Before
@@ -132,7 +135,7 @@ class FingerprintRecorderTest {
         altimeter = altimeter,
         motionActivity = motionActivity,
         uploader = uploader,
-        anchors = { anchors },
+        positioningSetup = { PositioningSetup(anchors, centerRssi = centerRssi) },
         directory = directory,
         node = node,
         model = "Pixel 9",
@@ -212,6 +215,33 @@ class FingerprintRecorderTest {
         val metadata = FingerprintRecorder.metadataFile(csv)
         assertTrue(metadata.exists())
         assertTrue(metadata.readText().contains("\"platform\": \"Android\""))
+        sut.stop()
+    }
+
+    /** So the recording can be replayed as the app would have placed the phone during it: the
+     *  beacons and the calibration of when it started, not of when it ended. */
+    @Test
+    fun `the metadata keeps the positioning setup of the start of the recording`() = runTest {
+        anchors = listOf(Anchor(beaconA, "A", Point2D(0.0, 0.0)), Anchor(beaconB, "B", Point2D(2.0, 0.0)))
+        centerRssi = -74.0
+        val sut = recorder(this)
+        sut.start()
+        advanceUntilIdle()
+
+        sut.startRecording(requireNotNull(FingerprintLabel.of("S1", "P1", 0.0, 0.0)), durationSeconds = 1.0)
+        runCurrent()
+        centerRssi = -60.0
+        anchors = emptyList()
+        advanceUntilIdle()
+
+        val metadata = FingerprintRecordingMetadata.fromJson(
+            FingerprintRecorder.metadataFile(sut.state.value.recordings.first()).readText()
+        )
+        assertEquals(FingerprintRecordingMetadata.CURRENT_SCHEMA_VERSION, metadata.schemaVersion)
+        assertEquals(
+            PositioningSetup(listOf(Anchor(beaconA, "A", Point2D(0.0, 0.0)), Anchor(beaconB, "B", Point2D(2.0, 0.0))), centerRssi = -74.0),
+            metadata.positioningSetup
+        )
         sut.stop()
     }
 

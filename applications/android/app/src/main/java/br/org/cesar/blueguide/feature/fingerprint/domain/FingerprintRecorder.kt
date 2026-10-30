@@ -7,10 +7,10 @@ import br.org.cesar.blueguide.core.dataset.FingerprintCsv
 import br.org.cesar.blueguide.core.dataset.FingerprintLabel
 import br.org.cesar.blueguide.core.dataset.FingerprintRecord
 import br.org.cesar.blueguide.core.dataset.FingerprintRecordingMetadata
-import br.org.cesar.blueguide.core.model.Anchor
 import br.org.cesar.blueguide.core.model.DeviceId
 import br.org.cesar.blueguide.core.model.DeviceSighting
 import br.org.cesar.blueguide.core.network.FingerprintUploading
+import br.org.cesar.blueguide.core.positioning.PositioningSetup
 import br.org.cesar.blueguide.core.sensors.AltitudeReading
 import br.org.cesar.blueguide.core.sensors.DeviceMotionReading
 import br.org.cesar.blueguide.core.sensors.MotionActivityReading
@@ -43,8 +43,8 @@ data class ActiveFingerprintRecording(
     val plannedDurationSeconds: Double,
     /** `startedAt` on the monotonic clock injected into the recorder. */
     val startedMonotonicMs: Long,
-    /** The beacons' positions when the recording started. */
-    val beacons: List<Anchor>
+    /** The beacons' positions and the calibration when the recording started. */
+    val setup: PositioningSetup
 )
 
 /** What a finished recording captured, like the ESP32 collector's `S` lines. */
@@ -98,8 +98,10 @@ class FingerprintRecorder(
      *  `DeviceListViewModel`'s reporter — null just means "don't upload", the CSV is still
      *  written either way. */
     private val uploader: FingerprintUploading? = null,
-    /** The beacons with a position (`AnchorStore.anchors`), copied into each recording. */
-    private val anchors: () -> List<Anchor> = { emptyList() },
+    /** The beacons with a position (`AnchorStore.anchors`) and the calibration on the
+     *  Positioning screen, copied into each recording so it can be replayed as the app would
+     *  have positioned it. */
+    private val positioningSetup: () -> PositioningSetup = { PositioningSetup() },
     private val directory: File,
     private val node: DeviceId,
     private val model: String,
@@ -129,7 +131,7 @@ class FingerprintRecorder(
      * has no access to the observer screen's own last-seen map), which is a close enough
      * substitute for warning about an incomplete layout before recording.
      */
-    val layoutCheck: AnchorLayoutCheck get() = AnchorLayoutCheck.of(anchors(), heardBeacons)
+    val layoutCheck: AnchorLayoutCheck get() = AnchorLayoutCheck.of(positioningSetup().anchors, heardBeacons)
 
     /** Written on the recorder's thread, read by [layoutCheck] from any other. */
     @Volatile private var heardBeacons: Set<DeviceId> = emptySet()
@@ -215,7 +217,7 @@ class FingerprintRecorder(
         file = target
         lastFlushMs = monotonicMs()
         pendingUploadRows.clear()
-        val active = ActiveFingerprintRecording(label, startedAt, durationSeconds, monotonicMs(), anchors())
+        val active = ActiveFingerprintRecording(label, startedAt, durationSeconds, monotonicMs(), positioningSetup())
         _state.update { it.copy(activeRecording = active, recordsPerBeacon = emptyMap(), errorMessage = null) }
 
         endJob = scope.launch {
@@ -369,7 +371,8 @@ class FingerprintRecorder(
             motionActivityConvention = "DetectedActivity type mapped to stationary/walking/running/automotive/" +
                 "cycling/unknown; confidence 0-100 (Android's own scale — NOT the iOS app's 0/1/2); an empty " +
                 "row value means no update had arrived yet or permission wasn't granted, not literally 'unknown'",
-            beacons = active.beacons.sortedBy { it.id.value }.map(FingerprintRecordingMetadata.BeaconSnapshot::of)
+            beacons = active.setup.anchors.sortedBy { it.id.value }.map(FingerprintRecordingMetadata.BeaconSnapshot::of),
+            positioning = FingerprintRecordingMetadata.PositioningSnapshot.of(active.setup)
         )
         try {
             metadataFile(csv).writeText(metadata.toJson())

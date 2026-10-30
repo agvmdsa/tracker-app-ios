@@ -68,7 +68,7 @@ class FingerprintCsvTest {
 
     @Test
     fun `metadata without schema_version is version 1, and unknown keys are skipped`() {
-        val text = Fixtures.text("fingerprint_metadata.json")
+        val text = Fixtures.text("fingerprint_metadata_v1.json")
             .replace("\"schema_version\": 1,", "")
             .replace("\"platform\":", "\"added_later\": true, \"platform\":")
 

@@ -3,8 +3,14 @@ package br.org.cesar.blueguide.core.dataset
 import br.org.cesar.blueguide.core.dataset.ContractSamples.QUOTED_MODEL
 import br.org.cesar.blueguide.core.dataset.ContractSamples.fingerprintRecord
 import br.org.cesar.blueguide.core.dataset.FingerprintRecordingMetadata.BeaconSnapshot
+import br.org.cesar.blueguide.core.dataset.FingerprintRecordingMetadata.PositioningSnapshot
+import br.org.cesar.blueguide.core.model.Anchor
+import br.org.cesar.blueguide.core.model.DeviceId
+import br.org.cesar.blueguide.core.model.Point2D
+import br.org.cesar.blueguide.core.positioning.PositioningSetup
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 /** The expected files under `src/test/resources/contracts/`. */
@@ -47,6 +53,16 @@ class FingerprintFileContractTest {
         beacons = listOf(
             BeaconSnapshot(id = "9F3C1A02", label = "A", x = 0.0, y = 0.0, heightM = 1.2),
             BeaconSnapshot(id = "BEAC0001", label = "B", x = 2.5, y = 0.0, heightM = null)
+        ),
+        positioning = PositioningSnapshot(
+            centerRssi = -72.0,
+            touchRssi = -38.0,
+            maxSpeedKmh = 2.0,
+            referenceRssi = -66.5,
+            pathLossExponent = 1.5,
+            usesTouchRssi = true,
+            rssiWindowMs = 3_000,
+            refreshIntervalMs = 1_000
         )
     )
 
@@ -77,7 +93,7 @@ class FingerprintFileContractTest {
     }
 
     @Test
-    fun `the metadata json has the iOS keys, schema_version and null heights included`() {
+    fun `the metadata json has the iOS keys, schema_version, null heights and the positioning setup`() {
         assertEquals(
             Json.parseToJsonElement(Fixtures.text("fingerprint_metadata.json")),
             Json.parseToJsonElement(metadata.toJson())
@@ -87,5 +103,34 @@ class FingerprintFileContractTest {
     @Test
     fun `the expected metadata json reads back to the same metadata`() {
         assertEquals(metadata, FingerprintRecordingMetadata.fromJson(Fixtures.text("fingerprint_metadata.json")))
+    }
+
+    /** What phones recorded before version 2, and the iOS app still writes. */
+    @Test
+    fun `a version 1 json reads, without a positioning setup`() {
+        val old = FingerprintRecordingMetadata.fromJson(Fixtures.text("fingerprint_metadata_v1.json"))
+
+        assertEquals(1, old.schemaVersion)
+        assertNull(old.positioning)
+        assertNull(old.positioningSetup)
+        assertEquals(metadata.copy(schemaVersion = 1, positioning = null), old)
+    }
+
+    /** A recording is replayed with the setup it was made with: the beacons where they were,
+     *  and the calibration of the moment. */
+    @Test
+    fun `the positioning setup a recording keeps is the one it was made with`() {
+        val anchors = listOf(
+            Anchor(DeviceId("9F3C1A02"), "A", Point2D(0.0, 0.0), height = 1.2),
+            Anchor(DeviceId("BEAC0001"), "B", Point2D(2.5, 0.0))
+        )
+        val setup = PositioningSetup(anchors, centerRssi = -72.0, touchRssi = -38.0, maxSpeedKmh = null)
+
+        val snapshot = PositioningSnapshot.of(setup)
+        val recorded = metadata.copy(beacons = anchors.map(BeaconSnapshot::of), positioning = snapshot)
+
+        assertEquals(setup.calibration.referenceRssi, snapshot.referenceRssi, 0.0)
+        assertEquals(setup.calibration.exponent, snapshot.pathLossExponent, 0.0)
+        assertEquals(setup, FingerprintRecordingMetadata.fromJson(recorded.toJson()).positioningSetup)
     }
 }

@@ -67,6 +67,22 @@ class DeviceListReducerTest {
         assertEquals(state.positioningSetup.calibration, state.calibration)
     }
 
+    /** A fingerprint recording keeps the setup it was made with (`CalibrationSettings.positioningSetup`):
+     *  it has to be the one this screen positions with, unset settings included. */
+    @Test
+    fun `recordings keep the setup this screen positions with`() {
+        val cases = listOf(
+            CalibrationSettings(),
+            CalibrationSettings(centerRssi = -76.0, maxSpeedKmh = 4.0),
+            CalibrationSettings(touchRssi = -40.0, isSpeedLimited = false, maxSpeedKmh = 4.0)
+        )
+        for (settings in cases) {
+            val state = DeviceListReducer.reduce(observing(), DeviceListIntent.CalibrationChanged(settings))
+
+            assertEquals("$settings", settings.positioningSetup(anchors), state.positioningSetup)
+        }
+    }
+
     /** Touching one beacon and taking what the phone hears now: the strongest anchor's median. */
     @Test
     fun `current touch RSSI is the strongest ranged anchor's median`() {

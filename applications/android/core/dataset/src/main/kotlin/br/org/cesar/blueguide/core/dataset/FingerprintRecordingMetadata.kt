@@ -1,7 +1,11 @@
 package br.org.cesar.blueguide.core.dataset
 
 import br.org.cesar.blueguide.core.model.Anchor
+import br.org.cesar.blueguide.core.model.DeviceId
 import br.org.cesar.blueguide.core.model.DeviceMotionSample
+import br.org.cesar.blueguide.core.model.Point2D
+import br.org.cesar.blueguide.core.positioning.PositioningEngine
+import br.org.cesar.blueguide.core.positioning.PositioningSetup
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
@@ -52,8 +56,20 @@ data class FingerprintRecordingMetadata(
     @SerialName("motion_activity_convention") val motionActivityConvention: String,
     /** Where each beacon was when the recording started, in the same frame as `x`/`y`. A
      *  copy, not a reference: moving a beacon later doesn't rewrite recordings made before. */
-    val beacons: List<BeaconSnapshot>
+    val beacons: List<BeaconSnapshot>,
+    /** How the app would have placed the phone during the recording, so it can be replayed
+     *  exactly. Since version 2; null in older files and in the iOS app's, which doesn't write
+     *  it yet. */
+    val positioning: PositioningSnapshot? = null
 ) {
+    /** The beacons as the anchors the positioning engine ranges. */
+    val anchors: List<Anchor>
+        get() = beacons.map { Anchor(DeviceId(it.id), it.label, Point2D(it.x, it.y), it.heightM) }
+
+    /** What the app would have positioned with during the recording; null before version 2. */
+    val positioningSetup: PositioningSetup?
+        get() = positioning?.let { PositioningSetup(anchors, it.centerRssi, it.touchRssi, it.maxSpeedKmh) }
+
     @Serializable
     data class BeaconSnapshot(
         val id: String,
@@ -68,10 +84,43 @@ data class FingerprintRecordingMetadata(
         }
     }
 
+    /** The calibration at the start of the recording ("RSSI no centro", "RSSI encostado", the
+     *  speed limit) and what the engine made of it. */
+    @Serializable
+    data class PositioningSnapshot(
+        @SerialName("center_rssi") val centerRssi: Double,
+        @SerialName("touch_rssi") val touchRssi: Double,
+        /** Null when the speed limit was off. */
+        @SerialName("max_speed_kmh") val maxSpeedKmh: Double?,
+        /** The path loss model those give for [beacons]: the RSSI at 1 m and the exponent, for
+         *  tooling that doesn't recompute them. */
+        @SerialName("reference_rssi") val referenceRssi: Double,
+        @SerialName("path_loss_exponent") val pathLossExponent: Double,
+        /** False when the touching RSSI was ignored and the center alone calibrated. */
+        @SerialName("uses_touch_rssi") val usesTouchRssi: Boolean,
+        /** The engine's RSSI window and refresh interval, in case they change later. */
+        @SerialName("rssi_window_ms") val rssiWindowMs: Long,
+        @SerialName("refresh_interval_ms") val refreshIntervalMs: Long
+    ) {
+        companion object {
+            fun of(setup: PositioningSetup) = PositioningSnapshot(
+                centerRssi = setup.centerRssi,
+                touchRssi = setup.touchRssi,
+                maxSpeedKmh = setup.maxSpeedKmh,
+                referenceRssi = setup.calibration.referenceRssi,
+                pathLossExponent = setup.calibration.exponent,
+                usesTouchRssi = setup.calibration.usesTouchRssi,
+                rssiWindowMs = PositioningEngine.RSSI_WINDOW_MS,
+                refreshIntervalMs = PositioningEngine.REFRESH_INTERVAL_MS
+            )
+        }
+    }
+
     fun toJson(): String = json.encodeToString(this)
 
     companion object {
-        const val CURRENT_SCHEMA_VERSION = 1
+        /** 2 added [positioning]. */
+        const val CURRENT_SCHEMA_VERSION = 2
 
         /** Reads a recording's JSON, from either app. Keys this version doesn't know are skipped,
          *  and a file without `schema_version` is version 1: Android wrote none until it was

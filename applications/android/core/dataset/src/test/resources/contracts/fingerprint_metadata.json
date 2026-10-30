@@ -1,5 +1,5 @@
 {
-    "schema_version": 1,
+    "schema_version": 2,
     "platform": "Android",
     "node": "AABBCCDD",
     "model": "Pixel 8",
@@ -38,5 +38,15 @@
             "y": 0.0,
             "height_m": null
         }
-    ]
+    ],
+    "positioning": {
+        "center_rssi": -72.0,
+        "touch_rssi": -38.0,
+        "max_speed_kmh": 2.0,
+        "reference_rssi": -66.5,
+        "path_loss_exponent": 1.5,
+        "uses_touch_rssi": true,
+        "rssi_window_ms": 3000,
+        "refresh_interval_ms": 1000
+    }
 }

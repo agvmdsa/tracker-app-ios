@@ -23,6 +23,8 @@ kotlin {
 dependencies {
     // FingerprintRecord holds DeviceId and the sensor samples.
     api(project(":core:model"))
+    // A recording keeps the positioning setup it was made with, to be replayed with it.
+    api(project(":core:positioning"))
     implementation(libs.kotlinx.serialization.json)
     testImplementation(libs.junit)
 }

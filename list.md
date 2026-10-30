@@ -317,9 +317,15 @@ GitHub.
   contrato dos arquivos vieram junto e agora também leem os arquivos esperados de volta; os valores
   de que eles foram escritos (`ContractSamples`) ficam em `testFixtures`, usados também pelo teste
   de contrato da API no app.
-- [ ] **Calibração nos metadados** — o JSON de cada gravação passa a dizer com que calibração o app
-  calcularia a posição (RSSI no centro e encostado, limite de velocidade, o modelo resultante,
-  janela e ritmo do motor): `schema_version` 2. Um arquivo sem o campo é da versão 1.
+- [x] ~~**Calibração nos metadados**~~ — feito: `schema_version` 2, com o objeto `positioning`
+  (`center_rssi`, `touch_rssi`, `max_speed_kmh` — `null` com o limite desligado —,
+  `reference_rssi`, `path_loss_exponent`, `uses_touch_rssi`, `rssi_window_ms`,
+  `refresh_interval_ms`). É a calibração do começo da gravação, junto com as posições dos beacons
+  que já iam; `metadata.positioningSetup` devolve o `PositioningSetup` para o replay. Um arquivo
+  sem o campo é da versão 1 (há um esperado da versão 1 nos testes). O gravador recebe o setup
+  da mesma conversão que a tela de Positioning usa (`CalibrationSettings.positioningSetup`), e um
+  teste garante que as duas dão o mesmo setup. **Falta no iOS:** ele continua escrevendo a versão
+  1, sem `positioning`.
 - [ ] **Armazenamento na camada `data`** — o gravador só decide o que gravar e quando; criar,
   listar, apagar e escrever os arquivos fica numa implementação em `feature/fingerprint/data`. A
   lista diz se cada gravação terminou sem ler o disco na thread principal (hoje a tela faz isso).
