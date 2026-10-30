@@ -3,9 +3,9 @@ package br.org.cesar.blueguide.feature.fingerprint.domain
 import br.org.cesar.blueguide.core.ble.BleScanner
 import br.org.cesar.blueguide.core.data.AnchorLayoutCheck
 import br.org.cesar.blueguide.core.data.AnchorStore
+import br.org.cesar.blueguide.core.dataset.FingerprintCsv
 import br.org.cesar.blueguide.core.dataset.FingerprintLabel
 import br.org.cesar.blueguide.core.dataset.FingerprintRecord
-import br.org.cesar.blueguide.core.dataset.FingerprintRecordFormat
 import br.org.cesar.blueguide.core.dataset.FingerprintRecordingMetadata
 import br.org.cesar.blueguide.core.model.Anchor
 import br.org.cesar.blueguide.core.model.DeviceId
@@ -204,7 +204,7 @@ class FingerprintRecorder(
         try {
             directory.mkdirs()
             val newWriter = BufferedWriter(FileWriter(target, false))
-            newWriter.write(FingerprintRecordFormat.CSV_HEADER)
+            newWriter.write(FingerprintCsv.HEADER)
             newWriter.newLine()
             newWriter.flush()
             writer = newWriter
@@ -309,7 +309,7 @@ class FingerprintRecorder(
             label = active.label
         )
         try {
-            currentWriter.write(record.csvLine)
+            currentWriter.write(FingerprintCsv.line(record))
             currentWriter.newLine()
             flushIfDue(currentWriter)
         } catch (e: Exception) {

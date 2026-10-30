@@ -5,8 +5,8 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import br.org.cesar.blueguide.core.model.DeviceMotionSample
 import br.org.cesar.blueguide.core.sensors.DeviceMotionReading
-import br.org.cesar.blueguide.core.sensors.DeviceMotionSample
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 

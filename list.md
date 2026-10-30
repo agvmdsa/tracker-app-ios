@@ -307,6 +307,35 @@ concluída** (151 testes JVM: 94 no app, 57 em `:core:positioning`; lint e build
 localmente); falta rodar no aparelho (a posição na tela deve se comportar como antes) e o CI no
 GitHub.
 
+#### Fase 3 — gravações: formato, calibração, armazenamento, upload e replay
+
+- [x] ~~**Formato num módulo puro (`:core:dataset`)**~~ — feito: `FingerprintLabel`,
+  `FingerprintRecord` (só dados, sem saber de CSV), `FingerprintCsv` (escreve e — novo — lê as
+  linhas, uma a uma, recusando com o número da linha o que não for uma gravação) e
+  `FingerprintRecordingMetadata` (escreve e lê; sem `schema_version` é a versão 1, chaves
+  desconhecidas são ignoradas). As amostras dos sensores foram para `:core:model`. Os testes de
+  contrato dos arquivos vieram junto e agora também leem os arquivos esperados de volta; os valores
+  de que eles foram escritos (`ContractSamples`) ficam em `testFixtures`, usados também pelo teste
+  de contrato da API no app.
+- [ ] **Calibração nos metadados** — o JSON de cada gravação passa a dizer com que calibração o app
+  calcularia a posição (RSSI no centro e encostado, limite de velocidade, o modelo resultante,
+  janela e ritmo do motor): `schema_version` 2. Um arquivo sem o campo é da versão 1.
+- [ ] **Armazenamento na camada `data`** — o gravador só decide o que gravar e quando; criar,
+  listar, apagar e escrever os arquivos fica numa implementação em `feature/fingerprint/data`. A
+  lista diz se cada gravação terminou sem ler o disco na thread principal (hoje a tela faz isso).
+- [ ] **Upload por WorkManager** — terminada a gravação, o envio vira um trabalho que lê o arquivo
+  do disco e sobrevive ao app ser fechado, com nova tentativa sem rede ou com erro do servidor. A
+  API não descarta linhas repetidas, então o trabalho anota quantas linhas já foram aceitas e uma
+  nova tentativa continua dali. A lista mostra se cada gravação foi enviada.
+- [ ] **Programa de replay** — lê as gravações (`.csv` + `.json`), passa pelo `PositioningReplay`
+  com a calibração dos metadados (ou a passada à mão, para gravações da versão 1) e escreve, para
+  cada segundo, a posição calculada, a verdadeira, o erro e o que cada âncora ouviu: o dataset do
+  ML.
+
+Pronto quando: o domínio da gravação não conhece CSV, JSON nem arquivos; o upload sobrevive ao app
+fechado sem duplicar linhas; uma gravação nova pode ser reprocessada exatamente como o app
+calcularia; testes e CI passando.
+
 ## ESP32 / Embarcados (`esp32-esp8266`)
 
 - [ ] **Usar pelo menos 1-2 sensores/atuadores do kit físico** (LED RGB, sensor ultrassônico,

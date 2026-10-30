@@ -57,6 +57,7 @@ android {
 dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:positioning"))
+    implementation(project(":core:dataset"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -81,6 +82,7 @@ dependencies {
     ksp(libs.hilt.compiler)
     implementation(libs.androidx.hilt.lifecycle.viewmodel.compose)
     testImplementation(libs.junit)
+    testImplementation(testFixtures(project(":core:dataset")))
     testImplementation(libs.ktor.client.mock)
     testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.androidx.junit)

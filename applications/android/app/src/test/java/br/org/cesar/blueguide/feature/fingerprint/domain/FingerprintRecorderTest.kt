@@ -1,22 +1,22 @@
 package br.org.cesar.blueguide.feature.fingerprint.domain
 
 import br.org.cesar.blueguide.core.ble.BleScanner
+import br.org.cesar.blueguide.core.dataset.FingerprintCsv
 import br.org.cesar.blueguide.core.dataset.FingerprintLabel
 import br.org.cesar.blueguide.core.dataset.FingerprintRecord
-import br.org.cesar.blueguide.core.dataset.FingerprintRecordFormat
+import br.org.cesar.blueguide.core.model.AltitudeSample
 import br.org.cesar.blueguide.core.model.Anchor
 import br.org.cesar.blueguide.core.model.BleDevice
 import br.org.cesar.blueguide.core.model.DeviceId
+import br.org.cesar.blueguide.core.model.DeviceMotionSample
 import br.org.cesar.blueguide.core.model.DeviceSighting
+import br.org.cesar.blueguide.core.model.MotionActivitySample
+import br.org.cesar.blueguide.core.model.MotionActivityState
 import br.org.cesar.blueguide.core.model.Point2D
 import br.org.cesar.blueguide.core.network.FingerprintUploading
 import br.org.cesar.blueguide.core.sensors.AltitudeReading
-import br.org.cesar.blueguide.core.sensors.AltitudeSample
 import br.org.cesar.blueguide.core.sensors.DeviceMotionReading
-import br.org.cesar.blueguide.core.sensors.DeviceMotionSample
 import br.org.cesar.blueguide.core.sensors.MotionActivityReading
-import br.org.cesar.blueguide.core.sensors.MotionActivitySample
-import br.org.cesar.blueguide.core.sensors.MotionActivityState
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -173,7 +173,7 @@ class FingerprintRecorderTest {
 
         val csv = state.recordings.first()
         val lines = csv.readLines()
-        assertEquals(FingerprintRecordFormat.CSV_HEADER, lines.first())
+        assertEquals(FingerprintCsv.HEADER, lines.first())
         assertEquals(3, lines.size) // header + 2 rows
         assertTrue(lines[1].contains("\"Pixel 9\""))
         assertTrue(lines[1].endsWith("S1,P1,1.00,2.00"))

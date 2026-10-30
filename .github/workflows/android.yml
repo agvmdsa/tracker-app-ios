@@ -40,7 +40,7 @@ jobs:
 
       # testDebugUnitTest is the app's; the pure Kotlin modules have a plain `test`, listed here.
       - name: Formatting, lint, unit tests and debug build
-        run: ./gradlew --console=plain spotlessCheck lintDebug testDebugUnitTest :core:model:test :core:positioning:test assembleDebug
+        run: ./gradlew --console=plain spotlessCheck lintDebug testDebugUnitTest :core:model:test :core:positioning:test :core:dataset:test assembleDebug
 
       - name: Reports
         if: failure()

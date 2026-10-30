@@ -6,9 +6,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import androidx.core.content.ContextCompat
+import br.org.cesar.blueguide.core.model.MotionActivitySample
+import br.org.cesar.blueguide.core.model.MotionActivityState
 import br.org.cesar.blueguide.core.sensors.MotionActivityReading
-import br.org.cesar.blueguide.core.sensors.MotionActivitySample
-import br.org.cesar.blueguide.core.sensors.MotionActivityState
 import com.google.android.gms.location.ActivityRecognition
 import com.google.android.gms.location.ActivityRecognitionResult
 import com.google.android.gms.location.DetectedActivity

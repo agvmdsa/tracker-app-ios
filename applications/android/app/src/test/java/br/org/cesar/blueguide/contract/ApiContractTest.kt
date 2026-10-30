@@ -1,7 +1,7 @@
 package br.org.cesar.blueguide.contract
 
-import br.org.cesar.blueguide.contract.ContractSamples.QUOTED_MODEL
-import br.org.cesar.blueguide.contract.ContractSamples.fingerprintRecord
+import br.org.cesar.blueguide.core.dataset.ContractSamples.QUOTED_MODEL
+import br.org.cesar.blueguide.core.dataset.ContractSamples.fingerprintRecord
 import br.org.cesar.blueguide.core.network.ObserverFixReport
 import br.org.cesar.blueguide.core.network.PositioningReport
 import br.org.cesar.blueguide.core.network.http.PositioningApiClient

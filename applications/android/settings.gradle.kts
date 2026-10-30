@@ -28,3 +28,4 @@ include(":app")
 // Pure Kotlin, no Android: what the app computes, testable on any JVM and runnable offline.
 include(":core:model")
 include(":core:positioning")
+include(":core:dataset")

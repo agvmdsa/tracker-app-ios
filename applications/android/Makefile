@@ -79,7 +79,7 @@ devices: check-adb ## Lista os celulares ligados (e se autorizaram o PC)
 	@"$(ADB)" devices -l
 
 test: local.properties $(SECRETS) ## Testes na JVM (sem celular)
-	$(GRADLE) testDebugUnitTest :core:model:test :core:positioning:test
+	$(GRADLE) testDebugUnitTest :core:model:test :core:positioning:test :core:dataset:test
 
 lint: local.properties $(SECRETS) ## Lint do Android
 	$(GRADLE) lintDebug

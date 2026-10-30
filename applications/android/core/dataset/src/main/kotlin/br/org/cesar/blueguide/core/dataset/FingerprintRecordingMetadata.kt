@@ -1,10 +1,14 @@
 package br.org.cesar.blueguide.core.dataset
 
 import br.org.cesar.blueguide.core.model.Anchor
-import br.org.cesar.blueguide.core.sensors.DeviceMotionSample
+import br.org.cesar.blueguide.core.model.DeviceMotionSample
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonObject
 
 /**
  * Written next to each finished recording's CSV, as `<same name>.json` — the counterpart of
@@ -39,7 +43,7 @@ data class FingerprintRecordingMetadata(
     /** How advertisements were received, since it changes how many arrive. */
     @SerialName("scan_api") val scanApi: String,
     /** Units, axes and reference frame of `roll`/`pitch`/`yaw`, which other platforms have
-     *  to convert to — see `DeviceMotionSample`. */
+     *  to convert to — see [DeviceMotionSample]. */
     @SerialName("orientation_convention") val orientationConvention: String,
     @SerialName("orientation_rate_hz") val orientationRateHz: Double,
     /** What `relative_altitude_m` is relative to, and that it isn't a floor number. */
@@ -69,11 +73,23 @@ data class FingerprintRecordingMetadata(
     companion object {
         const val CURRENT_SCHEMA_VERSION = 1
 
+        /** Reads a recording's JSON, from either app. Keys this version doesn't know are skipped,
+         *  and a file without `schema_version` is version 1: Android wrote none until it was
+         *  fixed. Anything that isn't a recording's metadata fails with [IllegalArgumentException]. */
+        fun fromJson(text: String): FingerprintRecordingMetadata = try {
+            val fields = json.parseToJsonElement(text).jsonObject
+            val versioned = if ("schema_version" in fields) fields else JsonObject(fields + ("schema_version" to JsonPrimitive(1)))
+            json.decodeFromJsonElement(serializer(), versioned)
+        } catch (e: SerializationException) {
+            throw IllegalArgumentException("not a recording's metadata: ${e.message}", e)
+        }
+
         /** `encodeDefaults`: [schemaVersion] has a default, and without this it would be left
          *  out of the file, unlike the iOS app's, which always writes `schema_version`. */
         private val json = Json {
             prettyPrint = true
             encodeDefaults = true
+            ignoreUnknownKeys = true
         }
     }
 }
