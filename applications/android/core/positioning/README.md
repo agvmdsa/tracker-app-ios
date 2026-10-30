@@ -15,9 +15,11 @@ contract of one step inside the app's engine. Everything else here is how the ap
 Trying another engine:
 
 1. Implement `PositioningEngine`.
-2. Add it to `tools/replay`'s `Engines` and compare it with the app's on the same recordings:
+2. Give it a subclass of `PositioningScenarios` (three lines, like `PathLossPositioningScenariosTest`):
+   what any engine has to do.
+3. Add it to `tools/replay`'s `Engines` and compare it with the app's on the same recordings:
    `make android-replay ARGS="--engine path-loss --engine <yours> <recordings>"`.
-3. To run it in the app, change the one line in the app's `di/PositioningModule`.
+4. To run it in the app, change the one line in the app's `di/PositioningModule`.
 
 ## The app's engine, in reading order
 
@@ -43,6 +45,9 @@ per anchor, how many advertisements arrived since the last refresh and their spr
   weighted least squares, so it only matters around the 0.1 m floor.
 - Held by the nearest (4c) uses the touching distance of the path loss model
   (`PathLossModel.TOUCH_DISTANCE_METERS`).
+- The linear start (4a) depends on which anchor is listed first, and Gauss-Newton (4b) stops as
+  soon as a step can't lower the weighted error, so the order of the anchors moves the fix by
+  about a millimetre.
 - Outside this module: the API (`POST /sightings`) gets each anchor's distance, the map draws a
   circle of it, and each recording's metadata keeps the calibration's inputs and the app engine's
   RSSI window (`schema_version` 2). The iOS app has the same pipeline in Swift, kept equal by the
@@ -50,6 +55,11 @@ per anchor, how many advertisements arrived since the last refresh and their spr
 
 ## Tests
 
-One test file per source file. `MultilaterationTest`, `PathLossModelTest`, `RssiWindowTest` and
-`MotionLimitTest` test how each step works; `PathLossPositioningEngineTest` the steps together;
-`PositioningReplayTest` the replay's timing.
+- `PositioningScenarios`: what any engine has to do, through the contract only, each with how
+  close is close enough. It stays when the engine is rewritten: the acceptance criteria of the new
+  one.
+- How the app's engine does it, exactly: `PathLossPositioningEngineTest` (the steps together) and
+  one test file per step (`MultilaterationTest`, `PathLossModelTest`, `RssiWindowTest`,
+  `MotionLimitTest`). They go with the engine when it is replaced. Some check a scenario's
+  situation again, more strictly (the exact centre, not within a centimetre).
+- `PositioningReplayTest`: the replay's timing.

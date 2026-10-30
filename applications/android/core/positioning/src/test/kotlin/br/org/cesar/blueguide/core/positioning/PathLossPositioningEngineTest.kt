@@ -111,15 +111,6 @@ class PathLossPositioningEngineTest {
     }
 
     @Test
-    fun `there is nothing to range again before the first refresh`() {
-        val engine = engine(square)
-        square.indices.forEach { index -> engine.hear(index, -76, NOW) }
-
-        assertNull(engine.rangeAgain())
-    }
-
-    /** The touching RSSI is read as the touching distance, with the center RSSI still the center's. */
-    @Test
     fun `the touching RSSI is read as the touching distance`() {
         val engine = engine(square) { it.copy(centerRssi = -72.0, touchRssi = -38.0) }
         engine.hear(0, -38, NOW, times = 5)
@@ -235,22 +226,6 @@ class PathLossPositioningEngineTest {
         assertEquals(ids, seen.single().map { it.anchor.id })
     }
 
-    @Test
-    fun `reset forgets the readings and the position shown`() {
-        val engine = engine(square)
-        square.indices.forEach { index -> engine.hear(index, -70, NOW) }
-        engine.refresh(NOW)
-
-        engine.reset()
-
-        assertNull("nothing to range again", engine.rangeAgain())
-        val update = engine.refresh(NOW)
-        assertTrue(update.ranges.isEmpty())
-        assertNull(update.fix)
-    }
-
-    /** Only anchors are listened to, so readings heard before a beacon became one don't count,
-     *  and those of a beacon that stops being one are dropped. */
     @Test
     fun `only the readings of the setup's anchors are kept`() {
         val engine = engine(square.take(3))

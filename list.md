@@ -401,10 +401,20 @@ provar que a versão nova é melhor. Sem mudar o comportamento.
   motor), com os motores registrados em `tools/replay/.../Engines.kt`. O README do módulo diz como
   plugar um motor novo. Os metadados das gravações continuam descrevendo o motor do app (a janela
   de RSSI é dele).
-- [ ] **Cenários separados da implementação** — uma suíte com o que qualquer motor deve cumprir
-  (simetria, encostar num beacon, ordem das leituras, limite de velocidade...), rodada contra a
-  interface; os testes de como o motor atual funciona ficam com ele e podem ser apagados na
-  reescrita.
+- [x] ~~**Cenários separados da implementação**~~ — feito: `PositioningScenarios`, 13 cenários que
+  só usam a interface, cada um com a tolerância que aceita (RSSI igual de todas é o meio, a 1 cm;
+  encostado num beacon é estar nele, a 10 cm; o beacon mais forte puxa o celular; a ordem das
+  âncoras não importa; beacons que não são âncoras não mudam nada; quem não é ouvido há 10 s ou
+  saiu do setup não conta; o limite de velocidade segura e, sem ele, o celular acompanha;
+  `rangeAgain`, `reset`, uma distância e o RSSI por âncora ouvida, as contagens da API). Um motor
+  novo ganha uma subclasse de três linhas, como `PathLossPositioningScenariosTest`. Os dois testes
+  do motor atual que só usavam o contrato viraram cenários; os outros ficam com ele, e saem junto na
+  reescrita. Conferido: tirar o limite de velocidade, o `rangeAgain` ou a limpeza do `reset` faz o
+  cenário certo falhar. **Achado:** a ordem das âncoras muda a posição do motor atual em ~1 mm (a
+  partida linear depende da primeira âncora, e o Gauss-Newton para assim que um passo não melhora),
+  por isso esse cenário aceita 1 cm; anotado no README do módulo.
+
+Pronto para a reescrita (194 testes JVM; lint e build passando localmente).
 
 Fora daqui, por decisão: a linha de base com gravações reais (precisa das gravações) e o
 `runCatching` que engole o cancelamento no `DeviceListViewModel`.
