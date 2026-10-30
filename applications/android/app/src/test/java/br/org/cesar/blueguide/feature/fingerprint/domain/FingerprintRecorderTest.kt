@@ -19,6 +19,7 @@ import br.org.cesar.blueguide.core.positioning.PositioningSetup
 import br.org.cesar.blueguide.core.sensors.AltitudeReading
 import br.org.cesar.blueguide.core.sensors.DeviceMotionReading
 import br.org.cesar.blueguide.core.sensors.MotionActivityReading
+import br.org.cesar.blueguide.feature.fingerprint.data.CsvFingerprintRecordingStore
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -136,7 +137,7 @@ class FingerprintRecorderTest {
         motionActivity = motionActivity,
         uploader = uploader,
         positioningSetup = { PositioningSetup(anchors, centerRssi = centerRssi) },
-        directory = directory,
+        store = CsvFingerprintRecordingStore(directory),
         node = node,
         model = "Pixel 9",
         systemVersion = "15",
@@ -174,7 +175,7 @@ class FingerprintRecorderTest {
         assertEquals(2, state.lastRecording?.recordsPerBeacon?.get(beaconA))
         assertNotNull(state.lastRecording)
 
-        val csv = state.recordings.first()
+        val csv = state.recordings.first().csv
         val lines = csv.readLines()
         assertEquals(FingerprintCsv.HEADER, lines.first())
         assertEquals(3, lines.size) // header + 2 rows
@@ -195,7 +196,7 @@ class FingerprintRecorderTest {
         scanner.deliver(beaconA, rssi = -60, atMs = 4_321)
         advanceUntilIdle()
 
-        val row = sut.state.value.recordings.first().readLines()[1]
+        val row = sut.state.value.recordings.first().csv.readLines()[1]
         assertTrue(row, row.startsWith("4321,"))
         sut.stop()
     }
@@ -211,8 +212,9 @@ class FingerprintRecorderTest {
         scanner.deliver(beaconA, rssi = -60)
         advanceUntilIdle()
 
-        val csv = sut.state.value.recordings.first()
-        val metadata = FingerprintRecorder.metadataFile(csv)
+        val recording = sut.state.value.recordings.first()
+        assertTrue(recording.isComplete)
+        val metadata = requireNotNull(recording.metadata)
         assertTrue(metadata.exists())
         assertTrue(metadata.readText().contains("\"platform\": \"Android\""))
         sut.stop()
@@ -235,7 +237,7 @@ class FingerprintRecorderTest {
         advanceUntilIdle()
 
         val metadata = FingerprintRecordingMetadata.fromJson(
-            FingerprintRecorder.metadataFile(sut.state.value.recordings.first()).readText()
+            requireNotNull(sut.state.value.recordings.first().metadata).readText()
         )
         assertEquals(FingerprintRecordingMetadata.CURRENT_SCHEMA_VERSION, metadata.schemaVersion)
         assertEquals(

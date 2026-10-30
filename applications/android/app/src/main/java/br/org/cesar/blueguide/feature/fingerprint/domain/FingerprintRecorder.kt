@@ -3,10 +3,8 @@ package br.org.cesar.blueguide.feature.fingerprint.domain
 import br.org.cesar.blueguide.core.ble.BleScanner
 import br.org.cesar.blueguide.core.data.AnchorLayoutCheck
 import br.org.cesar.blueguide.core.data.AnchorStore
-import br.org.cesar.blueguide.core.dataset.FingerprintCsv
 import br.org.cesar.blueguide.core.dataset.FingerprintLabel
 import br.org.cesar.blueguide.core.dataset.FingerprintRecord
-import br.org.cesar.blueguide.core.dataset.FingerprintRecordingMetadata
 import br.org.cesar.blueguide.core.model.DeviceId
 import br.org.cesar.blueguide.core.model.DeviceSighting
 import br.org.cesar.blueguide.core.network.FingerprintUploading
@@ -27,13 +25,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.io.BufferedWriter
-import java.io.File
-import java.io.FileWriter
 import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 /** A recording in progress; null when not recording. Counterpart of the iOS app's
  *  `FingerprintRecorder.ActiveRecording`. */
@@ -49,7 +41,7 @@ data class ActiveFingerprintRecording(
 
 /** What a finished recording captured, like the ESP32 collector's `S` lines. */
 data class FingerprintRecordingSummary(
-    val file: File,
+    val recording: StoredRecording,
     val label: FingerprintLabel,
     val durationSeconds: Double,
     val recordsPerBeacon: Map<DeviceId, Int>
@@ -69,8 +61,8 @@ data class FingerprintRecorderState(
     val recordsPerBeacon: Map<DeviceId, Int> = emptyMap(),
     /** What the last recording that ran to the end captured. */
     val lastRecording: FingerprintRecordingSummary? = null,
-    /** Finished recordings' CSV files, newest first. */
-    val recordings: List<File> = emptyList(),
+    /** The recordings kept, finished and cut, newest first. */
+    val recordings: List<StoredRecording> = emptyList(),
     val errorMessage: String? = null
 ) {
     val isRecording: Boolean get() = activeRecording != null
@@ -78,12 +70,11 @@ data class FingerprintRecorderState(
 }
 
 /**
- * Records every advertisement the scanner hears into a CSV file, labelled with where the
- * phone is, to train a fingerprinting model — the counterpart of the iOS app's
- * `FingerprintRecorder`. Each recording lasts a set time and stops on its own, so every
- * point gets the same amount of data: one file per recording, one row per advertisement
- * (`FingerprintRecord`), plus a JSON file with the recording's window and context
- * (`FingerprintRecordingMetadata`) once it ends.
+ * Records every advertisement the scanner hears, labelled with where the phone is, to train a
+ * fingerprinting model — the counterpart of the iOS app's `FingerprintRecorder`. Each recording
+ * lasts a set time and stops on its own, so every point gets the same amount of data: one row
+ * per advertisement ([FingerprintRecord]), and the recording's window and context once it ends.
+ * Where and how they are kept is the [store]'s business.
  *
  * All of its work — the scan, the files, the state — runs one thing at a time on the
  * dispatcher it is given, so the commands below return at once and their effect shows up in
@@ -98,11 +89,11 @@ class FingerprintRecorder(
      *  `DeviceListViewModel`'s reporter — null just means "don't upload", the CSV is still
      *  written either way. */
     private val uploader: FingerprintUploading? = null,
+    private val store: FingerprintRecordingStore,
     /** The beacons with a position (`AnchorStore.anchors`) and the calibration on the
      *  Positioning screen, copied into each recording so it can be replayed as the app would
      *  have positioned it. */
     private val positioningSetup: () -> PositioningSetup = { PositioningSetup() },
-    private val directory: File,
     private val node: DeviceId,
     private val model: String,
     private val systemVersion: String,
@@ -137,8 +128,7 @@ class FingerprintRecorder(
     @Volatile private var heardBeacons: Set<DeviceId> = emptySet()
     private var scanJob: Job? = null
     private var endJob: Job? = null
-    private var writer: BufferedWriter? = null
-    private var file: File? = null
+    private var writer: RecordingWriter? = null
     private var lastFlushMs = 0L
     private val pendingUploadRows = ArrayList<FingerprintRecord>()
 
@@ -146,7 +136,7 @@ class FingerprintRecorder(
      *  sensors; nothing is written until [startRecording]. */
     fun start() {
         scope.launch {
-            _state.update { it.copy(recordings = existingRecordings()) }
+            listRecordings()
             scanJob?.cancel()
             scanJob = scope.launch {
                 scanner.scan()
@@ -188,33 +178,39 @@ class FingerprintRecorder(
     }
 
     /** Deletes a recording's CSV and its metadata. */
-    fun deleteRecording(target: File) {
+    fun deleteRecording(target: StoredRecording) {
         scope.launch {
-            if (!target.delete()) {
+            val deleted = try {
+                store.delete(target)
+            } catch (e: Exception) {
+                false
+            }
+            if (!deleted) {
                 _state.update { it.copy(errorMessage = "Could not delete ${target.name}") }
                 return@launch
             }
-            metadataFile(target).delete()
-            _state.update { it.copy(recordings = it.recordings.filterNot { f -> f == target }) }
+            _state.update { it.copy(recordings = it.recordings.filterNot { recording -> recording == target }) }
+        }
+    }
+
+    private fun listRecordings() {
+        try {
+            val recordings = store.list()
+            _state.update { it.copy(recordings = recordings) }
+        } catch (e: Exception) {
+            _state.update { it.copy(errorMessage = "Could not list the recordings: ${e.message}") }
         }
     }
 
     private fun beginRecording(label: FingerprintLabel, durationSeconds: Double) {
         discardActiveRecording()
         val startedAt = now()
-        val target = File(directory, fileName(label, startedAt))
-        try {
-            directory.mkdirs()
-            val newWriter = BufferedWriter(FileWriter(target, false))
-            newWriter.write(FingerprintCsv.HEADER)
-            newWriter.newLine()
-            newWriter.flush()
-            writer = newWriter
+        writer = try {
+            store.create(label, startedAt)
         } catch (e: Exception) {
-            _state.update { it.copy(errorMessage = "Could not create ${target.name}: ${e.message}") }
+            _state.update { it.copy(errorMessage = "Could not create the recording: ${e.message}") }
             return
         }
-        file = target
         lastFlushMs = monotonicMs()
         pendingUploadRows.clear()
         val active = ActiveFingerprintRecording(label, startedAt, durationSeconds, monotonicMs(), positioningSetup())
@@ -228,23 +224,43 @@ class FingerprintRecorder(
 
     private fun discardActiveRecording() {
         if (_state.value.activeRecording == null) return
-        val target = file
-        closeWriter()
-        target?.delete()
+        endJob?.cancel()
+        endJob = null
+        writer?.discard()
+        writer = null
         pendingUploadRows.clear()
         _state.update { it.copy(activeRecording = null, recordsPerBeacon = emptyMap()) }
     }
 
     private fun finishRecording() {
         val active = _state.value.activeRecording ?: return
-        val target = file ?: return
-        closeWriter()
+        val currentWriter = writer ?: return
+        endJob = null
+        writer = null
         val endedAt = now()
         val recordsPerBeacon = _state.value.recordsPerBeacon
-        writeMetadata(active, target, endedAt, monotonicMs(), recordsPerBeacon)
+        val info = FinishedRecording(
+            label = active.label,
+            node = node,
+            model = model,
+            systemVersion = systemVersion,
+            startedAt = active.startedAt,
+            endedAt = endedAt,
+            startedMonotonicMs = active.startedMonotonicMs,
+            endedMonotonicMs = monotonicMs(),
+            plannedDurationSeconds = active.plannedDurationSeconds,
+            recordsPerBeacon = recordsPerBeacon,
+            setup = active.setup
+        )
+        val recording = try {
+            currentWriter.finish(info)
+        } catch (e: Exception) {
+            _state.update { it.copy(errorMessage = "Recording saved, but without metadata: ${e.message}") }
+            currentWriter.recording
+        }
 
         val summary = FingerprintRecordingSummary(
-            file = target,
+            recording = recording,
             label = active.label,
             durationSeconds = (endedAt.toEpochMilli() - active.startedAt.toEpochMilli()) / 1000.0,
             recordsPerBeacon = recordsPerBeacon
@@ -257,7 +273,7 @@ class FingerprintRecorder(
                 activeRecording = null,
                 recordsPerBeacon = emptyMap(),
                 lastRecording = summary,
-                recordings = listOf(target) + it.recordings
+                recordings = listOf(recording) + it.recordings
             )
         }
         uploadIfConfigured(rowsToUpload)
@@ -311,8 +327,7 @@ class FingerprintRecorder(
             label = active.label
         )
         try {
-            currentWriter.write(FingerprintCsv.line(record))
-            currentWriter.newLine()
+            currentWriter.append(record)
             flushIfDue(currentWriter)
         } catch (e: Exception) {
             discardActiveRecording()
@@ -330,7 +345,7 @@ class FingerprintRecorder(
     /** At most once a second, not once per row: the rows reach the disk in a few larger
      *  writes. A recording cut short loses at most its last second, which costs nothing — a
      *  CSV without its JSON is left out of the dataset anyway. */
-    private fun flushIfDue(writer: BufferedWriter) {
+    private fun flushIfDue(writer: RecordingWriter) {
         val nowMs = monotonicMs()
         if (nowMs - lastFlushMs >= FLUSH_INTERVAL_MS) {
             writer.flush()
@@ -338,90 +353,9 @@ class FingerprintRecorder(
         }
     }
 
-    private fun writeMetadata(
-        active: ActiveFingerprintRecording,
-        csv: File,
-        endedAt: Instant,
-        endedMonotonicMs: Long,
-        recordsPerBeacon: Map<DeviceId, Int>
-    ) {
-        val metadata = FingerprintRecordingMetadata(
-            platform = "Android",
-            node = node.value,
-            model = model,
-            systemVersion = systemVersion,
-            session = active.label.session,
-            point = active.label.point,
-            x = active.label.x,
-            y = active.label.y,
-            csvFile = csv.name,
-            startedTMs = active.startedMonotonicMs,
-            endedTMs = endedMonotonicMs,
-            startedTimestampMs = active.startedAt.toEpochMilli(),
-            endedTimestampMs = endedAt.toEpochMilli(),
-            plannedDurationS = active.plannedDurationSeconds,
-            recordsPerBeacon = recordsPerBeacon.mapKeys { it.key.value },
-            scanApi = "Android BluetoothLeScanner.startScan, service UUID filter, SCAN_MODE_LOW_LATENCY",
-            orientationConvention = "radians, SensorManager TYPE_ROTATION_VECTOR via getOrientation() " +
-                "(yaw=azimuth, then pitch, then roll, Android's own axis convention — see AndroidOrientationReader); " +
-                "yaw is relative, not tied to true/magnetic north",
-            orientationRateHz = ORIENTATION_RATE_HZ,
-            altitudeConvention = "metres, SensorManager.getAltitude() relative to the barometric pressure " +
-                "recorded when this recording started — not sea level or a floor number; pressure in kPa",
-            motionActivityConvention = "DetectedActivity type mapped to stationary/walking/running/automotive/" +
-                "cycling/unknown; confidence 0-100 (Android's own scale — NOT the iOS app's 0/1/2); an empty " +
-                "row value means no update had arrived yet or permission wasn't granted, not literally 'unknown'",
-            beacons = active.setup.anchors.sortedBy { it.id.value }.map(FingerprintRecordingMetadata.BeaconSnapshot::of),
-            positioning = FingerprintRecordingMetadata.PositioningSnapshot.of(active.setup)
-        )
-        try {
-            metadataFile(csv).writeText(metadata.toJson())
-        } catch (e: Exception) {
-            _state.update { it.copy(errorMessage = "Recording saved, but without metadata: ${e.message}") }
-        }
-    }
-
-    private fun closeWriter() {
-        endJob?.cancel()
-        endJob = null
-        try {
-            writer?.close()
-        } catch (_: Exception) {
-            // Already on its way out; nothing more useful to do than drop the reference below.
-        }
-        writer = null
-        file = null
-    }
-
-    private fun existingRecordings(): List<File> =
-        (directory.listFiles { candidate -> candidate.extension == "csv" } ?: emptyArray())
-            .sortedByDescending { it.name }
-
     companion object {
-        /** `DeviceMotionReading`'s requested sensor rate — see `AndroidOrientationReader`. */
-        private const val ORIENTATION_RATE_HZ = 50.0
-
         private const val FLUSH_INTERVAL_MS = 1_000L
 
         const val DEFAULT_UPLOAD_BATCH_SIZE = 1_000
-
-        private val FILE_NAME_FORMAT: DateTimeFormatter =
-            DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss", Locale.ROOT).withZone(ZoneId.systemDefault())
-
-        fun metadataFile(csv: File): File = File(csv.parentFile, csv.nameWithoutExtension + ".json")
-
-        /** The JSON is written only when a recording runs to the end: a CSV without it was cut
-         *  (the app was killed) and is left out of the dataset, as in the iOS app. */
-        fun isComplete(csv: File): Boolean = metadataFile(csv).exists()
-
-        /** What exporting a recording sends: its CSV and, when it finished, its JSON. */
-        fun filesOf(csv: File): List<File> = listOf(csv) + listOfNotNull(metadataFile(csv).takeIf { it.exists() })
-
-        /** What "Exportar todas" sends: every recording's files, oldest first. */
-        fun filesOf(recordings: List<File>): List<File> = recordings.sortedBy { it.name }.flatMap(::filesOf)
-
-        /** Starts with the date so the files sort chronologically, e.g. `20261022-143005_S1_P3.csv`. */
-        private fun fileName(label: FingerprintLabel, startedAt: Instant): String =
-            "${FILE_NAME_FORMAT.format(startedAt)}_${label.session}_${label.point}.csv"
     }
 }

@@ -326,9 +326,15 @@ GitHub.
   da mesma conversão que a tela de Positioning usa (`CalibrationSettings.positioningSetup`), e um
   teste garante que as duas dão o mesmo setup. **Falta no iOS:** ele continua escrevendo a versão
   1, sem `positioning`.
-- [ ] **Armazenamento na camada `data`** — o gravador só decide o que gravar e quando; criar,
-  listar, apagar e escrever os arquivos fica numa implementação em `feature/fingerprint/data`. A
-  lista diz se cada gravação terminou sem ler o disco na thread principal (hoje a tela faz isso).
+- [x] ~~**Armazenamento na camada `data`**~~ — feito: `FingerprintRecordingStore` (domínio: listar,
+  criar, apagar; `RecordingWriter` acrescenta linhas, descarrega, termina ou descarta) e
+  `CsvFingerprintRecordingStore` (em `feature/fingerprint/data`: nomes dos arquivos, CSV, JSON e as
+  descrições das convenções dos sensores Android, que são da plataforma). O gravador ficou só com o
+  que gravar e quando: duração, contagens, quando descarregar, o estado. As gravações são
+  `StoredRecording` (o CSV e, se terminou, o JSON), com `isComplete` e os arquivos a exportar
+  calculados na listagem, na thread do gravador — **corrige** a tela, que fazia `File.exists()`
+  na thread principal para cada item da lista. O único `java.io` que sobra no domínio é o `File`
+  dentro de `StoredRecording`, que é o que o compartilhamento precisa entregar.
 - [ ] **Upload por WorkManager** — terminada a gravação, o envio vira um trabalho que lê o arquivo
   do disco e sobrevive ao app ser fechado, com nova tentativa sem rede ou com erro do servidor. A
   API não descarta linhas repetidas, então o trabalho anota quantas linhas já foram aceitas e uma

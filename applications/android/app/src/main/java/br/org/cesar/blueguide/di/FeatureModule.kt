@@ -7,6 +7,8 @@ import br.org.cesar.blueguide.feature.find.data.AndroidUwbSessionControllerFacto
 import br.org.cesar.blueguide.feature.find.data.BleUwbHandshakeChannel
 import br.org.cesar.blueguide.feature.find.domain.HandshakeChannel
 import br.org.cesar.blueguide.feature.find.domain.UwbSessionControllerFactory
+import br.org.cesar.blueguide.feature.fingerprint.data.CsvFingerprintRecordingStore
+import br.org.cesar.blueguide.feature.fingerprint.domain.FingerprintRecordingStore
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -28,6 +30,9 @@ abstract class FeatureModule {
 
     @Binds
     abstract fun arPositionTrackerFactory(impl: AndroidArPositionTrackerFactory): ArPositionTrackerFactory
+
+    @Binds
+    abstract fun fingerprintRecordingStore(impl: CsvFingerprintRecordingStore): FingerprintRecordingStore
 
     companion object {
         @Provides

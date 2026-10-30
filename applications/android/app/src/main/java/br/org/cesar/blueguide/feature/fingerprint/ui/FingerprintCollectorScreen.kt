@@ -35,12 +35,12 @@ import br.org.cesar.blueguide.core.dataset.FingerprintLabel
 import br.org.cesar.blueguide.core.ui.DecimalInput
 import br.org.cesar.blueguide.feature.fingerprint.domain.FingerprintRecorder
 import br.org.cesar.blueguide.feature.fingerprint.domain.FingerprintRecorderState
+import br.org.cesar.blueguide.feature.fingerprint.domain.StoredRecording
 
 /**
  * Counterpart of the iOS app's `FingerprintCollectorView`: label the current spot, record
- * for a set duration, see what came of it. Driven directly by [FingerprintRecorder]'s own
- * `StateFlow` (collected by the caller and passed in as [state]) rather than a separate
- * ViewModel — the recorder already has the shape of one.
+ * for a set duration, see what came of it. [state] is the [FingerprintRecorder]'s, which
+ * `FingerprintViewModel` owns.
  */
 @Composable
 fun FingerprintCollectorScreen(
@@ -48,7 +48,7 @@ fun FingerprintCollectorScreen(
     modifier: Modifier = Modifier,
     onStartRecording: (FingerprintLabel, durationSeconds: Double) -> Unit,
     onCancelRecording: () -> Unit,
-    onDeleteRecording: (java.io.File) -> Unit
+    onDeleteRecording: (StoredRecording) -> Unit
 ) {
     var session by remember { mutableStateOf("") }
     var point by remember { mutableStateOf("") }
@@ -181,24 +181,23 @@ fun FingerprintCollectorScreen(
                 ) {
                     Text(stringResource(R.string.fingerprint_recordings), style = MaterialTheme.typography.titleSmall)
                     TextButton(
-                        onClick = { FingerprintSharing.share(context, FingerprintRecorder.filesOf(state.recordings)) },
+                        onClick = { FingerprintSharing.share(context, StoredRecording.filesOf(state.recordings)) },
                         enabled = !state.isRecording
                     ) { Text(stringResource(R.string.fingerprint_export_all)) }
                 }
             }
-            items(state.recordings, key = { it.path }) { recording ->
-                val complete = FingerprintRecorder.isComplete(recording)
+            items(state.recordings, key = { it.name }) { recording ->
                 ListItem(
                     headlineContent = { Text(recording.name) },
                     // A CSV without its JSON was cut before the time was up: leave it out of the dataset.
-                    supportingContent = if (complete) {
+                    supportingContent = if (recording.isComplete) {
                         null
                     } else {
                         { Text(stringResource(R.string.fingerprint_incomplete), color = MaterialTheme.colorScheme.error) }
                     },
                     trailingContent = {
                         Row {
-                            TextButton(onClick = { FingerprintSharing.share(context, FingerprintRecorder.filesOf(recording)) }) {
+                            TextButton(onClick = { FingerprintSharing.share(context, recording.files) }) {
                                 Text(stringResource(R.string.fingerprint_share))
                             }
                             TextButton(onClick = { onDeleteRecording(recording) }) {

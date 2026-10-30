@@ -14,9 +14,10 @@ import br.org.cesar.blueguide.core.sensors.MotionActivityReading
 import br.org.cesar.blueguide.core.system.DeviceInfo
 import br.org.cesar.blueguide.core.system.MonotonicClock
 import br.org.cesar.blueguide.di.IoDispatcher
-import br.org.cesar.blueguide.di.RecordingsDirectory
 import br.org.cesar.blueguide.feature.fingerprint.domain.FingerprintRecorder
 import br.org.cesar.blueguide.feature.fingerprint.domain.FingerprintRecorderState
+import br.org.cesar.blueguide.feature.fingerprint.domain.FingerprintRecordingStore
+import br.org.cesar.blueguide.feature.fingerprint.domain.StoredRecording
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
@@ -24,7 +25,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import java.io.File
 
 /**
  * Owns the [FingerprintRecorder] at ViewModel scope — the fix for a recording in progress
@@ -45,7 +45,7 @@ class FingerprintViewModel @AssistedInject constructor(
     uploader: FingerprintUploading,
     private val anchorStore: AnchorStore,
     private val calibrationStore: CalibrationStore,
-    @RecordingsDirectory directory: File,
+    store: FingerprintRecordingStore,
     deviceInfo: DeviceInfo,
     clock: MonotonicClock,
     @IoDispatcher private val io: CoroutineDispatcher
@@ -63,7 +63,7 @@ class FingerprintViewModel @AssistedInject constructor(
         motionActivity = motionActivity,
         uploader = uploader,
         positioningSetup = { calibrationStore.settings.value.positioningSetup(anchorStore.anchors.value) },
-        directory = directory,
+        store = store,
         node = DeviceId(nodeId),
         model = deviceInfo.model,
         systemVersion = deviceInfo.systemVersion,
@@ -90,7 +90,7 @@ class FingerprintViewModel @AssistedInject constructor(
 
     fun cancelRecording() = recorder.cancelRecording()
 
-    fun deleteRecording(file: File) = recorder.deleteRecording(file)
+    fun deleteRecording(recording: StoredRecording) = recorder.deleteRecording(recording)
 
     override fun onCleared() {
         recorder.stop()
