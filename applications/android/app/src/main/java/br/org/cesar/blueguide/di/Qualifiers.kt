@@ -17,3 +17,8 @@ annotation class IoDispatcher
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
 annotation class RecordingsDirectory
+
+/** Where the uploads note how many of each recording's rows the API has accepted. */
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class UploadProgressDirectory

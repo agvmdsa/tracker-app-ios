@@ -253,13 +253,16 @@ private fun FingerprintTab(
         factory.create(node.value)
     }
     val recorderState by vm.state.collectAsStateWithLifecycle()
+    val uploads by vm.uploads.collectAsStateWithLifecycle()
 
     FingerprintCollectorScreen(
         state = recorderState,
+        uploads = uploads,
         modifier = modifier,
         onStartRecording = vm::startRecording,
         onCancelRecording = vm::cancelRecording,
-        onDeleteRecording = vm::deleteRecording
+        onDeleteRecording = vm::deleteRecording,
+        onRetryUpload = vm::retryUpload
     )
 }
 

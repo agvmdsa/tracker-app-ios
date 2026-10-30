@@ -28,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import br.org.cesar.blueguide.R
@@ -36,6 +37,7 @@ import br.org.cesar.blueguide.core.ui.DecimalInput
 import br.org.cesar.blueguide.feature.fingerprint.domain.FingerprintRecorder
 import br.org.cesar.blueguide.feature.fingerprint.domain.FingerprintRecorderState
 import br.org.cesar.blueguide.feature.fingerprint.domain.StoredRecording
+import br.org.cesar.blueguide.feature.fingerprint.domain.UploadStatus
 
 /**
  * Counterpart of the iOS app's `FingerprintCollectorView`: label the current spot, record
@@ -45,10 +47,13 @@ import br.org.cesar.blueguide.feature.fingerprint.domain.StoredRecording
 @Composable
 fun FingerprintCollectorScreen(
     state: FingerprintRecorderState,
+    /** Each recording's upload to the API, by [StoredRecording.name]. */
+    uploads: Map<String, UploadStatus>,
     modifier: Modifier = Modifier,
     onStartRecording: (FingerprintLabel, durationSeconds: Double) -> Unit,
     onCancelRecording: () -> Unit,
-    onDeleteRecording: (StoredRecording) -> Unit
+    onDeleteRecording: (StoredRecording) -> Unit,
+    onRetryUpload: (StoredRecording) -> Unit
 ) {
     var session by remember { mutableStateOf("") }
     var point by remember { mutableStateOf("") }
@@ -187,16 +192,26 @@ fun FingerprintCollectorScreen(
                 }
             }
             items(state.recordings, key = { it.name }) { recording ->
+                val upload = uploads[recording.name]
                 ListItem(
                     headlineContent = { Text(recording.name) },
                     // A CSV without its JSON was cut before the time was up: leave it out of the dataset.
-                    supportingContent = if (recording.isComplete) {
-                        null
-                    } else {
-                        { Text(stringResource(R.string.fingerprint_incomplete), color = MaterialTheme.colorScheme.error) }
+                    supportingContent = when {
+                        !recording.isComplete -> {
+                            { Text(stringResource(R.string.fingerprint_incomplete), color = MaterialTheme.colorScheme.error) }
+                        }
+                        upload != null -> {
+                            { UploadStatusText(upload) }
+                        }
+                        else -> null
                     },
                     trailingContent = {
                         Row {
+                            if (upload is UploadStatus.Failed) {
+                                TextButton(onClick = { onRetryUpload(recording) }) {
+                                    Text(stringResource(R.string.fingerprint_upload_retry))
+                                }
+                            }
                             TextButton(onClick = { FingerprintSharing.share(context, recording.files) }) {
                                 Text(stringResource(R.string.fingerprint_share))
                             }
@@ -208,5 +223,27 @@ fun FingerprintCollectorScreen(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun UploadStatusText(status: UploadStatus) {
+    when (status) {
+        is UploadStatus.Pending -> Text(
+            if (status.attempt > 1) {
+                stringResource(R.string.fingerprint_upload_retrying, status.attempt)
+            } else {
+                stringResource(R.string.fingerprint_upload_pending)
+            },
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        is UploadStatus.Uploaded -> Text(
+            pluralStringResource(R.plurals.fingerprint_upload_done, status.rows, status.rows),
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        is UploadStatus.Failed -> Text(
+            stringResource(R.string.fingerprint_upload_failed, status.reason),
+            color = MaterialTheme.colorScheme.error
+        )
     }
 }

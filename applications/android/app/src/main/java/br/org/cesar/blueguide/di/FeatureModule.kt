@@ -8,7 +8,9 @@ import br.org.cesar.blueguide.feature.find.data.BleUwbHandshakeChannel
 import br.org.cesar.blueguide.feature.find.domain.HandshakeChannel
 import br.org.cesar.blueguide.feature.find.domain.UwbSessionControllerFactory
 import br.org.cesar.blueguide.feature.fingerprint.data.CsvFingerprintRecordingStore
+import br.org.cesar.blueguide.feature.fingerprint.data.WorkManagerFingerprintUploadScheduler
 import br.org.cesar.blueguide.feature.fingerprint.domain.FingerprintRecordingStore
+import br.org.cesar.blueguide.feature.fingerprint.domain.FingerprintUploadScheduler
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -34,9 +36,17 @@ abstract class FeatureModule {
     @Binds
     abstract fun fingerprintRecordingStore(impl: CsvFingerprintRecordingStore): FingerprintRecordingStore
 
+    @Binds
+    abstract fun fingerprintUploadScheduler(impl: WorkManagerFingerprintUploadScheduler): FingerprintUploadScheduler
+
     companion object {
         @Provides
         @RecordingsDirectory
         fun recordingsDirectory(@ApplicationContext context: Context): File = File(context.filesDir, "Fingerprints")
+
+        /** Not backed up: it only means something next to this phone's own WorkManager. */
+        @Provides
+        @UploadProgressDirectory
+        fun uploadProgressDirectory(@ApplicationContext context: Context): File = File(context.noBackupFilesDir, "FingerprintUploads")
     }
 }

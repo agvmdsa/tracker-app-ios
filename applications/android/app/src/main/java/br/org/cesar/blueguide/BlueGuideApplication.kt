@@ -2,10 +2,23 @@ package br.org.cesar.blueguide
 
 import android.app.Application
 import android.os.StrictMode
+import androidx.hilt.work.HiltWorkerFactory
+import androidx.work.Configuration
 import dagger.hilt.android.HiltAndroidApp
+import javax.inject.Inject
 
 @HiltAndroidApp
-class BlueGuideApplication : Application() {
+class BlueGuideApplication :
+    Application(),
+    Configuration.Provider {
+
+    /** Builds the workers (`@HiltWorker`) with their dependencies: the fingerprint upload. */
+    @Inject lateinit var workerFactory: HiltWorkerFactory
+
+    /** WorkManager starts with this when first used, rather than on its own at launch (see the
+     *  manifest), so its workers get [workerFactory]. */
+    override val workManagerConfiguration: Configuration
+        get() = Configuration.Builder().setWorkerFactory(workerFactory).build()
 
     override fun onCreate() {
         super.onCreate()

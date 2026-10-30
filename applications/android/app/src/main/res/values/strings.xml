@@ -42,4 +42,13 @@
     <string name="fingerprint_share">Share</string>
     <string name="fingerprint_export_all">Export all</string>
     <string name="fingerprint_incomplete">Incomplete — discard (no JSON: cut before the time was up)</string>
+    <string name="fingerprint_upload_pending">Uploading to the API…</string>
+    <string name="fingerprint_upload_retrying">Uploading to the API (attempt %1$d)…</string>
+    <string name="fingerprint_upload_failed">Not uploaded: %1$s</string>
+    <string name="fingerprint_upload_retry">Retry</string>
+
+    <plurals name="fingerprint_upload_done">
+        <item quantity="one">Uploaded to the API (%1$d row)</item>
+        <item quantity="other">Uploaded to the API (%1$d rows)</item>
+    </plurals>
 </resources>

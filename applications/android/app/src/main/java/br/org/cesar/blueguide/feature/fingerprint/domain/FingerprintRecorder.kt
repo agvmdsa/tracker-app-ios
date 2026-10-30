@@ -7,7 +7,6 @@ import br.org.cesar.blueguide.core.dataset.FingerprintLabel
 import br.org.cesar.blueguide.core.dataset.FingerprintRecord
 import br.org.cesar.blueguide.core.model.DeviceId
 import br.org.cesar.blueguide.core.model.DeviceSighting
-import br.org.cesar.blueguide.core.network.FingerprintUploading
 import br.org.cesar.blueguide.core.positioning.PositioningSetup
 import br.org.cesar.blueguide.core.sensors.AltitudeReading
 import br.org.cesar.blueguide.core.sensors.DeviceMotionReading
@@ -85,10 +84,9 @@ class FingerprintRecorder(
     private val deviceMotion: DeviceMotionReading,
     private val altimeter: AltitudeReading,
     private val motionActivity: MotionActivityReading,
-    /** Uploads a finished recording's rows to the API for model training. Optional, same as
-     *  `DeviceListViewModel`'s reporter — null just means "don't upload", the CSV is still
-     *  written either way. */
-    private val uploader: FingerprintUploading? = null,
+    /** Sends each finished recording to the API for model training, in the background, from its
+     *  file. Null means "don't upload": the recording is kept either way. */
+    private val uploads: FingerprintUploadScheduler? = null,
     private val store: FingerprintRecordingStore,
     /** The beacons with a position (`AnchorStore.anchors`) and the calibration on the
      *  Positioning screen, copied into each recording so it can be replayed as the app would
@@ -105,10 +103,7 @@ class FingerprintRecorder(
      *  no Android import — pass `SystemClock::elapsedRealtime` from the call site. Same clock
      *  as the sightings' `lastSeenAtMillis`. */
     private val monotonicMs: () -> Long,
-    private val now: () -> Instant = Instant::now,
-    /** Rows per upload request: a long recording is tens of thousands of rows, too many for
-     *  one request. */
-    private val uploadBatchSize: Int = DEFAULT_UPLOAD_BATCH_SIZE
+    private val now: () -> Instant = Instant::now
 ) {
     private val scope = CoroutineScope(SupervisorJob() + dispatcher)
 
@@ -130,7 +125,6 @@ class FingerprintRecorder(
     private var endJob: Job? = null
     private var writer: RecordingWriter? = null
     private var lastFlushMs = 0L
-    private val pendingUploadRows = ArrayList<FingerprintRecord>()
 
     /** Lists the recordings already on disk and starts listening to the beacons and the
      *  sensors; nothing is written until [startRecording]. */
@@ -177,9 +171,10 @@ class FingerprintRecorder(
         scope.launch { discardActiveRecording() }
     }
 
-    /** Deletes a recording's CSV and its metadata. */
+    /** Deletes a recording's CSV and its metadata, and stops its upload. */
     fun deleteRecording(target: StoredRecording) {
         scope.launch {
+            uploads?.cancel(target)
             val deleted = try {
                 store.delete(target)
             } catch (e: Exception) {
@@ -212,7 +207,6 @@ class FingerprintRecorder(
             return
         }
         lastFlushMs = monotonicMs()
-        pendingUploadRows.clear()
         val active = ActiveFingerprintRecording(label, startedAt, durationSeconds, monotonicMs(), positioningSetup())
         _state.update { it.copy(activeRecording = active, recordsPerBeacon = emptyMap(), errorMessage = null) }
 
@@ -228,7 +222,6 @@ class FingerprintRecorder(
         endJob = null
         writer?.discard()
         writer = null
-        pendingUploadRows.clear()
         _state.update { it.copy(activeRecording = null, recordsPerBeacon = emptyMap()) }
     }
 
@@ -265,9 +258,6 @@ class FingerprintRecorder(
             durationSeconds = (endedAt.toEpochMilli() - active.startedAt.toEpochMilli()) / 1000.0,
             recordsPerBeacon = recordsPerBeacon
         )
-        val rowsToUpload = pendingUploadRows.toList()
-        pendingUploadRows.clear()
-
         _state.update {
             it.copy(
                 activeRecording = null,
@@ -276,33 +266,7 @@ class FingerprintRecorder(
                 recordings = listOf(recording) + it.recordings
             )
         }
-        uploadIfConfigured(rowsToUpload)
-    }
-
-    /** The CSV (already safely on disk) is kept no matter what happens here — a failed
-     *  upload just means the training data stays local-only until exported by hand. Batches
-     *  go one after another, and the first failure stops the rest. */
-    private fun uploadIfConfigured(records: List<FingerprintRecord>) {
-        val uploader = uploader
-        if (uploader == null || records.isEmpty()) return
-        scope.launch {
-            var sent = 0
-            try {
-                for (batch in records.chunked(uploadBatchSize)) {
-                    uploader.upload(batch)
-                    sent += batch.size
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _state.update {
-                    it.copy(
-                        errorMessage = "Recording saved locally, but the upload to the API failed after " +
-                            "$sent of ${records.size} rows: ${e.message}"
-                    )
-                }
-            }
-        }
+        uploads?.schedule(recording)
     }
 
     private fun onSighting(sighting: DeviceSighting) {
@@ -334,7 +298,6 @@ class FingerprintRecorder(
             _state.update { it.copy(errorMessage = "Recording interrupted and discarded: ${e.message}") }
             return
         }
-        pendingUploadRows.add(record)
         _state.update {
             val updated = it.recordsPerBeacon.toMutableMap()
             updated[beaconId] = (updated[beaconId] ?: 0) + 1
@@ -355,7 +318,5 @@ class FingerprintRecorder(
 
     companion object {
         private const val FLUSH_INTERVAL_MS = 1_000L
-
-        const val DEFAULT_UPLOAD_BATCH_SIZE = 1_000
     }
 }

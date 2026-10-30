@@ -3,7 +3,6 @@ package br.org.cesar.blueguide.feature.fingerprint.domain
 import br.org.cesar.blueguide.core.ble.BleScanner
 import br.org.cesar.blueguide.core.dataset.FingerprintCsv
 import br.org.cesar.blueguide.core.dataset.FingerprintLabel
-import br.org.cesar.blueguide.core.dataset.FingerprintRecord
 import br.org.cesar.blueguide.core.dataset.FingerprintRecordingMetadata
 import br.org.cesar.blueguide.core.model.AltitudeSample
 import br.org.cesar.blueguide.core.model.Anchor
@@ -14,7 +13,6 @@ import br.org.cesar.blueguide.core.model.DeviceSighting
 import br.org.cesar.blueguide.core.model.MotionActivitySample
 import br.org.cesar.blueguide.core.model.MotionActivityState
 import br.org.cesar.blueguide.core.model.Point2D
-import br.org.cesar.blueguide.core.network.FingerprintUploading
 import br.org.cesar.blueguide.core.positioning.PositioningSetup
 import br.org.cesar.blueguide.core.sensors.AltitudeReading
 import br.org.cesar.blueguide.core.sensors.DeviceMotionReading
@@ -23,6 +21,7 @@ import br.org.cesar.blueguide.feature.fingerprint.data.CsvFingerprintRecordingSt
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -81,13 +80,16 @@ private class FakeMotionActivityReading : MotionActivityReading {
     }
 }
 
-private class FakeFingerprintUploader : FingerprintUploading {
-    val uploadedBatches = mutableListOf<List<FingerprintRecord>>()
-    var errorToThrow: Exception? = null
-    override suspend fun upload(records: List<FingerprintRecord>) {
-        errorToThrow?.let { throw it }
-        uploadedBatches.add(records)
+private class FakeUploadScheduler : FingerprintUploadScheduler {
+    val scheduled = mutableListOf<StoredRecording>()
+    val cancelled = mutableListOf<StoredRecording>()
+    override fun schedule(recording: StoredRecording) {
+        scheduled += recording
     }
+    override fun cancel(recording: StoredRecording) {
+        cancelled += recording
+    }
+    override val statuses: Flow<Map<String, UploadStatus>> = emptyFlow()
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -102,7 +104,7 @@ class FingerprintRecorderTest {
     private lateinit var deviceMotion: FakeDeviceMotionReading
     private lateinit var altimeter: FakeAltitudeReading
     private lateinit var motionActivity: FakeMotionActivityReading
-    private lateinit var uploader: FakeFingerprintUploader
+    private lateinit var uploads: FakeUploadScheduler
     private var anchors: List<Anchor> = emptyList()
     private var centerRssi = -70.0
     private var fakeClockMs = 0L
@@ -117,7 +119,7 @@ class FingerprintRecorderTest {
         deviceMotion = FakeDeviceMotionReading()
         altimeter = FakeAltitudeReading()
         motionActivity = FakeMotionActivityReading()
-        uploader = FakeFingerprintUploader()
+        uploads = FakeUploadScheduler()
     }
 
     @After
@@ -127,15 +129,12 @@ class FingerprintRecorderTest {
 
     /** The recorder's single thread is a test dispatcher on the test's scheduler, so its
      *  commands run when the test advances it (`runCurrent`/`advanceUntilIdle`). */
-    private fun recorder(
-        testScope: TestScope,
-        uploadBatchSize: Int = FingerprintRecorder.DEFAULT_UPLOAD_BATCH_SIZE
-    ) = FingerprintRecorder(
+    private fun recorder(testScope: TestScope) = FingerprintRecorder(
         scanner = scanner,
         deviceMotion = deviceMotion,
         altimeter = altimeter,
         motionActivity = motionActivity,
-        uploader = uploader,
+        uploads = uploads,
         positioningSetup = { PositioningSetup(anchors, centerRssi = centerRssi) },
         store = CsvFingerprintRecordingStore(directory),
         node = node,
@@ -143,8 +142,7 @@ class FingerprintRecorderTest {
         systemVersion = "15",
         dispatcher = StandardTestDispatcher(testScope.testScheduler),
         monotonicMs = { fakeClockMs },
-        now = { Instant.ofEpochMilli(fakeClockMs) },
-        uploadBatchSize = uploadBatchSize
+        now = { Instant.ofEpochMilli(fakeClockMs) }
     )
 
     @Test
@@ -247,35 +245,46 @@ class FingerprintRecorderTest {
         sut.stop()
     }
 
+    /** The upload reads the recording from its file, in the background (`RecordingUpload`):
+     *  the recorder only hands it over once the file is finished. */
     @Test
-    fun `a finished recording is uploaded`() = runTest {
+    fun `a finished recording is handed over for upload`() = runTest {
         val sut = recorder(this)
         sut.start()
         advanceUntilIdle()
 
         sut.startRecording(requireNotNull(FingerprintLabel.of("S1", "P1", 0.0, 0.0)), durationSeconds = 1.0)
+        runCurrent()
         scanner.deliver(beaconA, rssi = -60)
-        scanner.deliver(beaconB, rssi = -70)
+        runCurrent()
+        assertTrue("not before it finishes", uploads.scheduled.isEmpty())
         advanceUntilIdle()
 
-        assertEquals(1, uploader.uploadedBatches.size)
-        assertEquals(2, uploader.uploadedBatches.first().size)
+        val recording = sut.state.value.recordings.single()
+        assertEquals(listOf(recording), uploads.scheduled)
+        assertTrue(recording.isComplete)
         sut.stop()
     }
 
     @Test
-    fun `a long recording is uploaded in batches, in order`() = runTest {
-        val sut = recorder(this, uploadBatchSize = 2)
+    fun `a cancelled recording is not uploaded, and deleting one stops its upload`() = runTest {
+        val sut = recorder(this)
         sut.start()
         advanceUntilIdle()
-
-        sut.startRecording(requireNotNull(FingerprintLabel.of("S1", "P1", 0.0, 0.0)), durationSeconds = 1.0)
+        sut.startRecording(requireNotNull(FingerprintLabel.of("S1", "P1", 0.0, 0.0)), durationSeconds = 10.0)
         runCurrent()
-        (1..5).forEach { scanner.deliver(beaconA, rssi = -60 - it) }
+        sut.cancelRecording()
+        runCurrent()
+        assertTrue(uploads.scheduled.isEmpty())
+
+        sut.startRecording(requireNotNull(FingerprintLabel.of("S1", "P2", 0.0, 0.0)), durationSeconds = 1.0)
+        advanceUntilIdle()
+        val recording = sut.state.value.recordings.single()
+        sut.deleteRecording(recording)
         advanceUntilIdle()
 
-        assertEquals(listOf(2, 2, 1), uploader.uploadedBatches.map { it.size })
-        assertEquals((1..5).map { -60 - it }, uploader.uploadedBatches.flatten().map { it.rssi })
+        assertEquals(listOf(recording), uploads.cancelled)
+        assertTrue(sut.state.value.recordings.isEmpty())
         sut.stop()
     }
 
@@ -318,22 +327,6 @@ class FingerprintRecorderTest {
 
         assertEquals("P2", sut.state.value.activeRecording?.label?.point)
         assertTrue(sut.state.value.recordings.isEmpty()) // the discarded one never "finished"
-        sut.stop()
-    }
-
-    @Test
-    fun `an upload failure keeps the csv and surfaces an error message`() = runTest {
-        uploader.errorToThrow = RuntimeException("network down")
-        val sut = recorder(this)
-        sut.start()
-        advanceUntilIdle()
-
-        sut.startRecording(requireNotNull(FingerprintLabel.of("S1", "P1", 0.0, 0.0)), durationSeconds = 1.0)
-        scanner.deliver(beaconA, rssi = -60)
-        advanceUntilIdle()
-
-        assertEquals(1, sut.state.value.recordings.size)
-        assertNotNull(sut.state.value.errorMessage)
         sut.stop()
     }
 

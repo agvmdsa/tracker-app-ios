@@ -335,10 +335,24 @@ GitHub.
   calculados na listagem, na thread do gravador — **corrige** a tela, que fazia `File.exists()`
   na thread principal para cada item da lista. O único `java.io` que sobra no domínio é o `File`
   dentro de `StoredRecording`, que é o que o compartilhamento precisa entregar.
-- [ ] **Upload por WorkManager** — terminada a gravação, o envio vira um trabalho que lê o arquivo
-  do disco e sobrevive ao app ser fechado, com nova tentativa sem rede ou com erro do servidor. A
-  API não descarta linhas repetidas, então o trabalho anota quantas linhas já foram aceitas e uma
-  nova tentativa continua dali. A lista mostra se cada gravação foi enviada.
+- [x] ~~**Upload por WorkManager**~~ — feito: terminada a gravação, o gravador a entrega a um
+  `FingerprintUploadScheduler` (domínio); `WorkManagerFingerprintUploadScheduler` cria um trabalho
+  único por gravação, que só roda com rede e tenta de novo com espera crescente a partir de 30 s
+  (até 10 tentativas, umas 8 h; o tempo sem rede não conta). O `FingerprintUploadWorker` é fino: o
+  envio é `RecordingUpload`, Kotlin puro e testado na JVM, que lê o CSV do disco em lotes de 1.000
+  e, depois de cada lote aceito, anota quantas linhas a API já tem (em `noBackupFilesDir`, escrita
+  inteira ou nada); uma nova tentativa continua dali, então nenhuma linha vai duas vezes. Erro de
+  rede, 408, 429 e 5xx tentam de novo; outros 4xx, arquivo apagado ou ilegível desistem. A lista da
+  aba mostra o envio de cada gravação (enviando, tentativa n, enviada com N linhas, não enviada e
+  por quê, com "Retry"); apagar uma gravação cancela o envio. Hilt monta o Worker (`hilt-work`):
+  a `BlueGuideApplication` dá a configuração ao WorkManager e o manifest tira a inicialização
+  automática dele. O lint pegou o "%d rows" sem plural. **Diferenças de antes:** a API recebe os
+  valores com a precisão do CSV (orientação com 4 casas etc.), os mesmos do dataset; e um envio
+  que falha aparece na gravação, não mais como mensagem de erro no topo. **Falta:** o Worker e o
+  agendador (Android) não têm teste automático (precisariam de Robolectric ou de um aparelho);
+  conferir no aparelho gravando em modo avião e religando a rede. **Limite:** se a API gravar um
+  lote e a resposta se perder no caminho, a nova tentativa manda esse lote de novo; só uma chave
+  de idempotência no backend resolve (fase 6, com a autenticação por dispositivo).
 - [x] ~~**Programa de replay**~~ — feito (antes do armazenamento e do upload: só depende dos
   módulos puros e é o que a pesquisa precisa primeiro): `:tools:replay`, rodado com
   `make android-replay ARGS="<pasta ou .csv>"` na raiz (ou `make replay` em `applications/android`).
@@ -355,7 +369,10 @@ GitHub.
 
 Pronto quando: o domínio da gravação não conhece CSV, JSON nem arquivos; o upload sobrevive ao app
 fechado sem duplicar linhas; uma gravação nova pode ser reprocessada exatamente como o app
-calcularia; testes e CI passando.
+calcularia; testes e CI passando. **Fase 3 concluída** (182 testes JVM: 100 no app, 57 em
+`:core:positioning`, 17 em `:core:dataset`, 8 em `:tools:replay`; lint e build passando
+localmente); falta conferir no aparelho (gravação, envio sem rede e com rede, a lista) e o CI no
+GitHub.
 
 ## ESP32 / Embarcados (`esp32-esp8266`)
 

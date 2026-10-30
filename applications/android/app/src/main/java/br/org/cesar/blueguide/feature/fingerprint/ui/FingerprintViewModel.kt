@@ -7,7 +7,6 @@ import br.org.cesar.blueguide.core.data.AnchorStore
 import br.org.cesar.blueguide.core.data.CalibrationStore
 import br.org.cesar.blueguide.core.dataset.FingerprintLabel
 import br.org.cesar.blueguide.core.model.DeviceId
-import br.org.cesar.blueguide.core.network.FingerprintUploading
 import br.org.cesar.blueguide.core.sensors.AltitudeReading
 import br.org.cesar.blueguide.core.sensors.DeviceMotionReading
 import br.org.cesar.blueguide.core.sensors.MotionActivityReading
@@ -17,13 +16,17 @@ import br.org.cesar.blueguide.di.IoDispatcher
 import br.org.cesar.blueguide.feature.fingerprint.domain.FingerprintRecorder
 import br.org.cesar.blueguide.feature.fingerprint.domain.FingerprintRecorderState
 import br.org.cesar.blueguide.feature.fingerprint.domain.FingerprintRecordingStore
+import br.org.cesar.blueguide.feature.fingerprint.domain.FingerprintUploadScheduler
 import br.org.cesar.blueguide.feature.fingerprint.domain.StoredRecording
+import br.org.cesar.blueguide.feature.fingerprint.domain.UploadStatus
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
@@ -42,7 +45,7 @@ class FingerprintViewModel @AssistedInject constructor(
     deviceMotion: DeviceMotionReading,
     altimeter: AltitudeReading,
     motionActivity: MotionActivityReading,
-    uploader: FingerprintUploading,
+    private val uploadScheduler: FingerprintUploadScheduler,
     private val anchorStore: AnchorStore,
     private val calibrationStore: CalibrationStore,
     store: FingerprintRecordingStore,
@@ -61,7 +64,7 @@ class FingerprintViewModel @AssistedInject constructor(
         deviceMotion = deviceMotion,
         altimeter = altimeter,
         motionActivity = motionActivity,
-        uploader = uploader,
+        uploads = uploadScheduler,
         positioningSetup = { calibrationStore.settings.value.positioningSetup(anchorStore.anchors.value) },
         store = store,
         node = DeviceId(nodeId),
@@ -75,6 +78,10 @@ class FingerprintViewModel @AssistedInject constructor(
     )
 
     val state: StateFlow<FingerprintRecorderState> = recorder.state
+
+    /** Each recording's upload, by name. */
+    val uploads: StateFlow<Map<String, UploadStatus>> =
+        uploadScheduler.statuses.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     init {
         recorder.start()
@@ -91,6 +98,9 @@ class FingerprintViewModel @AssistedInject constructor(
     fun cancelRecording() = recorder.cancelRecording()
 
     fun deleteRecording(recording: StoredRecording) = recorder.deleteRecording(recording)
+
+    /** Sends a recording whose upload gave up again, from the rows the API doesn't have yet. */
+    fun retryUpload(recording: StoredRecording) = uploadScheduler.schedule(recording)
 
     override fun onCleared() {
         recorder.stop()
