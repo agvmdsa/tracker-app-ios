@@ -1,10 +1,16 @@
 package br.org.cesar.blueguide.feature.find.domain
 
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -53,9 +59,11 @@ private class FakeUwbSessionController : UwbSessionController {
     var startedWithPayload: ByteArray? = null
     var stopCount = 0
     var prepareError: Exception? = null
+    var prepareHangs = false
 
     override suspend fun prepareSession(role: UwbRole): ByteArray {
         prepareError?.let { throw it }
+        if (prepareHangs) awaitCancellation()
         preparedRole = role
         return byteArrayOf(0x42)
     }
@@ -177,6 +185,25 @@ class UwbProximityTrackerTest {
         runCurrent()
 
         assertEquals(RangingState.Failed("Could not prepare UWB session: no UWB chip"), sut.state.value.rangingState)
+    }
+
+    /** Closing the screen cancels its scope, the session being prepared with it: that is not a
+     *  UWB failure to show. */
+    @Test
+    fun `the screen going away while a session is prepared is not an error`() = runTest {
+        val uwb = FakeUwbSessionController().apply { prepareHangs = true }
+        val handshake = FakeHandshakeChannel()
+        val screen = CoroutineScope(StandardTestDispatcher(testScheduler) + Job())
+        val sut = UwbProximityTracker(uwb, handshake, screen)
+        sut.start()
+        handshake.discoverPeer("BBBBBBBB")
+        runCurrent()
+
+        screen.cancel()
+        runCurrent()
+
+        assertNull(sut.state.value.errorMessage)
+        assertTrue(sut.state.value.rangingState !is RangingState.Failed)
     }
 
     @Test

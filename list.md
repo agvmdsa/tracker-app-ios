@@ -414,10 +414,20 @@ provar que a versão nova é melhor. Sem mudar o comportamento.
   partida linear depende da primeira âncora, e o Gauss-Newton para assim que um passo não melhora),
   por isso esse cenário aceita 1 cm; anotado no README do módulo.
 
-Pronto para a reescrita (194 testes JVM; lint e build passando localmente).
+Pronto para a reescrita (196 testes JVM; lint e build passando localmente).
 
-Fora daqui, por decisão: a linha de base com gravações reais (precisa das gravações) e o
-`runCatching` que engole o cancelamento no `DeviceListViewModel`.
+- [x] ~~**Cancelamento tratado como falha**~~ — feito: o `DeviceListViewModel` enviava as leituras
+  dentro de `runCatching`, que também pega o cancelamento: ao sair do modo observador no meio de um
+  envio, ele registrava uma falha e ainda tentava enviar a posição. Agora o cancelamento sobe
+  (`sendOrLog`) e o envio para ali. O mesmo erro existia no UWB: `UwbProximityTracker` (fechar a tela
+  durante a preparação da sessão virava "Could not prepare UWB session") e
+  `AndroidUwbSessionController` (o `stop()` cancela o ranging e limpa o `errorMessage`, mas o job
+  cancelado caía no `catch` depois e gravava "...was cancelled" como erro). Os dois primeiros têm
+  teste, que falha com o erro de volta; o do controlador não (é Android). **Não verificado:**
+  `UwbProximityTracker.stop()` não cancela uma preparação em andamento, e o pagamento dela ainda
+  chega ao handshake parado (`provideLocalPayload` → `connectIfReady`); precisa de aparelho com UWB.
+
+Fora daqui, por decisão: a linha de base com gravações reais (precisa das gravações).
 
 ## ESP32 / Embarcados (`esp32-esp8266`)
 

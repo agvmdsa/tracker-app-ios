@@ -30,6 +30,7 @@ import br.org.cesar.blueguide.feature.positioning.domain.SavedLocationRepository
 import br.org.cesar.blueguide.feature.positioning.domain.SavedLocationStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -91,6 +92,15 @@ private class RecordingReporter : PositioningReporting {
     }
     override suspend fun send(fix: ObserverFixReport) {
         fixes += fix
+    }
+}
+
+/** The API never answers: the sightings' request is still out when the screen stops observing. */
+private class UnansweredReporter : PositioningReporting {
+    var fixesSent = 0
+    override suspend fun send(reports: List<PositioningReport>) = awaitCancellation()
+    override suspend fun send(fix: ObserverFixReport) {
+        fixesSent++
     }
 }
 
@@ -279,6 +289,25 @@ class DeviceListViewModelTest {
         assertNotEquals("the speed limit holds the phone back on this walk", unlimited.mapNotNull { it.fix }, fixes)
         assertEquals(fixes.map { it.position.x to it.position.y }, reporter.fixes.map { it.x to it.y })
 
+        vm.viewModelScope.cancel()
+    }
+
+    /** Switching modes cancels the report on its way, which is no failure: it stops there, rather
+     *  than being logged as one and going on to send the fix from a screen no longer observing.
+     *  Taken for a failure, the cancellation reaches `Log.w`, which a JVM test can't run: then
+     *  this fails with "Method w in android.util.Log not mocked". */
+    @Test
+    fun `leaving observer mode stops a report on its way`() = runTest(dispatcher) {
+        val scanner = ChannelScanner()
+        val reporter = UnansweredReporter()
+        val vm = viewModel(scanner = scanner, reporter = reporter, clock = { 10_000L })
+        observingOneSecond(vm, scanner, rssi = -60, nowMs = 10_000L)
+        assertTrue("the fix was worked out, and its report is waiting on the sightings'", vm.state.value.observerFix != null)
+
+        vm.dispatch(DeviceListIntent.ModeSelected(AppMode.BROADCAST))
+        runCurrent()
+
+        assertEquals(0, reporter.fixesSent)
         vm.viewModelScope.cancel()
     }
 }

@@ -13,6 +13,7 @@ import androidx.core.uwb.UwbManager
 import br.org.cesar.blueguide.feature.find.domain.UwbHandshakePayload
 import br.org.cesar.blueguide.feature.find.domain.UwbRole
 import br.org.cesar.blueguide.feature.find.domain.UwbSessionController
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -143,6 +144,10 @@ class AndroidUwbSessionController(
         rangingJob = scope.launch {
             try {
                 scopeToUse.prepareSession(parameters).collect { result -> handle(result) }
+            } catch (e: CancellationException) {
+                // stop(), or a new session replacing this one: no error. Caught as one, it used to
+                // land after stop() had cleared errorMessage, and show "...was cancelled".
+                throw e
             } catch (e: Exception) {
                 errorMessage = e.message
                 onLog?.invoke("Ranging stopped: ${e.message}")

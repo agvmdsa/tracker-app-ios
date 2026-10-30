@@ -152,8 +152,7 @@ class DeviceListViewModel @Inject constructor(
                 deviceModel = deviceInfo.model
             )
         }
-        runCatching { reporter.send(reports) }
-            .onFailure { Log.w(TAG, "failed to report sightings", it) }
+        sendOrLog("sightings") { reporter.send(reports) }
 
         update.fix?.let { fix ->
             val fixReport = ObserverFixReport(
@@ -164,8 +163,19 @@ class DeviceListViewModel @Inject constructor(
                 recordedAt = Instant.now(),
                 anchorCount = update.ranges.size
             )
-            runCatching { reporter.send(fixReport) }
-                .onFailure { Log.w(TAG, "failed to report fix", it) }
+            sendOrLog("fix") { reporter.send(fixReport) }
+        }
+    }
+
+    /** A failed upload is only logged: positioning goes on without the API. Leaving observer mode
+     *  cancels it, which is no failure: the cancellation goes on up, and the report stops there. */
+    private suspend fun sendOrLog(what: String, send: suspend () -> Unit) {
+        try {
+            send()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "failed to report $what", e)
         }
     }
 

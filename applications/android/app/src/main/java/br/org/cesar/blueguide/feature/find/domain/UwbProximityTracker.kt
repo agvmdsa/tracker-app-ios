@@ -1,5 +1,6 @@
 package br.org.cesar.blueguide.feature.find.domain
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -68,6 +69,9 @@ class UwbProximityTracker(
                 try {
                     val payload = uwb.prepareSession(role)
                     handshake.provideLocalPayload(payload)
+                } catch (e: CancellationException) {
+                    // The screen went away; that is not a UWB failure to show.
+                    throw e
                 } catch (e: Exception) {
                     fail("Could not prepare UWB session: ${e.message}")
                 }
@@ -81,6 +85,8 @@ class UwbProximityTracker(
             scope.launch {
                 try {
                     uwb.startSession(peerPayload)
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     fail("Could not start ranging: ${e.message}")
                 }
