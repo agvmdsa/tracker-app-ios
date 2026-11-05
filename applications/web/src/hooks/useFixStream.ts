@@ -2,12 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { config } from "@/lib/config";
-import { mockFixes } from "@/lib/mock";
 import type { Fix } from "@/lib/types";
 
 export interface FixStreamState {
   data: Fix[] | null;
-  /** True once the snapshot (or, in mock mode, the first sample) has arrived. */
+  /** True once the snapshot has arrived and the stream is open. */
   connected: boolean;
   error: Error | null;
   lastUpdated: Date | null;
@@ -29,18 +28,6 @@ export function useFixStream(): FixStreamState {
   const fixesRef = useRef<Fix[]>([]);
 
   useEffect(() => {
-    if (config.useMock) {
-      const tick = () => {
-        fixesRef.current = mockFixes();
-        setData(fixesRef.current);
-        setConnected(true);
-        setLastUpdated(new Date());
-      };
-      tick();
-      const id = setInterval(tick, config.pollIntervalMs);
-      return () => clearInterval(id);
-    }
-
     const source = new EventSource(`${config.apiBaseUrl}/fixes/stream`);
 
     source.addEventListener("snapshot", (event) => {

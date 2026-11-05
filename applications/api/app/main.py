@@ -142,27 +142,43 @@ async def stream_fixes(
     the client can append in order), then one `fix` event per new position as `POST /fixes`
     receives it — the push side of what `GET /fixes/recent` reads as a one-shot pull. No
     `X-API-Key`, same reasoning as `/fixes/recent`.
+
+    Subscribes *before* reading the snapshot, so a fix posted in between lands in the queue
+    instead of being missed; the generator then skips any queued fix the snapshot already holds.
     """
-    rows = (
-        db.execute(select(Fix).order_by(Fix.recorded_at.desc()).limit(limit))
-        .scalars()
-        .all()
-    )
+    queue = broadcaster.subscribe()
+    try:
+        rows = (
+            db.execute(select(Fix).order_by(Fix.recorded_at.desc()).limit(limit))
+            .scalars()
+            .all()
+        )
+    except BaseException:
+        broadcaster.unsubscribe(queue)
+        raise
     snapshot = [_fix_out(row).model_dump(mode="json") for row in reversed(rows)]
+    snapshot_ids = {fix["id"] for fix in snapshot}
 
     async def events() -> AsyncIterator[str]:
-        yield f"event: snapshot\ndata: {json.dumps(snapshot)}\n\n"
-        queue = broadcaster.subscribe()
         try:
+            yield f"event: snapshot\ndata: {json.dumps(snapshot)}\n\n"
             while True:
                 fix = await queue.get()
+                if fix["id"] in snapshot_ids:
+                    continue
                 yield f"event: fix\ndata: {json.dumps(fix)}\n\n"
         except asyncio.CancelledError:
             pass
         finally:
             broadcaster.unsubscribe(queue)
 
-    return StreamingResponse(events(), media_type="text/event-stream")
+    return StreamingResponse(
+        events(),
+        media_type="text/event-stream",
+        # no-cache: an SSE response must never be served from a cache. X-Accel-Buffering: stops
+        # an nginx reverse proxy from buffering the stream, which would hold events back.
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @app.post("/fingerprints", status_code=201, dependencies=[Depends(require_api_key)])

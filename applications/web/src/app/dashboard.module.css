@@ -163,16 +163,6 @@
   overflow: auto;
 }
 
-.banner {
-  background: color-mix(in srgb, var(--warn) 12%, var(--panel));
-  border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--panel-border));
-  color: var(--text);
-  border-radius: var(--radius);
-  padding: 10px 14px;
-  font-size: 13px;
-  margin-bottom: 16px;
-}
-
 .errorBanner {
   background: color-mix(in srgb, var(--bad) 12%, var(--panel));
   border: 1px solid color-mix(in srgb, var(--bad) 45%, var(--panel-border));

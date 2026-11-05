@@ -18,8 +18,15 @@ npm install
 npm run dev                        # http://localhost:3000
 ```
 
-Runs out of the box in **mock mode** — three simulated observers glide around
-the floor — so you can see tracking without the backend up.
+The map needs the API running (see "Run with the full stack" below, or just
+`docker compose up postgres api` from `../api`). Until a phone posts a fix it
+stays empty — to see dots move without a phone, post one by hand:
+
+```bash
+curl -X POST http://localhost:8000/fixes \
+  -H 'X-API-Key: dev-only-local-key' -H 'Content-Type: application/json' \
+  -d '{"observerID":"demo","x":3.2,"y":1.5,"uncertaintyMeters":0.8,"recordedAt":"2026-11-05T12:00:00Z"}'
+```
 
 `npm run lint` (ESLint, `eslint-config-next`'s flat config — `next lint` itself
 is deprecated as of Next 16) and `npm run typecheck` (`tsc --noEmit`) are both
@@ -37,21 +44,16 @@ The map plots position fixes, so it reads them from the backend:
 | `/fixes/stream`   | GET    | ✅ implemented — **what the map actually uses** (Server-Sent Events) |
 | `/fixes/recent`   | GET    | ✅ implemented, but unused here (one-shot snapshot; superseded by the stream for this app) |
 
-The ESPs send raw RSSI (`POST /sightings`); the backend turns that into
-positions (`POST /fixes`) and pushes each new one over `GET /fixes/stream`,
-which this app subscribes to once (see "Real-time approach" below) instead of
-re-fetching on a timer.
-
-**Mock mode** (`NEXT_PUBLIC_USE_MOCK=true`, the standalone `npm run dev`
-default) still simulates moving observers so the map runs without a backend.
-Set it to `false` to hit the real API — the docker-compose stack does this
-automatically.
+The edge devices (the iOS and Android apps) compute their own position and
+`POST /fixes` it with their `X-API-Key`; the backend stores it and pushes it
+over `GET /fixes/stream`, which this app subscribes to once (see "Real-time
+approach" below) instead of re-fetching on a timer.
 
 ## Run with the full stack
 
 From `../api` (a sibling directory in this monorepo), `docker compose up --build`
 starts Postgres, the API, Grafana, and this map together. The map is served on
-**http://localhost:3001** (3000 is Grafana) with mock mode off.
+**http://localhost:3001** (3000 is Grafana).
 
 ## The floor layout is client config
 
@@ -65,8 +67,7 @@ positions) to match your real deployment.
 | Variable                       | Default                 | Meaning                              |
 | ------------------------------ | ----------------------- | ------------------------------------ |
 | `NEXT_PUBLIC_API_BASE_URL`     | `http://localhost:8000` | FastAPI base URL                     |
-| `NEXT_PUBLIC_POLL_INTERVAL_MS` | `1000`                  | `/health` poll cadence, and the mock-mode tick rate (real positions are pushed, not polled) |
-| `NEXT_PUBLIC_USE_MOCK`         | `true`                  | Simulate tracks instead of calling the API |
+| `NEXT_PUBLIC_POLL_INTERVAL_MS` | `1000`                  | `/health` poll cadence (positions are pushed, not polled) |
 
 ## Layout
 
@@ -93,8 +94,7 @@ src/
     tracks.ts               group fixes → per-observer tracks/trails
     heatmap.ts              bin fixes into grid cells (occupancy + weighted density)
     config.ts               env-driven runtime config
-    api.ts                  typed API client (GET /fixes/recent, POST endpoints — not the stream)
-    mock.ts                 simulated moving observers
+    api.ts                  typed API client (GET /health, GET /fixes/recent — not the stream)
 ```
 
 ## How the map works

@@ -54,17 +54,6 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {config.useMock ? (
-        <div className={styles.banner}>
-          <strong>Mock mode.</strong> The dots below are simulated tracks, not real
-          data — <span className={styles.mono}>GET /fixes/stream</span> exists on the
-          backend now, this is just the default while developing without it running. Set{" "}
-          <span className={styles.mono}>NEXT_PUBLIC_USE_MOCK=false</span> (the
-          docker-compose setup already does) to read real positions from{" "}
-          <span className={styles.mono}>{config.apiBaseUrl}</span>.
-        </div>
-      ) : null}
-
       {fixes.error ? (
         <div className={styles.errorBanner}>{fixes.error.message}</div>
       ) : null}

@@ -48,7 +48,6 @@ services:
       context: ../web
       args:
         NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
-        NEXT_PUBLIC_USE_MOCK: "false"
         NEXT_PUBLIC_POLL_INTERVAL_MS: "1000"
     restart: unless-stopped
     ports:
